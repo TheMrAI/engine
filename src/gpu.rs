@@ -69,7 +69,7 @@ impl Wgpu {
         let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("uniforms"),
             // uniforms have to be padded to a multiple of 32
-            size: (4 + 2 + 2) * 4_u64, // (color + resolution + translation) * float32 + padding
+            size: (4 + 2 + 2 + 2) * 4 + 8_u64, // (color + resolution + translation) * float32 + padding
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -86,6 +86,9 @@ impl Wgpu {
             // translation: vec2f,
             resolution.width as f32 / 2.0,
             resolution.height as f32 / 2.0,
+            // rotation
+            0.58,
+            0.81,
         ];
         self.queue.write_buffer(
             &uniform_buffer,

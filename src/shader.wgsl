@@ -3,6 +3,7 @@ struct Uniforms {
     color: vec4f,
     resolution: vec2f,
     translation: vec2f,
+    rotation: vec2f,
 };
 
 struct Vertex {
@@ -21,7 +22,13 @@ var<uniform> uni: Uniforms;
 fn vs_main(vertex: Vertex) -> VSOutput {
     var vsOut: VSOutput;
 
-    let position = vertex.position + uni.translation;
+    // rotate the position
+    let rotated_position = vec2f(
+        vertex.position.x * uni.rotation.x - vertex.position.y * uni.rotation.y,
+        vertex.position.x * uni.rotation.y + vertex.position.y * uni.rotation.x
+    );
+
+    let position = rotated_position + uni.translation;
 
     // transform the position into clip space
     let zero_to_one = position / uni.resolution;
