@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use inner_app::InnerApp;
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -41,7 +43,8 @@ impl ApplicationHandler for App {
 
                 // Draw.
                 if let Some(app) = self.app.as_mut() {
-                    app.gpu.render();
+                    app.gpu.render(Arc::clone(&app.window));
+                    // for continuos rendering
                     app.window.request_redraw();
                 }
                 // else nothing to do yet

@@ -1,25 +1,40 @@
 
-// We can do this to have the four vertices or make a buffer, fill it etc..
-// This is simpler.
-const vertices = array<vec4f, 3>(vec4f(-0.5, -0.5, 0.0, 1.0), vec4f(0.0, 0.5, 0.0, 1.0), vec4f(0.5, -0.5, 0.0, 1.0));
+struct Uniforms {
+    color: vec4f,
+    resolution: vec2f,
+    translation: vec2f,
+};
+
+struct Vertex {
+    @location(0) position: vec2f,
+};
+
+struct VSOutput {
+    @builtin(position) position: vec4f,
+};
+
+@group(0)
+@binding(0)
+var<uniform> uni: Uniforms;
 
 @vertex
-fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4f {
-    var position: vec4f;
-    // This is a weird trick, necessary as Naga doesn't allow indexing of arrays
-    // with none constant values.
-    if in_vertex_index == 0 {
-        position = vertices[0];
-    } else if in_vertex_index == 1 {
-        position = vertices[1];
-    } else if in_vertex_index == 2 {
-        position = vertices[2];
-    }
+fn vs_main(vertex: Vertex) -> VSOutput {
+    var vsOut: VSOutput;
 
-    return position;
+    let position = vertex.position + uni.translation;
+
+    // transform the position into clip space
+    let zero_to_one = position / uni.resolution;
+    let scale = zero_to_one * 2;
+    let shifted = scale - 1.0;
+    let clip_space = shifted * vec2f(1, -1);
+
+    vsOut.position = vec4f(clip_space, 0.0, 1.0);
+
+    return vsOut;
 }
 
 @fragment
 fn fs_main(@builtin(position) position: vec4f) -> @location(0) vec4<f32> {
-    return vec4f(0.0, 1.0, 0.0, 1.0);
+    return uni.color;
 }
