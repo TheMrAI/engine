@@ -1,10 +1,78 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use wgpu::{
     Adapter, BindGroupEntry, BufferBinding, BufferUsages, Device, Queue, ShaderModule, Surface,
     VertexAttribute, VertexBufferLayout,
 };
 use winit::window::Window;
+
+// Notice that all transformation matrices are transposed compared
+// to how they would appear in an algebra book.
+#[rustfmt::skip]
+pub fn translate(translate_x: f32, translate_y: f32) -> Vec<f32> {
+    vec![
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        translate_x, translate_y, 1.0
+    ]
+}
+
+#[rustfmt::skip]
+pub fn rotate(rad_angle: f32) -> Vec<f32> {
+    let cosine = rad_angle.cos();
+    let sine = rad_angle.sin();
+    vec![
+        cosine, sine, 0.0,
+        -sine, cosine, 0.0,
+        0.0, 0.0, 1.0
+    ]
+}
+
+#[rustfmt::skip]
+pub fn scale(scale_x: f32, scale_y: f32) -> Vec<f32> {
+    vec![
+        scale_x, 0.0, 0.0,
+        0.0, scale_y, 0.0,
+        0.0, 0.0, 1.0
+    ]
+}
+
+#[rustfmt::skip]
+#[allow(clippy::all)]
+pub fn multiply(lhs: &[f32], rhs: &[f32]) -> Vec<f32> {
+    debug_assert!(lhs.len() == rhs.len());
+
+    let a00 = lhs[0 * 3 + 0];
+    let a01 = lhs[0 * 3 + 1];
+    let a02 = lhs[0 * 3 + 2];
+    let a10 = lhs[1 * 3 + 0];
+    let a11 = lhs[1 * 3 + 1];
+    let a12 = lhs[1 * 3 + 2];
+    let a20 = lhs[2 * 3 + 0];
+    let a21 = lhs[2 * 3 + 1];
+    let a22 = lhs[2 * 3 + 2];
+    let b00 = rhs[0 * 3 + 0];
+    let b01 = rhs[0 * 3 + 1];
+    let b02 = rhs[0 * 3 + 2];
+    let b10 = rhs[1 * 3 + 0];
+    let b11 = rhs[1 * 3 + 1];
+    let b12 = rhs[1 * 3 + 2];
+    let b20 = rhs[2 * 3 + 0];
+    let b21 = rhs[2 * 3 + 1];
+    let b22 = rhs[2 * 3 + 2];
+ 
+    vec![
+      b00 * a00 + b01 * a10 + b02 * a20,
+      b00 * a01 + b01 * a11 + b02 * a21,
+      b00 * a02 + b01 * a12 + b02 * a22,
+      b10 * a00 + b11 * a10 + b12 * a20,
+      b10 * a01 + b11 * a11 + b12 * a21,
+      b10 * a02 + b11 * a12 + b12 * a22,
+      b20 * a00 + b21 * a10 + b22 * a20,
+      b20 * a01 + b21 * a11 + b22 * a21,
+      b20 * a02 + b21 * a12 + b22 * a22,
+    ]
+}
 
 pub struct Wgpu {
     pub adapter: Adapter,
@@ -69,30 +137,44 @@ impl Wgpu {
         let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("uniforms"),
             // uniforms have to be padded to a multiple of 8
-            size: (4 + 2 + 2 + 2 + 4) * 4_u64, // (color + resolution + translation) * float32 + padding
+            size: (4 + 2 + 2 + 12) * 4_u64, // (color + resolution + matrix) * float32 + padding
             usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let resolution = window.inner_size();
-        let uniforms: Vec<f32> = vec![
-            //color: vec4f,
-            0.0,
-            1.0,
-            0.0,
-            1.0,
-            //resolution: vec2f,
-            resolution.width as f32,
-            resolution.height as f32,
-            // translation: vec2f,
+
+        let translation = translate(
             resolution.width as f32 / 2.0,
             resolution.height as f32 / 2.0,
-            // rotation
-            0.58,
-            0.81,
-            // scale
-            1.5,
-            2.0,
-        ];
+        );
+        let rotation = rotate(PI / 4.0);
+        let scaling = scale(1.5, 1.5);
+
+        let matrix = multiply(&multiply(&translation, &rotation), &scaling);
+        // let matrix = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let uniforms: Vec<f32> = {
+            let mut uniforms = vec![
+                //color: vec4f,
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+                //resolution: vec2f,
+                resolution.width as f32,
+                resolution.height as f32,
+                // padding before matrix
+                0.0,
+                0.0, //matrix
+            ];
+            let mut padded_matrix = matrix
+                .chunks(3)
+                .zip([0.0, 0.0, 0.0].iter())
+                .flat_map(|(row, padding)| vec![row[0], row[1], row[2], *padding])
+                .collect::<Vec<f32>>();
+            uniforms.append(&mut padded_matrix);
+            uniforms
+        };
+        println!("{:?}", uniforms);
         self.queue.write_buffer(
             &uniform_buffer,
             0,
@@ -101,7 +183,12 @@ impl Wgpu {
                 .flat_map(|entry| entry.to_ne_bytes())
                 .collect::<Vec<u8>>(),
         );
-
+        // 0.9396198987960815,0.6425142288208008,0.4781635105609894,1,
+        // 748,451,
+        // 0,0,
+        // 1,0,0, 0,
+        // 0,1,0, 0,
+        // 0,0,1, 0
         // Vertex buffer
         let f_char_vertices: Vec<f32> = vec![
             0.0, 0.0, 30.0, 0.0, 0.0, 150.0, 30.0, 150.0, // left column
