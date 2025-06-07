@@ -1,8 +1,8 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use wgpu::{
-    Adapter, BindGroupEntry, BufferBinding, BufferUsages, Device, Queue, ShaderModule, Surface,
-    VertexAttribute, VertexBufferLayout,
+    Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, Device, Queue,
+    RenderPipeline, Surface, VertexAttribute, VertexBufferLayout,
 };
 use winit::window::Window;
 
@@ -79,7 +79,11 @@ pub struct Wgpu {
     pub surface: Surface<'static>,
     pub device: Device,
     pub queue: Queue,
-    pub shader: ShaderModule,
+    pub render_pipeline: RenderPipeline,
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
+    pub index_count: u32,
+    pub bind_group: BindGroup,
 }
 
 impl Wgpu {
@@ -123,85 +127,19 @@ impl Wgpu {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        Wgpu {
-            adapter,
-            surface,
-            device,
-            queue,
-            shader,
-        }
-    }
-
-    pub fn render(&mut self, window: Arc<Window>) {
-        // Uniform buffer
-        let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("uniforms"),
-            // uniforms have to be padded to a multiple of 8
-            size: (4 + 2 + 2 + 12) * 4_u64, // (color + resolution + matrix) * float32 + padding
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let resolution = window.inner_size();
-
-        let translation = translate(
-            resolution.width as f32 / 2.0,
-            resolution.height as f32 / 2.0,
-        );
-        let rotation = rotate(PI / 4.0);
-        let scaling = scale(1.5, 1.5);
-
-        let matrix = multiply(&multiply(&translation, &rotation), &scaling);
-        // let matrix = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
-        let uniforms: Vec<f32> = {
-            let mut uniforms = vec![
-                //color: vec4f,
-                0.0,
-                1.0,
-                0.0,
-                1.0,
-                //resolution: vec2f,
-                resolution.width as f32,
-                resolution.height as f32,
-                // padding before matrix
-                0.0,
-                0.0, //matrix
-            ];
-            let mut padded_matrix = matrix
-                .chunks(3)
-                .zip([0.0, 0.0, 0.0].iter())
-                .flat_map(|(row, padding)| vec![row[0], row[1], row[2], *padding])
-                .collect::<Vec<f32>>();
-            uniforms.append(&mut padded_matrix);
-            uniforms
-        };
-        println!("{:?}", uniforms);
-        self.queue.write_buffer(
-            &uniform_buffer,
-            0,
-            &uniforms
-                .iter()
-                .flat_map(|entry| entry.to_ne_bytes())
-                .collect::<Vec<u8>>(),
-        );
-        // 0.9396198987960815,0.6425142288208008,0.4781635105609894,1,
-        // 748,451,
-        // 0,0,
-        // 1,0,0, 0,
-        // 0,1,0, 0,
-        // 0,0,1, 0
         // Vertex buffer
         let f_char_vertices: Vec<f32> = vec![
             0.0, 0.0, 30.0, 0.0, 0.0, 150.0, 30.0, 150.0, // left column
             30.0, 0.0, 100.0, 0.0, 30.0, 30.0, 100.0, 30.0, // top rung
             30.0, 60.0, 70.0, 60.0, 30.0, 90.0, 70.0, 90.0, // middle rung
         ];
-        let vertex_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vertices"),
             size: (size_of::<f32>() * f_char_vertices.len()) as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        self.queue.write_buffer(
+        queue.write_buffer(
             &vertex_buffer,
             0,
             &f_char_vertices
@@ -216,13 +154,14 @@ impl Wgpu {
             4, 5, 6, 6, 5, 7, // top rung
             8, 9, 10, 10, 9, 11, // middle rung
         ];
-        let index_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+        let index_count = f_char_indices.len() as u32;
+        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vertex indices"),
             size: (size_of::<f32>() * f_char_indices.len()) as u64,
             usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        self.queue.write_buffer(
+        queue.write_buffer(
             &index_buffer,
             0,
             &f_char_indices
@@ -231,24 +170,114 @@ impl Wgpu {
                 .collect::<Vec<u8>>(),
         );
 
-        let bind_group_layout =
-            self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Bind group"),
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
+        // Bind group layout
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("bind_group"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
+        // Pipeline
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("pipeline_layout"),
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        let swapchain_format = swapchain_capabilities.formats[0];
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("render_pipeline_descriptor"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[VertexBufferLayout {
+                    array_stride: 2 * 4,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: 0,
+                        shader_location: 0,
                     }],
-                });
+                }],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(swapchain_format.into())],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                ..wgpu::PrimitiveState::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
+
+        // Uniform buffer
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("uniforms"),
+            // uniforms have to be padded to a multiple of 8
+            size: (4 + 2 + 2 + 12) * 4_u64, // (color + resolution + matrix) * float32 + padding
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Preparing for rendering
+        let translation = translate(
+            inner_size.width as f32 / 2.0,
+            inner_size.height as f32 / 2.0,
+        );
+        let rotation = rotate(PI / 4.0);
+        let scaling = scale(1.5, 1.5);
+        let matrix = multiply(&multiply(&translation, &rotation), &scaling);
+        let uniforms: Vec<f32> = {
+            let mut uniforms = vec![
+                //color: vec4f,
+                0.0,
+                1.0,
+                0.0,
+                1.0,
+                //resolution: vec2f,
+                inner_size.width as f32,
+                inner_size.height as f32,
+                // padding before matrix
+                0.0,
+                0.0, //matrix
+            ];
+            let mut padded_matrix = matrix
+                .chunks(3)
+                .zip([0.0, 0.0, 0.0].iter())
+                .flat_map(|(row, padding)| vec![row[0], row[1], row[2], *padding])
+                .collect::<Vec<f32>>();
+            uniforms.append(&mut padded_matrix);
+            uniforms
+        };
+        queue.write_buffer(
+            &uniform_buffer,
+            0,
+            &uniforms
+                .iter()
+                .flat_map(|entry| entry.to_ne_bytes())
+                .collect::<Vec<u8>>(),
+        );
 
         // Create bind group
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("uniforms"),
             layout: &bind_group_layout,
             entries: &[BindGroupEntry {
@@ -261,53 +290,20 @@ impl Wgpu {
             }],
         });
 
-        // Pipeline
-        let pipeline_layout = self
-            .device
-            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("pipeline_layout"),
-                bind_group_layouts: &[&bind_group_layout],
-                push_constant_ranges: &[],
-            });
+        Wgpu {
+            adapter,
+            surface,
+            device,
+            queue,
+            render_pipeline,
+            vertex_buffer,
+            index_buffer,
+            index_count,
+            bind_group,
+        }
+    }
 
-        let swapchain_capabilities = self.surface.get_capabilities(&self.adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
-
-        let render_pipeline = self
-            .device
-            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("render_pipeline_descriptor"),
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &self.shader,
-                    entry_point: Some("vs_main"),
-                    buffers: &[VertexBufferLayout {
-                        array_stride: 2 * 4,
-                        step_mode: wgpu::VertexStepMode::Vertex,
-                        attributes: &[VertexAttribute {
-                            format: wgpu::VertexFormat::Float32x2,
-                            offset: 0,
-                            shader_location: 0,
-                        }],
-                    }],
-                    compilation_options: Default::default(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &self.shader,
-                    entry_point: Some("fs_main"),
-                    targets: &[Some(swapchain_format.into())],
-                    compilation_options: Default::default(),
-                }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    ..wgpu::PrimitiveState::default()
-                },
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-                cache: None,
-            });
-
+    pub fn render(&mut self) {
         let frame = self
             .surface
             .get_current_texture()
@@ -338,11 +334,11 @@ impl Wgpu {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            render_pass.set_pipeline(&render_pipeline);
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..f_char_indices.len() as u32, 0, 0..1);
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..self.index_count, 0, 0..1);
         }
 
         self.queue.submit(Some(encoder.finish()));
