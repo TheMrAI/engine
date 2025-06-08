@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, Device, Queue,
@@ -93,7 +93,7 @@ pub struct Wgpu {
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
     pub index_count: u32,
-    pub object_datas: Vec<(Buffer, BindGroup)>,
+    pub object_data: (Buffer, BindGroup),
 }
 
 impl Wgpu {
@@ -239,34 +239,32 @@ impl Wgpu {
         });
 
         // Preparing for rendering
-        let object_datas = (0..5)
-            .map(|_| {
-                // Uniform buffer
-                let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                    label: Some("uniforms"),
-                    // uniforms have to be padded to a multiple of 8
-                    size: (4 + 2 + 2 + 12) * 4_u64, // (color + resolution + matrix) * float32 + padding
-                    usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-                    mapped_at_creation: false,
-                });
+        let object_data = {
+            // Uniform buffer
+            let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("uniforms"),
+                // uniforms have to be padded to a multiple of 8
+                size: (4 + 12) * 4_u64, // (color + matrix) * float32 + padding
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
 
-                // Create bind group
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("uniforms"),
-                    layout: &bind_group_layout,
-                    entries: &[BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::Buffer(BufferBinding {
-                            buffer: &uniform_buffer,
-                            offset: 0,
-                            size: None, // use whole buffer
-                        }),
-                    }],
-                });
+            // Create bind group
+            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("uniforms"),
+                layout: &bind_group_layout,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(BufferBinding {
+                        buffer: &uniform_buffer,
+                        offset: 0,
+                        size: None, // use whole buffer
+                    }),
+                }],
+            });
 
-                (uniform_buffer, bind_group)
-            })
-            .collect();
+            (uniform_buffer, bind_group)
+        };
 
         Wgpu {
             inner_size,
@@ -278,7 +276,7 @@ impl Wgpu {
             vertex_buffer,
             index_buffer,
             index_count,
-            object_datas,
+            object_data,
         }
     }
 
@@ -317,57 +315,67 @@ impl Wgpu {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
-            let translation = translate(82f32, 20f32);
-            let rotation = rotate(0.0872665);
+            let scale_by_1_over_resolution = scale(
+                1.0 / self.inner_size.width as f32,
+                1.0 / self.inner_size.height as f32,
+            );
+            let scale_by_2 = scale(2.0, 2.0);
+            let translate_by_minus_1 = translate(-1.0, -1.0);
+            let scale_y_by_minus_1 = scale(1.0, -1.0);
+            let to_clip_space = multiply(
+                &multiply(
+                    &multiply(&scale_y_by_minus_1, &translate_by_minus_1),
+                    &scale_by_2,
+                ),
+                &scale_by_1_over_resolution,
+            );
+
+            let translation = translate(150.0, 70.0);
+            let rotation = rotate(PI / 4.0f32);
             let scaling = scale(0.9, 0.8);
-            let matrix = multiply(&multiply(&translation, &rotation), &scaling);
+            // move the origin of the 'F' into the origo
+            let translate_origin = translate(-50.0, -75.0);
+            let matrix = multiply(
+                &to_clip_space,
+                &multiply(
+                    &multiply(&multiply(&translation, &rotation), &scaling),
+                    &translate_origin,
+                ),
+            );
 
-            let mut total_transform = identity_matrix();
+            let uniforms: Vec<f32> = {
+                let mut uniforms = vec![
+                    //color: vec4f,
+                    0.0, 1.0, 0.0, 1.0,
+                    //matrix
+                ];
+                let mut padded_matrix = matrix
+                    .chunks(3)
+                    .zip([0.0, 0.0, 0.0].iter())
+                    .flat_map(|(row, padding)| vec![row[0], row[1], row[2], *padding])
+                    .collect::<Vec<f32>>();
+                uniforms.append(&mut padded_matrix);
+                uniforms
+            };
 
-            for object_data in &self.object_datas {
-                let uniforms: Vec<f32> = {
-                    let mut uniforms = vec![
-                        //color: vec4f,
-                        0.0,
-                        1.0,
-                        0.0,
-                        1.0,
-                        //resolution: vec2f,
-                        self.inner_size.width as f32,
-                        self.inner_size.height as f32,
-                        // padding before matrix
-                        0.0,
-                        0.0, //matrix
-                    ];
-                    let mut padded_matrix = total_transform
-                        .chunks(3)
-                        .zip([0.0, 0.0, 0.0].iter())
-                        .flat_map(|(row, padding)| vec![row[0], row[1], row[2], *padding])
-                        .collect::<Vec<f32>>();
-                    uniforms.append(&mut padded_matrix);
-                    uniforms
-                };
+            let uniforms = uniforms
+                .iter()
+                .flat_map(|entry| entry.to_ne_bytes())
+                .collect::<Vec<u8>>();
 
-                let uniforms = uniforms
+            self.queue.write_buffer(
+                &self.object_data.0,
+                0,
+                &uniforms
                     .iter()
                     .flat_map(|entry| entry.to_ne_bytes())
-                    .collect::<Vec<u8>>();
+                    .collect::<Vec<u8>>(),
+            );
 
-                self.queue.write_buffer(
-                    &object_data.0,
-                    0,
-                    &uniforms
-                        .iter()
-                        .flat_map(|entry| entry.to_ne_bytes())
-                        .collect::<Vec<u8>>(),
-                );
-
-                render_pass.set_bind_group(0, &object_data.1, &[]);
-                render_pass.draw_indexed(0..self.index_count, 0, 0..1);
-
-                total_transform = multiply(&total_transform, &matrix);
-            }
+            render_pass.set_bind_group(0, &self.object_data.1, &[]);
+            render_pass.draw_indexed(0..self.index_count, 0, 0..1);
         }
+
         self.queue.submit(Some(encoder.finish()));
 
         frame.present();

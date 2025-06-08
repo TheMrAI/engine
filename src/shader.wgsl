@@ -1,7 +1,6 @@
 
 struct Uniforms {
     color: vec4f,
-    resolution: vec2f,
     matrix: mat3x3f,
 };
 
@@ -21,16 +20,8 @@ var<uniform> uni: Uniforms;
 fn vs_main(vertex: Vertex) -> VSOutput {
     var vsOut: VSOutput;
 
-    // matrix transformation
-    let position = (uni.matrix * vec3f(vertex.position, 1)).xy;
-
-    // transform the position into clip space
-    let zero_to_one = position / uni.resolution;
-    let scale = zero_to_one * 2;
-    let shifted = scale - 1.0;
-    let clip_space = shifted * vec2f(1, -1);
-
-    vsOut.position = vec4f(clip_space, 0.0, 1.0);
+    var transformed = uni.matrix * vec3f(vertex.position,1.0);
+    vsOut.position = vec4f(transformed.xy, 0.0, 1.0);
 
     return vsOut;
 }
