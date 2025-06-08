@@ -11,9 +11,10 @@ use winit::{dpi::PhysicalSize, window::Window};
 #[rustfmt::skip]
 pub fn translate(translate_x: f32, translate_y: f32) -> Vec<f32> {
     vec![
-        1.0, 0.0, 0.0,
-        0.0, 1.0, 0.0,
-        translate_x, translate_y, 1.0
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        translate_x, translate_y, 1.0, 0.0,
+        // 0.0, 0.0, 0.0, 1.0,
     ]
 }
 
@@ -22,64 +23,69 @@ pub fn rotate(rad_angle: f32) -> Vec<f32> {
     let cosine = rad_angle.cos();
     let sine = rad_angle.sin();
     vec![
-        cosine, sine, 0.0,
-        -sine, cosine, 0.0,
-        0.0, 0.0, 1.0
+        cosine, sine, 0.0, 0.0,
+        -sine, cosine, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        // 0.0, 0.0, 0.0, 1.0,
     ]
 }
 
 #[rustfmt::skip]
 pub fn scale(scale_x: f32, scale_y: f32) -> Vec<f32> {
     vec![
-        scale_x, 0.0, 0.0,
-        0.0, scale_y, 0.0,
-        0.0, 0.0, 1.0
+        scale_x, 0.0, 0.0, 0.0,
+        0.0, scale_y, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        // 0.0, 0.0, 0.0, 1.0,
     ]
 }
 
 #[rustfmt::skip]
 pub fn identity_matrix() -> Vec<f32> {
     vec![
-        1.0, 0.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 0.0, 1.0
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+       // 0.0, 0.0, 0.0, 1.0,
     ]
 }
 
-#[rustfmt::skip]
 #[allow(clippy::all)]
 pub fn multiply(lhs: &[f32], rhs: &[f32]) -> Vec<f32> {
     debug_assert!(lhs.len() == rhs.len());
 
-    let a00 = lhs[0 * 3 + 0];
-    let a01 = lhs[0 * 3 + 1];
-    let a02 = lhs[0 * 3 + 2];
-    let a10 = lhs[1 * 3 + 0];
-    let a11 = lhs[1 * 3 + 1];
-    let a12 = lhs[1 * 3 + 2];
-    let a20 = lhs[2 * 3 + 0];
-    let a21 = lhs[2 * 3 + 1];
-    let a22 = lhs[2 * 3 + 2];
-    let b00 = rhs[0 * 3 + 0];
-    let b01 = rhs[0 * 3 + 1];
-    let b02 = rhs[0 * 3 + 2];
-    let b10 = rhs[1 * 3 + 0];
-    let b11 = rhs[1 * 3 + 1];
-    let b12 = rhs[1 * 3 + 2];
-    let b20 = rhs[2 * 3 + 0];
-    let b21 = rhs[2 * 3 + 1];
-    let b22 = rhs[2 * 3 + 2];
- 
+    let a00 = lhs[0 * 4 + 0];
+    let a01 = lhs[0 * 4 + 1];
+    let a02 = lhs[0 * 4 + 2];
+    let a10 = lhs[1 * 4 + 0];
+    let a11 = lhs[1 * 4 + 1];
+    let a12 = lhs[1 * 4 + 2];
+    let a20 = lhs[2 * 4 + 0];
+    let a21 = lhs[2 * 4 + 1];
+    let a22 = lhs[2 * 4 + 2];
+    let b00 = rhs[0 * 4 + 0];
+    let b01 = rhs[0 * 4 + 1];
+    let b02 = rhs[0 * 4 + 2];
+    let b10 = rhs[1 * 4 + 0];
+    let b11 = rhs[1 * 4 + 1];
+    let b12 = rhs[1 * 4 + 2];
+    let b20 = rhs[2 * 4 + 0];
+    let b21 = rhs[2 * 4 + 1];
+    let b22 = rhs[2 * 4 + 2];
+
     vec![
-      b00 * a00 + b01 * a10 + b02 * a20,
-      b00 * a01 + b01 * a11 + b02 * a21,
-      b00 * a02 + b01 * a12 + b02 * a22,
-      b10 * a00 + b11 * a10 + b12 * a20,
-      b10 * a01 + b11 * a11 + b12 * a21,
-      b10 * a02 + b11 * a12 + b12 * a22,
-      b20 * a00 + b21 * a10 + b22 * a20,
-      b20 * a01 + b21 * a11 + b22 * a21,
-      b20 * a02 + b21 * a12 + b22 * a22,
+        b00 * a00 + b01 * a10 + b02 * a20,
+        b00 * a01 + b01 * a11 + b02 * a21,
+        b00 * a02 + b01 * a12 + b02 * a22,
+        0.0,
+        b10 * a00 + b11 * a10 + b12 * a20,
+        b10 * a01 + b11 * a11 + b12 * a21,
+        b10 * a02 + b11 * a12 + b12 * a22,
+        0.0,
+        b20 * a00 + b21 * a10 + b22 * a20,
+        b20 * a01 + b21 * a11 + b22 * a21,
+        b20 * a02 + b21 * a12 + b22 * a22,
+        0.0,
     ]
 }
 
@@ -335,7 +341,7 @@ impl Wgpu {
             let scaling = scale(0.9, 0.8);
             // move the origin of the 'F' into the origo
             let translate_origin = translate(-50.0, -75.0);
-            let matrix = multiply(
+            let mut matrix = multiply(
                 &to_clip_space,
                 &multiply(
                     &multiply(&multiply(&translation, &rotation), &scaling),
@@ -349,12 +355,7 @@ impl Wgpu {
                     0.0, 1.0, 0.0, 1.0,
                     //matrix
                 ];
-                let mut padded_matrix = matrix
-                    .chunks(3)
-                    .zip([0.0, 0.0, 0.0].iter())
-                    .flat_map(|(row, padding)| vec![row[0], row[1], row[2], *padding])
-                    .collect::<Vec<f32>>();
-                uniforms.append(&mut padded_matrix);
+                uniforms.append(&mut matrix);
                 uniforms
             };
 
