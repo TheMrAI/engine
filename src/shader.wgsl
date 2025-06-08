@@ -1,11 +1,11 @@
 
 struct Uniforms {
     color: vec4f,
-    matrix: mat3x3f,
+    matrix: mat4x4f,
 };
 
 struct Vertex {
-    @location(0) position: vec2f,
+    @location(0) position: vec4f,
 };
 
 struct VSOutput {
@@ -20,8 +20,7 @@ var<uniform> uni: Uniforms;
 fn vs_main(vertex: Vertex) -> VSOutput {
     var vsOut: VSOutput;
 
-    var transformed = uni.matrix * vec3f(vertex.position,1.0);
-    vsOut.position = vec4f(transformed.xy, 0.0, 1.0);
+    vsOut.position = uni.matrix * vertex.position;
 
     return vsOut;
 }

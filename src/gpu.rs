@@ -9,34 +9,58 @@ use winit::{dpi::PhysicalSize, window::Window};
 // Notice that all transformation matrices are transposed compared
 // to how they would appear in an algebra book.
 #[rustfmt::skip]
-pub fn translate(translate_x: f32, translate_y: f32) -> Vec<f32> {
+pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Vec<f32> {
     vec![
         1.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0,
-        translate_x, translate_y, 1.0, 0.0,
-        // 0.0, 0.0, 0.0, 1.0,
+        0.0, 0.0, 1.0, 0.0,
+        translate_x, translate_y, translate_z, 1.0,
     ]
 }
 
 #[rustfmt::skip]
-pub fn rotate(rad_angle: f32) -> Vec<f32> {
+pub fn rotate_x(rad_angle: f32) -> Vec<f32> {
     let cosine = rad_angle.cos();
     let sine = rad_angle.sin();
     vec![
-        cosine, sine, 0.0, 0.0,
-        -sine, cosine, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        // 0.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 0.0,
+        0.0, cosine, sine, 0.0, 
+        0.0, -sine, cosine, 0.0,
+        0.0, 0.0, 0.0, 1.0, 
     ]
 }
 
 #[rustfmt::skip]
-pub fn scale(scale_x: f32, scale_y: f32) -> Vec<f32> {
+pub fn rotate_y(rad_angle: f32) -> Vec<f32> {
+    let cosine = rad_angle.cos();
+    let sine = rad_angle.sin();
+    vec![
+        cosine, 0.0, -sine, 0.0,
+        0.0, 1.0, 0.0, 0.0, 
+        sine, 0.0, cosine, 0.0,
+        0.0, 0.0, 0.0, 1.0, 
+    ]
+}
+
+#[rustfmt::skip]
+pub fn rotate_z(rad_angle: f32) -> Vec<f32> {
+    let cosine = rad_angle.cos();
+    let sine = rad_angle.sin();
+    vec![
+         cosine, sine, 0.0, 0.0,
+         -sine, cosine, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0, 
+         0.0, 0.0, 0.0, 1.0, 
+    ]
+}
+
+#[rustfmt::skip]
+pub fn scale(scale_x: f32, scale_y: f32, scale_z: f32) -> Vec<f32> {
     vec![
         scale_x, 0.0, 0.0, 0.0,
         0.0, scale_y, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        // 0.0, 0.0, 0.0, 1.0,
+        0.0, 0.0, scale_z, 0.0,
+         0.0, 0.0, 0.0, 1.0,
     ]
 }
 
@@ -46,46 +70,74 @@ pub fn identity_matrix() -> Vec<f32> {
         1.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0,
         0.0, 0.0, 1.0, 0.0,
-       // 0.0, 0.0, 0.0, 1.0,
+        0.0, 0.0, 0.0, 1.0,
+    ]
+}
+
+#[rustfmt::skip]
+pub fn projection(width: f32, height: f32, depth: f32) -> Vec<f32> {
+    vec![
+        2.0/width, 0.0, 0.0, 0.0,
+        0.0, -2.0/height, 0.0, 0.0,
+        0.0, 0.0, 0.5/depth, 0.0,
+        -1.0, 1.0, 0.5, 1.0,
     ]
 }
 
 #[allow(clippy::all)]
-pub fn multiply(lhs: &[f32], rhs: &[f32]) -> Vec<f32> {
-    debug_assert!(lhs.len() == rhs.len());
+pub fn multiply(a: &[f32], b: &[f32]) -> Vec<f32> {
+    debug_assert!(a.len() == b.len());
 
-    let a00 = lhs[0 * 4 + 0];
-    let a01 = lhs[0 * 4 + 1];
-    let a02 = lhs[0 * 4 + 2];
-    let a10 = lhs[1 * 4 + 0];
-    let a11 = lhs[1 * 4 + 1];
-    let a12 = lhs[1 * 4 + 2];
-    let a20 = lhs[2 * 4 + 0];
-    let a21 = lhs[2 * 4 + 1];
-    let a22 = lhs[2 * 4 + 2];
-    let b00 = rhs[0 * 4 + 0];
-    let b01 = rhs[0 * 4 + 1];
-    let b02 = rhs[0 * 4 + 2];
-    let b10 = rhs[1 * 4 + 0];
-    let b11 = rhs[1 * 4 + 1];
-    let b12 = rhs[1 * 4 + 2];
-    let b20 = rhs[2 * 4 + 0];
-    let b21 = rhs[2 * 4 + 1];
-    let b22 = rhs[2 * 4 + 2];
+    let b00 = b[0 * 4 + 0];
+    let b01 = b[0 * 4 + 1];
+    let b02 = b[0 * 4 + 2];
+    let b03 = b[0 * 4 + 3];
+    let b10 = b[1 * 4 + 0];
+    let b11 = b[1 * 4 + 1];
+    let b12 = b[1 * 4 + 2];
+    let b13 = b[1 * 4 + 3];
+    let b20 = b[2 * 4 + 0];
+    let b21 = b[2 * 4 + 1];
+    let b22 = b[2 * 4 + 2];
+    let b23 = b[2 * 4 + 3];
+    let b30 = b[3 * 4 + 0];
+    let b31 = b[3 * 4 + 1];
+    let b32 = b[3 * 4 + 2];
+    let b33 = b[3 * 4 + 3];
+    let a00 = a[0 * 4 + 0];
+    let a01 = a[0 * 4 + 1];
+    let a02 = a[0 * 4 + 2];
+    let a03 = a[0 * 4 + 3];
+    let a10 = a[1 * 4 + 0];
+    let a11 = a[1 * 4 + 1];
+    let a12 = a[1 * 4 + 2];
+    let a13 = a[1 * 4 + 3];
+    let a20 = a[2 * 4 + 0];
+    let a21 = a[2 * 4 + 1];
+    let a22 = a[2 * 4 + 2];
+    let a23 = a[2 * 4 + 3];
+    let a30 = a[3 * 4 + 0];
+    let a31 = a[3 * 4 + 1];
+    let a32 = a[3 * 4 + 2];
+    let a33 = a[3 * 4 + 3];
 
     vec![
-        b00 * a00 + b01 * a10 + b02 * a20,
-        b00 * a01 + b01 * a11 + b02 * a21,
-        b00 * a02 + b01 * a12 + b02 * a22,
-        0.0,
-        b10 * a00 + b11 * a10 + b12 * a20,
-        b10 * a01 + b11 * a11 + b12 * a21,
-        b10 * a02 + b11 * a12 + b12 * a22,
-        0.0,
-        b20 * a00 + b21 * a10 + b22 * a20,
-        b20 * a01 + b21 * a11 + b22 * a21,
-        b20 * a02 + b21 * a12 + b22 * a22,
-        0.0,
+        b00 * a00 + b01 * a10 + b02 * a20 + b03 * a30,
+        b00 * a01 + b01 * a11 + b02 * a21 + b03 * a31,
+        b00 * a02 + b01 * a12 + b02 * a22 + b03 * a32,
+        b00 * a03 + b01 * a13 + b02 * a23 + b03 * a33,
+        b10 * a00 + b11 * a10 + b12 * a20 + b13 * a30,
+        b10 * a01 + b11 * a11 + b12 * a21 + b13 * a31,
+        b10 * a02 + b11 * a12 + b12 * a22 + b13 * a32,
+        b10 * a03 + b11 * a13 + b12 * a23 + b13 * a33,
+        b20 * a00 + b21 * a10 + b22 * a20 + b23 * a30,
+        b20 * a01 + b21 * a11 + b22 * a21 + b23 * a31,
+        b20 * a02 + b21 * a12 + b22 * a22 + b23 * a32,
+        b20 * a03 + b21 * a13 + b22 * a23 + b23 * a33,
+        b30 * a00 + b31 * a10 + b32 * a20 + b33 * a30,
+        b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31,
+        b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32,
+        b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33,
     ]
 }
 
@@ -145,9 +197,9 @@ impl Wgpu {
 
         // Vertex buffer
         let f_char_vertices: Vec<f32> = vec![
-            0.0, 0.0, 30.0, 0.0, 0.0, 150.0, 30.0, 150.0, // left column
-            30.0, 0.0, 100.0, 0.0, 30.0, 30.0, 100.0, 30.0, // top rung
-            30.0, 60.0, 70.0, 60.0, 30.0, 90.0, 70.0, 90.0, // middle rung
+            0.0, 0.0, 0.0, 30.0, 0.0, 0.0, 0.0, 150.0, 0.0, 30.0, 150.0, 0.0, // left column
+            30.0, 0.0, 0.0, 100.0, 0.0, 0.0, 30.0, 30.0, 0.0, 100.0, 30.0, 0.0, // top rung
+            30.0, 60.0, 0.0, 70.0, 60.0, 0.0, 30.0, 90.0, 0.0, 70.0, 90.0, 0.0, // middle rung
         ];
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vertices"),
@@ -218,10 +270,10 @@ impl Wgpu {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 buffers: &[VertexBufferLayout {
-                    array_stride: 2 * 4,
+                    array_stride: 3 * 4,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[VertexAttribute {
-                        format: wgpu::VertexFormat::Float32x2,
+                        format: wgpu::VertexFormat::Float32x3,
                         offset: 0,
                         shader_location: 0,
                     }],
@@ -250,7 +302,7 @@ impl Wgpu {
             let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
-                size: (4 + 12) * 4_u64, // (color + matrix) * float32 + padding
+                size: (4 + 16) * 4_u64, // (color + matrix) * float32 + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -324,23 +376,25 @@ impl Wgpu {
             let scale_by_1_over_resolution = scale(
                 1.0 / self.inner_size.width as f32,
                 1.0 / self.inner_size.height as f32,
+                1.0 / 400.0, // arbitrary depth of 400 pixels
             );
-            let scale_by_2 = scale(2.0, 2.0);
-            let translate_by_minus_1 = translate(-1.0, -1.0);
-            let scale_y_by_minus_1 = scale(1.0, -1.0);
-            let to_clip_space = multiply(
+            let scale_by_2 = scale(2.0, 2.0, 0.5);
+            let translate_by_minus_1 = translate(-1.0, -1.0, 0.5); // the depth shifted by 200 so that clip space is between [-200, 200]
+            let scale_y_by_minus_1 = scale(1.0, -1.0, 1.0);
+            let mut to_clip_space = multiply(
                 &multiply(
                     &multiply(&scale_y_by_minus_1, &translate_by_minus_1),
                     &scale_by_2,
                 ),
                 &scale_by_1_over_resolution,
             );
+            // let mut to_clip_space = projection(self.inner_size.width as f32, self.inner_size.height as f32, 400.0);
 
-            let translation = translate(150.0, 70.0);
-            let rotation = rotate(PI / 4.0f32);
-            let scaling = scale(0.9, 0.8);
+            let translation = translate(150.0, 70.0, 0.0);
+            let rotation = rotate_z(PI / 4.0f32);
+            let scaling = scale(0.9, 0.8, 1.0);
             // move the origin of the 'F' into the origo
-            let translate_origin = translate(-50.0, -75.0);
+            let translate_origin = translate(-50.0, -75.0, 0.0);
             let mut matrix = multiply(
                 &to_clip_space,
                 &multiply(
