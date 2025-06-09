@@ -149,8 +149,7 @@ pub struct Wgpu {
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
     pub vertex_buffer: Buffer,
-    pub index_buffer: Buffer,
-    pub index_count: u32,
+    pub vertex_count: u32,
     pub object_data: (Buffer, BindGroup),
 }
 
@@ -196,47 +195,117 @@ impl Wgpu {
         });
 
         // Vertex buffer
+        #[rustfmt::skip]
         let f_char_vertices: Vec<f32> = vec![
-            0.0, 0.0, 0.0, 30.0, 0.0, 0.0, 0.0, 150.0, 0.0, 30.0, 150.0, 0.0, // left column
-            30.0, 0.0, 0.0, 100.0, 0.0, 0.0, 30.0, 30.0, 0.0, 100.0, 30.0, 0.0, // top rung
-            30.0, 60.0, 0.0, 70.0, 60.0, 0.0, 30.0, 90.0, 0.0, 70.0, 90.0, 0.0, // middle rung
+            // left column
+            0.0, 0.0, 0.0,
+            30.0, 0.0, 0.0,
+            0.0, 150.0, 0.0,
+            30.0, 150.0, 0.0,
+            // top rung
+            30.0, 0.0, 0.0,
+            100.0, 0.0, 0.0,
+            30.0, 30.0, 0.0,
+            100.0, 30.0, 0.0,
+            // middle rung
+            30.0, 60.0, 0.0,
+            70.0, 60.0, 0.0,
+            30.0, 90.0, 0.0,
+            70.0, 90.0, 0.0,
+            // left column back
+            0.0, 0.0, 30.0,
+            30.0, 0.0, 30.0,
+            0.0, 150.0, 30.0,
+            30.0, 150.0, 30.0,
+            // top rung back
+            30.0, 0.0, 30.0,
+            100.0, 0.0, 30.0,
+            30.0, 30.0, 30.0,
+            100.0, 30.0, 30.0,
+            // middle rung back
+            30.0, 60.0, 30.0,
+            70.0, 60.0, 30.0,
+            30.0, 90.0, 30.0,
+            70.0, 90.0, 30.0,
         ];
-        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("vertices"),
-            size: (size_of::<f32>() * f_char_vertices.len()) as u64,
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(
-            &vertex_buffer,
-            0,
-            &f_char_vertices
-                .iter()
-                .flat_map(|entry| entry.to_ne_bytes())
-                .collect::<Vec<u8>>(),
-        );
+        let vertex_count = f_char_vertices.len() as u32;
 
         // Vertex indices
         let f_char_indices: Vec<u32> = vec![
+            // front
             0, 1, 2, 2, 1, 3, // left column
-            4, 5, 6, 6, 5, 7, // top rung
-            8, 9, 10, 10, 9, 11, // middle rung
+            4, 5, 6, 6, 5, 7, // top run
+            8, 9, 10, 10, 9, 11, // middle run
+            // back
+            12, 13, 14, 14, 13, 15, // left column back
+            16, 17, 18, 18, 17, 19, // top run back
+            20, 21, 22, 22, 21, 23, // middle run back
+            0, 5, 12, 12, 5, 17, // top
+            5, 7, 17, 17, 7, 19, // top rung right
+            6, 7, 18, 18, 7, 19, // top rung bottom
+            6, 8, 18, 18, 8, 20, // between top and middle rung
+            8, 9, 20, 20, 9, 21, // middle rung top
+            9, 11, 21, 21, 11, 23, // middle rung right
+            10, 11, 22, 22, 11, 23, // middle rung bottom
+            10, 3, 22, 22, 3, 15, // stem right
+            2, 3, 14, 14, 3, 15, // bottom
+            0, 2, 12, 12, 2, 14, // left
         ];
-        let index_count = f_char_indices.len() as u32;
-        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("vertex indices"),
-            size: (size_of::<f32>() * f_char_indices.len()) as u64,
-            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+
+        let quad_colors: Vec<u8> = vec![
+            200, 70, 120, // left column front
+            200, 70, 120, // top rung front
+            200, 70, 120, // middle rung front
+            80, 70, 200, // left column back
+            80, 70, 200, // top rung back
+            80, 70, 200, // middle rung back
+            70, 200, 210, // top
+            160, 160, 220, // top rung right
+            90, 130, 110, // top rung bottom
+            200, 200, 70, // between top and middle rung
+            210, 100, 70, // middle rung top
+            210, 160, 70, // middle rung right
+            70, 180, 210, // middle rung bottom
+            100, 70, 210, // stem right
+            76, 210, 100, // bottom
+            140, 210, 80, // left
+        ];
+
+        let vertex_data = {
+            f_char_indices
+                .iter()
+                .enumerate()
+                .flat_map(|(i, index)| {
+                    let start_vertex_index = (index * 3) as usize;
+                    let vertex_iter = (start_vertex_index..start_vertex_index + 3)
+                        .map(|vertex_index| f_char_vertices[vertex_index]);
+
+                    let start_color_index = (i / 6 | 0) as usize * 3;
+                    let color = f32::from_le_bytes([
+                        quad_colors[start_color_index],
+                        quad_colors[start_color_index + 1],
+                        quad_colors[start_color_index + 2],
+                        255,
+                    ]);
+
+                    vertex_iter.chain([color])
+                })
+                .collect::<Vec<f32>>()
+        };
+        println!("{:?}", vertex_data);
+
+        let vertex_data = vertex_data
+            .iter()
+            .flat_map(|entry| entry.to_le_bytes())
+            .collect::<Vec<u8>>();
+
+        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("vertices"),
+            size: vertex_data.len() as u64,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        queue.write_buffer(
-            &index_buffer,
-            0,
-            &f_char_indices
-                .iter()
-                .flat_map(|entry| entry.to_ne_bytes())
-                .collect::<Vec<u8>>(),
-        );
+        queue.write_buffer(&vertex_buffer, 0, &vertex_data);
 
         // Bind group layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -270,13 +339,20 @@ impl Wgpu {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 buffers: &[VertexBufferLayout {
-                    array_stride: 3 * 4,
+                    array_stride: 4 * 4,
                     step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[VertexAttribute {
-                        format: wgpu::VertexFormat::Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    }],
+                    attributes: &[
+                        VertexAttribute {
+                            format: wgpu::VertexFormat::Float32x3,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                        VertexAttribute {
+                            format: wgpu::VertexFormat::Unorm8x4,
+                            offset: 12,
+                            shader_location: 1,
+                        },
+                    ],
                 }],
                 compilation_options: Default::default(),
             },
@@ -302,7 +378,7 @@ impl Wgpu {
             let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
-                size: (4 + 16) * 4_u64, // (color + matrix) * float32 + padding
+                size: 16 * 4_u64, // matrix * float32 + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -332,8 +408,7 @@ impl Wgpu {
             queue,
             render_pipeline,
             vertex_buffer,
-            index_buffer,
-            index_count,
+            vertex_count,
             object_data,
         }
     }
@@ -371,7 +446,6 @@ impl Wgpu {
             });
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
 
             let scale_by_1_over_resolution = scale(
                 1.0 / self.inner_size.width as f32,
@@ -381,7 +455,7 @@ impl Wgpu {
             let scale_by_2 = scale(2.0, 2.0, 0.5);
             let translate_by_minus_1 = translate(-1.0, -1.0, 0.5); // the depth shifted by 200 so that clip space is between [-200, 200]
             let scale_y_by_minus_1 = scale(1.0, -1.0, 1.0);
-            let mut to_clip_space = multiply(
+            let to_clip_space = multiply(
                 &multiply(
                     &multiply(&scale_y_by_minus_1, &translate_by_minus_1),
                     &scale_by_2,
@@ -391,44 +465,31 @@ impl Wgpu {
             // let mut to_clip_space = projection(self.inner_size.width as f32, self.inner_size.height as f32, 400.0);
 
             let translation = translate(150.0, 70.0, 0.0);
-            let rotation = rotate_z(PI / 4.0f32);
-            let scaling = scale(0.9, 0.8, 1.0);
+            let rotation_on_y = rotate_y(PI / 4.0f32);
+            let rotation_on_z = rotate_z(PI / 4.0f32);
+            let scaling = scale(1.0, 1.0, 1.0);
             // move the origin of the 'F' into the origo
             let translate_origin = translate(-50.0, -75.0, 0.0);
-            let mut matrix = multiply(
+            let matrix = multiply(
                 &to_clip_space,
                 &multiply(
-                    &multiply(&multiply(&translation, &rotation), &scaling),
+                    &multiply(
+                        &multiply(&multiply(&translation, &rotation_on_z), &rotation_on_y),
+                        &scaling,
+                    ),
                     &translate_origin,
                 ),
             );
 
-            let uniforms: Vec<f32> = {
-                let mut uniforms = vec![
-                    //color: vec4f,
-                    0.0, 1.0, 0.0, 1.0,
-                    //matrix
-                ];
-                uniforms.append(&mut matrix);
-                uniforms
-            };
-
-            let uniforms = uniforms
+            let uniforms = matrix
                 .iter()
-                .flat_map(|entry| entry.to_ne_bytes())
+                .flat_map(|entry| entry.to_le_bytes())
                 .collect::<Vec<u8>>();
 
-            self.queue.write_buffer(
-                &self.object_data.0,
-                0,
-                &uniforms
-                    .iter()
-                    .flat_map(|entry| entry.to_ne_bytes())
-                    .collect::<Vec<u8>>(),
-            );
+            self.queue.write_buffer(&self.object_data.0, 0, &uniforms);
 
             render_pass.set_bind_group(0, &self.object_data.1, &[]);
-            render_pass.draw_indexed(0..self.index_count, 0, 0..1);
+            render_pass.draw(0..self.vertex_count, 0..1);
         }
 
         self.queue.submit(Some(encoder.finish()));
