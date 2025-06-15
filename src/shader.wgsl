@@ -23,6 +23,8 @@ fn vs_main(vertex: Vertex) -> VSOutput {
 
     vsOut.position = uni.matrix * vertex.position;
     vsOut.color = vertex.color;
+    // the returned vector will automatically be normalized using w
+    // [x,y,z,w] => [x/w, y/w, z/w, 1]
     return vsOut;
 }
 

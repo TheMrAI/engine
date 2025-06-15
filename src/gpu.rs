@@ -2,7 +2,7 @@ use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
-    DepthStencilState, Device, Face, FrontFace, Operations, Queue,
+    DepthStencilState, Device, Face, Operations, Queue,
     RenderPassDepthStencilAttachment, RenderPipeline, StencilState, Surface, TextureDescriptor,
     TextureUsages, VertexAttribute, VertexBufferLayout,
 };
@@ -83,6 +83,19 @@ pub fn orthographic_projection(left: f32, right: f32, bottom: f32, top: f32, z_n
         0.0,                              2.0/(top - bottom),             0.0,                       0.0,
         0.0,                              0.0,                            1.0/(z_near - z_far),      0.0,
         (right + left) / (left - right), (top + bottom) / (bottom - top), z_near / (z_near - z_far), 1.0,
+    ]
+}
+
+#[rustfmt::skip]
+pub fn perspective_projection(fov_rad: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Vec<f32> {
+    let f = (PI * 0.5 - 0.5 * fov_rad).tan();
+    let range_inverse = 1.0 / (z_near - z_far);
+
+    vec![
+        f / aspect_ratio,   0.0,    0.0,                                0.0,
+        0.0,                f,      0.0,                                0.0,
+        0.0,                0.0,    z_far * range_inverse,              -1.0,
+        0.0,                0.0,    z_near * z_far * range_inverse,     0.0
     ]
 }
 
@@ -481,16 +494,21 @@ impl Wgpu {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
-            let to_clip_space = orthographic_projection(0.0,self.inner_size.width as f32, self.inner_size.height as f32, 0.0, 200.0, -200.0);
+            let projected = perspective_projection(
+                PI / 2.0, // PI / 2.0 rad => 90 degrees
+                self.inner_size.width as f32 / self.inner_size.height as f32,
+                1.0,
+                2000.0,
+            );
 
-            let translation = translate(300.0, 150.0, 0.0);
-            let rotation_on_y = rotate_y(PI / 4.0);
-            let rotation_on_z = rotate_z(PI / 4.0);
+            let translation = translate(0.0, 0.0, -120.0);
+            let rotation_on_y = rotate_y(PI + PI / 4.0);
+            let rotation_on_z = rotate_z(PI - PI / 4.0);
             let scaling = scale(1.0, 1.0, 1.0);
             // move the origin of the 'F' into the origo
             let translate_origin = translate(-50.0, -75.0, 0.0);
             let matrix = multiply(
-                &to_clip_space,
+                &projected,
                 &multiply(
                     &multiply(
                         &multiply(&multiply(&translation, &rotation_on_z), &rotation_on_y),
