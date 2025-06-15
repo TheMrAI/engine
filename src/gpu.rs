@@ -77,12 +77,12 @@ pub fn identity_matrix() -> Vec<f32> {
 }
 
 #[rustfmt::skip]
-pub fn projection(width: f32, height: f32, depth: f32) -> Vec<f32> {
+pub fn orthographic_projection(left: f32, right: f32, bottom: f32, top: f32, z_near: f32, z_far: f32) -> Vec<f32> {
     vec![
-        2.0/width, 0.0, 0.0, 0.0,
-        0.0, -2.0/height, 0.0, 0.0,
-        0.0, 0.0, 0.5/depth, 0.0,
-        -1.0, 1.0, 0.5, 1.0,
+        2.0/(right - left),               0.0,                            0.0,                       0.0,
+        0.0,                              2.0/(top - bottom),             0.0,                       0.0,
+        0.0,                              0.0,                            1.0/(z_near - z_far),      0.0,
+        (right + left) / (left - right), (top + bottom) / (bottom - top), z_near / (z_near - z_far), 1.0,
     ]
 }
 
@@ -481,22 +481,7 @@ impl Wgpu {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
-            let scale_by_1_over_resolution = scale(
-                1.0 / self.inner_size.width as f32,
-                1.0 / self.inner_size.height as f32,
-                1.0 / 400.0, // arbitrary depth of 400 pixels
-            );
-            let scale_by_2 = scale(2.0, 2.0, 0.5);
-            let translate_by_minus_1 = translate(-1.0, -1.0, 0.5); // the depth shifted by 200 so that clip space is between [-200, 200]
-            let scale_y_by_minus_1 = scale(1.0, -1.0, 1.0);
-            let to_clip_space = multiply(
-                &multiply(
-                    &multiply(&scale_y_by_minus_1, &translate_by_minus_1),
-                    &scale_by_2,
-                ),
-                &scale_by_1_over_resolution,
-            );
-            // let mut to_clip_space = projection(self.inner_size.width as f32, self.inner_size.height as f32, 400.0);
+            let to_clip_space = orthographic_projection(0.0,self.inner_size.width as f32, self.inner_size.height as f32, 0.0, 200.0, -200.0);
 
             let translation = translate(300.0, 150.0, 0.0);
             let rotation_on_y = rotate_y(PI / 4.0);
