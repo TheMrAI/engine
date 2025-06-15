@@ -1,8 +1,10 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use wgpu::{
-    Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, Device, Queue,
-    RenderPipeline, Surface, VertexAttribute, VertexBufferLayout,
+    Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
+    DepthStencilState, Device, Face, FrontFace, Operations, Queue,
+    RenderPassDepthStencilAttachment, RenderPipeline, StencilState, Surface, TextureDescriptor,
+    TextureUsages, VertexAttribute, VertexBufferLayout,
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
@@ -228,29 +230,31 @@ impl Wgpu {
             30.0, 90.0, 30.0,
             70.0, 90.0, 30.0,
         ];
-        let vertex_count = f_char_vertices.len() as u32;
 
         // Vertex indices
         let f_char_indices: Vec<u32> = vec![
             // front
             0, 1, 2, 2, 1, 3, // left column
-            4, 5, 6, 6, 5, 7, // top run
-            8, 9, 10, 10, 9, 11, // middle run
+            4, 5, 6, 6, 5, 7, // top rung
+            8, 9, 10, 10, 9, 11, // middle rung
             // back
-            12, 13, 14, 14, 13, 15, // left column back
-            16, 17, 18, 18, 17, 19, // top run back
-            20, 21, 22, 22, 21, 23, // middle run back
-            0, 5, 12, 12, 5, 17, // top
-            5, 7, 17, 17, 7, 19, // top rung right
+            12, 14, 13, 14, 15, 13, // left column back
+            16, 18, 17, 18, 19, 17, // top rung back
+            20, 22, 21, 22, 23, 21, // middle rung back
+            0, 12, 5, 12, 17, 5, // top
+            5, 17, 7, 17, 19, 7, // top rung right
             6, 7, 18, 18, 7, 19, // top rung bottom
-            6, 8, 18, 18, 8, 20, // between top and middle rung
-            8, 9, 20, 20, 9, 21, // middle rung top
-            9, 11, 21, 21, 11, 23, // middle rung right
+            6, 18, 8, 18, 20, 8, // between top and middle rung
+            8, 20, 9, 20, 21, 9, // middle rung top
+            9, 21, 11, 21, 23, 11, // middle rung right
             10, 11, 22, 22, 11, 23, // middle rung bottom
-            10, 3, 22, 22, 3, 15, // stem right
+            10, 22, 3, 22, 15, 3, // stem right
             2, 3, 14, 14, 3, 15, // bottom
             0, 2, 12, 12, 2, 14, // left
         ];
+        // Each vertex index corresponds to a vertex to be used which is
+        // more than the number of vertices we have.
+        let vertex_count = f_char_indices.len() as u32;
 
         let quad_colors: Vec<u8> = vec![
             200, 70, 120, // left column front
@@ -292,7 +296,6 @@ impl Wgpu {
                 })
                 .collect::<Vec<f32>>()
         };
-        println!("{:?}", vertex_data);
 
         let vertex_data = vertex_data
             .iter()
@@ -364,9 +367,20 @@ impl Wgpu {
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
-                ..wgpu::PrimitiveState::default()
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(Face::Front),
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: wgpu::TextureFormat::Depth24Plus,
+                depth_compare: wgpu::CompareFunction::Less,
+                depth_write_enabled: true,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
             cache: None,
@@ -414,14 +428,27 @@ impl Wgpu {
     }
 
     pub fn render(&mut self) {
+        // Create render texture
         let frame = self
             .surface
             .get_current_texture()
             .expect("failed to acquire next swap-chain texture");
-
-        let view = frame
+        let frame_view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Create depth texture
+        let depth_texture = self.device.create_texture(&TextureDescriptor {
+            label: Some("depth texture"),
+            size: frame.texture.size(),
+            mip_level_count: 1, // no extra mips, has to be 1
+            sample_count: 1,    // no multisampling, so 1
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth24Plus,
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[], // no special view format needed
+        });
+        let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = self
             .device
@@ -433,14 +460,21 @@ impl Wgpu {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &frame_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &depth_view,
+                    depth_ops: Some(Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
@@ -464,9 +498,9 @@ impl Wgpu {
             );
             // let mut to_clip_space = projection(self.inner_size.width as f32, self.inner_size.height as f32, 400.0);
 
-            let translation = translate(150.0, 70.0, 0.0);
-            let rotation_on_y = rotate_y(PI / 4.0f32);
-            let rotation_on_z = rotate_z(PI / 4.0f32);
+            let translation = translate(300.0, 150.0, 0.0);
+            let rotation_on_y = rotate_y(PI / 4.0);
+            let rotation_on_z = rotate_z(PI / 4.0);
             let scaling = scale(1.0, 1.0, 1.0);
             // move the origin of the 'F' into the origo
             let translate_origin = translate(-50.0, -75.0, 0.0);
