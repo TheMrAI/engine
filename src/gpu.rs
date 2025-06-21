@@ -2,9 +2,9 @@ use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
-    DepthStencilState, Device, Face, Operations, Queue,
-    RenderPassDepthStencilAttachment, RenderPipeline, StencilState, Surface, TextureDescriptor,
-    TextureUsages, VertexAttribute, VertexBufferLayout,
+    DepthStencilState, Device, Face, Operations, Queue, RenderPassDepthStencilAttachment,
+    RenderPipeline, StencilState, Surface, TextureDescriptor, TextureUsages, VertexAttribute,
+    VertexBufferLayout,
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
@@ -213,57 +213,55 @@ impl Wgpu {
         #[rustfmt::skip]
         let f_char_vertices: Vec<f32> = vec![
             // left column
-            0.0, 0.0, 0.0,
-            30.0, 0.0, 0.0,
-            0.0, 150.0, 0.0,
-            30.0, 150.0, 0.0,
-            // top rung
-            30.0, 0.0, 0.0,
-            100.0, 0.0, 0.0,
-            30.0, 30.0, 0.0,
-            100.0, 30.0, 0.0,
-            // middle rung
-            30.0, 60.0, 0.0,
-            70.0, 60.0, 0.0,
-            30.0, 90.0, 0.0,
-            70.0, 90.0, 0.0,
-            // left column back
-            0.0, 0.0, 30.0,
-            30.0, 0.0, 30.0,
-            0.0, 150.0, 30.0,
-            30.0, 150.0, 30.0,
-            // top rung back
-            30.0, 0.0, 30.0,
-            100.0, 0.0, 30.0,
-            30.0, 30.0, 30.0,
-            100.0, 30.0, 30.0,
-            // middle rung back
-            30.0, 60.0, 30.0,
-            70.0, 60.0, 30.0,
-            30.0, 90.0, 30.0,
-            70.0, 90.0, 30.0,
+            -50.0,  75.0,  15.0,
+            -20.0,  75.0,  15.0,
+            -50.0, -75.0,  15.0,
+            -20.0, -75.0,  15.0,
+           // top rung
+            -20.0,  75.0,  15.0,
+             50.0,  75.0,  15.0,
+            -20.0,  45.0,  15.0,
+             50.0,  45.0,  15.0,
+           // middle rung
+            -20.0,  15.0,  15.0,
+             20.0,  15.0,  15.0,
+            -20.0, -15.0,  15.0,
+             20.0, -15.0,  15.0,
+           // left column back
+            -50.0,  75.0, -15.0,
+            -20.0,  75.0, -15.0,
+            -50.0, -75.0, -15.0,
+            -20.0, -75.0, -15.0,
+           // top rung back
+            -20.0,  75.0, -15.0,
+             50.0,  75.0, -15.0,
+            -20.0,  45.0, -15.0,
+             50.0,  45.0, -15.0,
+           // middle rung back
+            -20.0,  15.0, -15.0,
+             20.0,  15.0, -15.0,
+            -20.0, -15.0, -15.0,
+             20.0, -15.0, -15.0,
         ];
 
         // Vertex indices
         let f_char_indices: Vec<u32> = vec![
-            // front
-            0, 1, 2, 2, 1, 3, // left column
-            4, 5, 6, 6, 5, 7, // top rung
-            8, 9, 10, 10, 9, 11, // middle rung
-            // back
-            12, 14, 13, 14, 15, 13, // left column back
-            16, 18, 17, 18, 19, 17, // top rung back
-            20, 22, 21, 22, 23, 21, // middle rung back
-            0, 12, 5, 12, 17, 5, // top
-            5, 17, 7, 17, 19, 7, // top rung right
-            6, 7, 18, 18, 7, 19, // top rung bottom
-            6, 18, 8, 18, 20, 8, // between top and middle rung
-            8, 20, 9, 20, 21, 9, // middle rung top
-            9, 21, 11, 21, 23, 11, // middle rung right
-            10, 11, 22, 22, 11, 23, // middle rung bottom
-            10, 22, 3, 22, 15, 3, // stem right
-            2, 3, 14, 14, 3, 15, // bottom
-            0, 2, 12, 12, 2, 14, // left
+            0, 2, 1, 2, 3, 1, // left column
+            4, 6, 5, 6, 7, 5, // top run
+            8, 10, 9, 10, 11, 9, // middle run
+            12, 13, 14, 14, 13, 15, // left column back
+            16, 17, 18, 18, 17, 19, // top run back
+            20, 21, 22, 22, 21, 23, // middle run back
+            0, 5, 12, 12, 5, 17, // top
+            5, 7, 17, 17, 7, 19, // top rung right
+            6, 18, 7, 18, 19, 7, // top rung bottom
+            6, 8, 18, 18, 8, 20, // between top and middle rung
+            8, 9, 20, 20, 9, 21, // middle rung top
+            9, 11, 21, 21, 11, 23, // middle rung right
+            10, 22, 11, 22, 23, 11, // middle rung bottom
+            10, 3, 22, 22, 3, 15, // stem right
+            2, 14, 3, 14, 15, 3, // bottom
+            0, 12, 2, 12, 14, 2, // left
         ];
         // Each vertex index corresponds to a vertex to be used which is
         // more than the number of vertices we have.
@@ -382,7 +380,7 @@ impl Wgpu {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(Face::Front),
+                cull_mode: Some(Face::Back),
                 unclipped_depth: false,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
@@ -502,8 +500,8 @@ impl Wgpu {
             );
 
             let translation = translate(0.0, 0.0, -120.0);
-            let rotation_on_y = rotate_y(PI + PI / 4.0);
-            let rotation_on_z = rotate_z(PI - PI / 4.0);
+            let rotation_on_y = rotate_y(-PI / 4.0);
+            let rotation_on_z = rotate_z(-PI / 4.0);
             let scaling = scale(1.0, 1.0, 1.0);
             // move the origin of the 'F' into the origo
             let translate_origin = translate(-50.0, -75.0, 0.0);
