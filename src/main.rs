@@ -1,6 +1,7 @@
 use inner_app::InnerApp;
 use winit::event_loop::{ControlFlow, EventLoop};
 
+use winit::keyboard::PhysicalKey;
 use winit::{
     application::ApplicationHandler,
     event::{DeviceEvent, WindowEvent},
@@ -41,7 +42,7 @@ impl ApplicationHandler for App {
 
                 // Draw.
                 if let Some(app) = self.app.as_mut() {
-                    app.gpu.render();
+                    app.gpu.render(&app.camera_eye);
                     // for continuos rendering
                     app.window.request_redraw();
                 }
@@ -73,8 +74,27 @@ impl ApplicationHandler for App {
         &mut self,
         _event_loop: &winit::event_loop::ActiveEventLoop,
         _device_id: winit::event::DeviceId,
-        _event: DeviceEvent,
+        event: DeviceEvent,
     ) {
+        match event {
+            DeviceEvent::Key(key_event) => {
+                if let Some(app) = self.app.as_mut() {
+                    if !key_event.state.is_pressed() {
+                        return;
+                    }
+                    match key_event.physical_key {
+                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                            app.camera_eye[0] -= 1.0
+                        }
+                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
+                            app.camera_eye[0] += 1.0
+                        }
+                        _ => (),
+                    }
+                }
+            }
+            _ => (), // the rest we don't care
+        }
     }
 }
 

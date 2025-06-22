@@ -7,6 +7,7 @@ use crate::gpu::Wgpu;
 pub(super) struct InnerApp {
     pub window: Arc<Window>,
     pub gpu: Wgpu,
+    pub camera_eye: [f32; 3],
 }
 
 impl InnerApp {
@@ -20,6 +21,12 @@ impl InnerApp {
 
         let gpu = pollster::block_on(Wgpu::new(Arc::clone(&window)));
 
-        InnerApp { window, gpu }
+        let camera_eye = [0.0, 0.0, 0.0];
+
+        InnerApp {
+            window,
+            gpu,
+            camera_eye,
+        }
     }
 }

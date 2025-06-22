@@ -597,7 +597,7 @@ impl Wgpu {
         }
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, camera_eye: &[f32; 3]) {
         // Create render texture
         let frame = self
             .surface
@@ -654,7 +654,7 @@ impl Wgpu {
             // the up vector for the camera
             let up = vec![0.0, 1.0, 0.0];
             // the camera matrix
-            let camera = cameraAim(&vec![0.0, 0.0, 0.0], &vec![0.0, 0.0, -120.0], &up);
+            let camera = cameraAim(camera_eye, &vec![0.0, 0.0, -120.0], &up);
             // view matrix
             let view_matrix = inverse(&camera);
 
