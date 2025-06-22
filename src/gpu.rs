@@ -156,6 +156,165 @@ pub fn multiply(a: &[f32], b: &[f32]) -> Vec<f32> {
     ]
 }
 
+pub fn inverse(a: &[f32]) -> Vec<f32> {
+    let mut inverse = vec![0.0; a.len()];
+
+    let m00 = a[0 * 4 + 0];
+    let m01 = a[0 * 4 + 1];
+    let m02 = a[0 * 4 + 2];
+    let m03 = a[0 * 4 + 3];
+    let m10 = a[1 * 4 + 0];
+    let m11 = a[1 * 4 + 1];
+    let m12 = a[1 * 4 + 2];
+    let m13 = a[1 * 4 + 3];
+    let m20 = a[2 * 4 + 0];
+    let m21 = a[2 * 4 + 1];
+    let m22 = a[2 * 4 + 2];
+    let m23 = a[2 * 4 + 3];
+    let m30 = a[3 * 4 + 0];
+    let m31 = a[3 * 4 + 1];
+    let m32 = a[3 * 4 + 2];
+    let m33 = a[3 * 4 + 3];
+
+    let tmp0 = m22 * m33;
+    let tmp1 = m32 * m23;
+    let tmp2 = m12 * m33;
+    let tmp3 = m32 * m13;
+    let tmp4 = m12 * m23;
+    let tmp5 = m22 * m13;
+    let tmp6 = m02 * m33;
+    let tmp7 = m32 * m03;
+    let tmp8 = m02 * m23;
+    let tmp9 = m22 * m03;
+    let tmp10 = m02 * m13;
+    let tmp11 = m12 * m03;
+    let tmp12 = m20 * m31;
+    let tmp13 = m30 * m21;
+    let tmp14 = m10 * m31;
+    let tmp15 = m30 * m11;
+    let tmp16 = m10 * m21;
+    let tmp17 = m20 * m11;
+    let tmp18 = m00 * m31;
+    let tmp19 = m30 * m01;
+    let tmp20 = m00 * m21;
+    let tmp21 = m20 * m01;
+    let tmp22 = m00 * m11;
+    let tmp23 = m10 * m01;
+
+    let t0 = (tmp0 * m11 + tmp3 * m21 + tmp4 * m31) - (tmp1 * m11 + tmp2 * m21 + tmp5 * m31);
+    let t1 = (tmp1 * m01 + tmp6 * m21 + tmp9 * m31) - (tmp0 * m01 + tmp7 * m21 + tmp8 * m31);
+    let t2 = (tmp2 * m01 + tmp7 * m11 + tmp10 * m31) - (tmp3 * m01 + tmp6 * m11 + tmp11 * m31);
+    let t3 = (tmp5 * m01 + tmp8 * m11 + tmp11 * m21) - (tmp4 * m01 + tmp9 * m11 + tmp10 * m21);
+
+    let d = 1.0 / (m00 * t0 + m10 * t1 + m20 * t2 + m30 * t3);
+
+    inverse[0] = d * t0;
+    inverse[1] = d * t1;
+    inverse[2] = d * t2;
+    inverse[3] = d * t3;
+
+    inverse[4] =
+        d * ((tmp1 * m10 + tmp2 * m20 + tmp5 * m30) - (tmp0 * m10 + tmp3 * m20 + tmp4 * m30));
+    inverse[5] =
+        d * ((tmp0 * m00 + tmp7 * m20 + tmp8 * m30) - (tmp1 * m00 + tmp6 * m20 + tmp9 * m30));
+    inverse[6] =
+        d * ((tmp3 * m00 + tmp6 * m10 + tmp11 * m30) - (tmp2 * m00 + tmp7 * m10 + tmp10 * m30));
+    inverse[7] =
+        d * ((tmp4 * m00 + tmp9 * m10 + tmp10 * m20) - (tmp5 * m00 + tmp8 * m10 + tmp11 * m20));
+
+    inverse[8] =
+        d * ((tmp12 * m13 + tmp15 * m23 + tmp16 * m33) - (tmp13 * m13 + tmp14 * m23 + tmp17 * m33));
+    inverse[9] =
+        d * ((tmp13 * m03 + tmp18 * m23 + tmp21 * m33) - (tmp12 * m03 + tmp19 * m23 + tmp20 * m33));
+    inverse[10] =
+        d * ((tmp14 * m03 + tmp19 * m13 + tmp22 * m33) - (tmp15 * m03 + tmp18 * m13 + tmp23 * m33));
+    inverse[11] =
+        d * ((tmp17 * m03 + tmp20 * m13 + tmp23 * m23) - (tmp16 * m03 + tmp21 * m13 + tmp22 * m23));
+
+    inverse[12] =
+        d * ((tmp14 * m22 + tmp17 * m32 + tmp13 * m12) - (tmp16 * m32 + tmp12 * m12 + tmp15 * m22));
+    inverse[13] =
+        d * ((tmp20 * m32 + tmp12 * m02 + tmp19 * m22) - (tmp18 * m22 + tmp21 * m32 + tmp13 * m02));
+    inverse[14] =
+        d * ((tmp18 * m12 + tmp23 * m32 + tmp15 * m02) - (tmp22 * m32 + tmp14 * m02 + tmp19 * m12));
+    inverse[15] =
+        d * ((tmp22 * m22 + tmp16 * m02 + tmp21 * m12) - (tmp20 * m12 + tmp23 * m22 + tmp17 * m02));
+    return inverse;
+}
+
+pub fn cross(lhs: &[f32], rhs: &[f32]) -> Vec<f32> {
+    debug_assert!(lhs.len() == rhs.len());
+    let mut result = vec![0.0; lhs.len()];
+
+    let t0 = lhs[1] * rhs[2] - lhs[2] * rhs[1];
+    let t1 = lhs[2] * rhs[0] - lhs[0] * rhs[2];
+    let t2 = lhs[0] * rhs[1] - lhs[1] * rhs[0];
+
+    result[0] = t0;
+    result[1] = t1;
+    result[2] = t2;
+
+    return result;
+}
+
+pub fn subtract(lhs: &[f32], rhs: &[f32]) -> Vec<f32> {
+    debug_assert!(lhs.len() == rhs.len());
+    let mut result = vec![0.0; lhs.len()];
+
+    result[0] = lhs[0] - rhs[0];
+    result[1] = lhs[1] - rhs[1];
+    result[2] = lhs[2] - rhs[2];
+
+    return result;
+}
+
+pub fn normalize(vector: &[f32]) -> Vec<f32> {
+    debug_assert!(vector.len() == 3);
+    let mut result = vec![0.0; vector.len()];
+
+    let length = (vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]).sqrt();
+    // make sure we don't divide by 0.
+    if length > 0.00001 {
+        result[0] = vector[0] / length;
+        result[1] = vector[1] / length;
+        result[2] = vector[2] / length;
+    } else {
+        result[0] = 0.0;
+        result[1] = 0.0;
+        result[2] = 0.0;
+    }
+
+    return result;
+}
+
+pub fn cameraAim(eye: &[f32], target: &[f32], up: &[f32]) -> Vec<f32> {
+    debug_assert!(eye.len() == target.len() && target.len() == up.len() && eye.len() == 3);
+    let mut result = vec![0.0; 16];
+
+    let z_axis = normalize(&subtract(eye, target));
+    let x_axis = normalize(&cross(up, &z_axis));
+    let y_axis = normalize(&cross(&z_axis, &x_axis));
+
+    result[0] = x_axis[0];
+    result[1] = x_axis[1];
+    result[2] = x_axis[2];
+    result[3] = 0.0;
+    result[4] = y_axis[0];
+    result[5] = y_axis[1];
+    result[6] = y_axis[2];
+    result[7] = 0.0;
+    result[8] = z_axis[0];
+    result[9] = z_axis[1];
+    result[10] = z_axis[2];
+    result[11] = 0.0;
+    result[12] = eye[0];
+    result[13] = eye[1];
+    result[14] = eye[2];
+    result[15] = 1.0;
+
+    return result;
+}
+
 pub struct Wgpu {
     pub inner_size: PhysicalSize<u32>,
     pub adapter: Adapter,
@@ -492,12 +651,20 @@ impl Wgpu {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
-            let projected = perspective_projection(
+            // the up vector for the camera
+            let up = vec![0.0, 1.0, 0.0];
+            // the camera matrix
+            let camera = cameraAim(&vec![0.0, 0.0, 0.0], &vec![0.0, 0.0, -120.0], &up);
+            // view matrix
+            let view_matrix = inverse(&camera);
+
+            let projecton_matrix = perspective_projection(
                 PI / 2.0, // PI / 2.0 rad => 90 degrees
                 self.inner_size.width as f32 / self.inner_size.height as f32,
                 1.0,
                 2000.0,
             );
+            let view_projection_matrix = multiply(&projecton_matrix, &view_matrix);
 
             let translation = translate(0.0, 0.0, -120.0);
             let rotation_on_y = rotate_y(-PI / 4.0);
@@ -506,7 +673,7 @@ impl Wgpu {
             // move the origin of the 'F' into the origo
             let translate_origin = translate(-50.0, -75.0, 0.0);
             let matrix = multiply(
-                &projected,
+                &view_projection_matrix,
                 &multiply(
                     &multiply(
                         &multiply(&multiply(&translation, &rotation_on_z), &rotation_on_y),
