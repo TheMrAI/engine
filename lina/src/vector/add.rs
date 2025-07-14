@@ -35,14 +35,14 @@ where
 
 impl<ValueType, const LENGTH: usize> std::ops::AddAssign for Vector<ValueType, LENGTH>
 where
-    for<'addition> &'addition mut ValueType: std::ops::AddAssign<&'addition ValueType>,
+    ValueType: std::ops::AddAssign<ValueType>,
 {
     fn add_assign(&mut self, rhs: Self) {
         self.data
             .iter_mut()
-            .zip(rhs.data.iter())
-            .for_each(|(mut lhs, rhs)| {
-                lhs += rhs;
+            .zip(rhs.data.into_iter())
+            .for_each(|(lhs, rhs)| {
+                *lhs += rhs;
             });
     }
 }
@@ -52,12 +52,14 @@ mod tests {
     use crate::v;
 
     #[test]
-    fn add() {
+    fn add_by_value() {
         let lhs = v![1, 2, 3];
         let rhs = v![4, 5, 6];
 
         let result = lhs + rhs;
         assert_eq!(result.as_slice(), &[5, 7, 9]);
+        // error: used of moved value
+        // let c = lhs + rhs;
     }
 
     #[test]
@@ -67,5 +69,14 @@ mod tests {
 
         let result = &lhs + &rhs;
         assert_eq!(result.as_slice(), &[5, 7, 9]);
+    }
+
+    #[test]
+    fn add_assign() {
+        let mut lhs = v![1, 2, 3];
+        let rhs = v![4, 5, 6];
+
+        lhs += rhs;
+        assert_eq!(lhs.as_slice(), &[5, 7, 9]);
     }
 }
