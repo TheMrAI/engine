@@ -15,18 +15,9 @@ where
     }
 }
 
-// Can't do this because of Orphan rule
-// impl<ValueType, const LENGTH: usize> std::ops::Mul<Vector<ValueType, LENGTH>>
-//     for ValueType
-// where
-//     ValueType: std::ops::Mul<Output = ValueType> + Default + Copy,
-// {
-//     type Output = Vector<ValueType, LENGTH>;
-
-//     fn mul(self, rhs: Vector<ValueType, LENGTH>) -> Self::Output {
-//         rhs * self
-//     }
-// }
+// Unfortunately we can't implement the other direction where a
+// a number is on the LHS and a Vector on the RHS, because of the Orphan
+// rule. In this case both the LHS and the std::ops::Mul are foreign entities.
 
 #[cfg(test)]
 mod tests {

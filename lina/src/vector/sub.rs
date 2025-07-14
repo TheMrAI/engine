@@ -44,6 +44,8 @@ mod tests {
 
         let result = lhs - rhs;
         assert_eq!(result.as_slice(), &[-3, -3, -3]);
+        // error: used of moved value
+        // let c = lhs - rhs;
     }
 
     #[test]

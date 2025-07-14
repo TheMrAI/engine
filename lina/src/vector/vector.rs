@@ -1,18 +1,18 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Vector<ValueType, const LENGTH: usize> {
     pub(crate) data: [ValueType; LENGTH],
 }
 
-impl<ValueType, const LENGTH: usize> Clone for Vector<ValueType, LENGTH>
-where
-    ValueType: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            data: self.data.clone(),
-        }
-    }
-}
+// impl<ValueType, const LENGTH: usize> Clone for Vector<ValueType, LENGTH>
+// where
+//     ValueType: Clone,
+// {
+//     fn clone(&self) -> Self {
+//         Self {
+//             data: self.data.clone(),
+//         }
+//     }
+// }
 
 impl<ValueType, const LENGTH: usize> Vector<ValueType, LENGTH>
 where
@@ -22,14 +22,16 @@ where
         Self::default()
     }
 
-    pub fn as_slice(&self) -> &[ValueType] {
-        &self.data
-    }
-
     pub fn from_value(default_value: ValueType) -> Self {
         Self {
             data: [default_value; LENGTH],
         }
+    }
+}
+
+impl<ValueType, const LENGTH: usize> Vector<ValueType, LENGTH> {
+    pub fn as_slice(&self) -> &[ValueType] {
+        &self.data
     }
 
     pub fn from_array(values: [ValueType; LENGTH]) -> Self {
@@ -37,21 +39,34 @@ where
     }
 }
 
-#[macro_export]
-macro_rules! v {
-    () => {
-        $crate::vector::vector::Vector::new()
-    };
-    ($default_value:expr; $n:expr) => {
-        $crate::vector::vector::Vector::<_, $n>::from_value($default_value)
-    };
-    ($($element:expr),+$(,)?) => {
-        $crate::vector::vector::Vector::from_array([$($element),+])
+impl<ValueType, const LENGTH: usize> PartialEq<[ValueType; LENGTH]> for Vector<ValueType, LENGTH>
+where
+    ValueType: PartialEq,
+{
+    fn eq(&self, other: &[ValueType; LENGTH]) -> bool {
+        &self.data == other
+    }
+}
+
+impl<ValueType, const LENGTH: usize> From<[ValueType; LENGTH]> for Vector<ValueType, LENGTH> {
+    fn from(values: [ValueType; LENGTH]) -> Self {
+        Vector::from_array(values)
+    }
+}
+
+impl<ValueType, const LENGTH: usize> From<&[ValueType; LENGTH]> for Vector<ValueType, LENGTH>
+where
+    ValueType: Clone,
+{
+    fn from(values: &[ValueType; LENGTH]) -> Self {
+        Vector::from_array(values.clone())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::v;
+
     use super::*;
 
     #[test]
