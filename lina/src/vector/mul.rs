@@ -1,4 +1,4 @@
-use crate::{Vector, v};
+use super::{Vector, v};
 
 impl<ValueType, const LENGTH: usize> std::ops::Mul<ValueType> for Vector<ValueType, LENGTH>
 where

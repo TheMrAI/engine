@@ -1,4 +1,4 @@
-use crate::Vector;
+use super::Vector;
 
 impl<ValueType, const LENGTH: usize> Default for Vector<ValueType, LENGTH>
 where
@@ -13,7 +13,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::Vector;
+    use super::Vector;
 
     #[test]
     fn default() {

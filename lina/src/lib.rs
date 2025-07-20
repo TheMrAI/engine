@@ -9,9 +9,6 @@
 //! Does that need to be handled as a special case or not?
 
 pub mod vector;
-// Re-exporting all the internal symbols, for easier
-// usage.
-pub use vector::vector::*;
 
 #[cfg(test)]
 mod tests {
@@ -19,6 +16,6 @@ mod tests {
 
     #[test]
     fn scope_check() {
-        let v = v![1, 2, 3];
+        let _v = v![1, 2, 3];
     }
 }

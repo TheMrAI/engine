@@ -14,5 +14,11 @@ mod macros;
 mod mul;
 mod sub;
 
-pub mod vector;
+// In this case module inception is allowed, because [vector] symbols
+// will be re-exported. The goal is to keep the modules structure separate from the
+// module elements.
+#[allow(clippy::module_inception)]
+mod vector;
+
 pub use macros::*;
+pub use vector::*;
