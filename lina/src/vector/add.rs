@@ -38,12 +38,9 @@ where
     ValueType: std::ops::AddAssign<ValueType>,
 {
     fn add_assign(&mut self, rhs: Self) {
-        self.data
-            .iter_mut()
-            .zip(rhs.data.into_iter())
-            .for_each(|(lhs, rhs)| {
-                *lhs += rhs;
-            });
+        self.data.iter_mut().zip(rhs.data).for_each(|(lhs, rhs)| {
+            *lhs += rhs;
+        });
     }
 }
 
