@@ -141,6 +141,8 @@ mod tests {
         let v = v![1, 2, 3];
         let result = &v * 3;
         assert_eq!(result.as_slice(), [3, 6, 9]);
+        let result_2 = &v * 2;
+        assert_eq!(result_2.as_slice(), [2, 4, 6]);
     }
 
     #[test]
@@ -171,6 +173,8 @@ mod tests {
         let v = v![1, 2, 3];
         let result = 3i32 * &v;
         assert_eq!(result.as_slice(), [3, 6, 9]);
+        let result_2 = &v * 2;
+        assert_eq!(result_2.as_slice(), [2, 4, 6]);
     }
 
     #[test]
