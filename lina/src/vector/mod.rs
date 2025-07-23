@@ -12,6 +12,7 @@ mod add;
 mod default;
 mod macros;
 mod mul;
+mod mul_assign;
 mod sub;
 
 // In this case module inception is allowed, because [vector] symbols
