@@ -12,11 +12,10 @@ where
     }
 }
 
-impl<'addition, ValueType, const LENGTH: usize> std::ops::Sub
-    for &'addition Vector<ValueType, LENGTH>
+impl<'sub, ValueType, const LENGTH: usize> std::ops::Sub for &'sub Vector<ValueType, LENGTH>
 where
     ValueType: Default + Copy,
-    &'addition ValueType: std::ops::Sub<&'addition ValueType, Output = ValueType>,
+    &'sub ValueType: std::ops::Sub<&'sub ValueType, Output = ValueType>,
 {
     type Output = Vector<ValueType, LENGTH>;
 
@@ -55,5 +54,7 @@ mod tests {
 
         let result = &lhs - &rhs;
         assert_eq!(result.as_slice(), &[-3, -3, -3]);
+        let result_2 = &lhs - &rhs;
+        assert_eq!(result_2.as_slice(), &[-3, -3, -3]);
     }
 }
