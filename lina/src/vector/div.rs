@@ -7,7 +7,7 @@ where
 {
     type Output = Vector<ValueType, LENGTH>;
 
-    /// Implement Vector<T> / T operation.
+    /// Implement `Vector<T> / T` operation.
     fn div(self, rhs: ValueType) -> Self::Output {
         let mut data = [mem::MaybeUninit::<ValueType>::uninit(); LENGTH];
 

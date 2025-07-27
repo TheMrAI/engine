@@ -5,7 +5,7 @@ impl<ValueType, const LENGTH: usize> DivAssign<ValueType> for Vector<ValueType, 
 where
     ValueType: std::ops::DivAssign<ValueType> + Copy,
 {
-    /// Implement Vector<T> /= T operation.
+    /// Implement `Vector<T> /= T` operation.
     fn div_assign(&mut self, rhs: ValueType) {
         for elem in self.data.iter_mut() {
             *elem /= rhs;
