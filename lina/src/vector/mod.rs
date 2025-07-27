@@ -17,6 +17,7 @@ mod macros;
 mod mul;
 mod mul_assign;
 mod sub;
+mod sub_assign;
 
 // In this case module inception is allowed, because [vector] symbols
 // will be re-exported. The goal is to keep the modules structure separate from the
