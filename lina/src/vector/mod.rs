@@ -9,6 +9,7 @@
 //! ```
 
 mod add;
+mod add_assign;
 mod default;
 mod div;
 mod div_assign;
