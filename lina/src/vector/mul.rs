@@ -1,67 +1,25 @@
-use super::{Vector, v};
+use std::mem;
 
-// * operator for Vector<T> * T
+use super::Vector;
+
 impl<ValueType, const LENGTH: usize> std::ops::Mul<ValueType> for Vector<ValueType, LENGTH>
 where
-    ValueType: std::ops::Mul<Output = ValueType> + Default + Copy,
+    ValueType: std::ops::Mul<Output = ValueType> + Copy,
 {
     type Output = Vector<ValueType, LENGTH>;
 
-    /// Performs the `Vector<T> * T` operation.
+    /// Performs the `Vector<T> * T` operation
     fn mul(self, rhs: ValueType) -> Self::Output {
-        let mut result = v![ValueType::default(); LENGTH];
-        self.data.iter().enumerate().for_each(|(i, value)| {
-            result.data[i] = *value * rhs;
-        });
-        result
-    }
-}
+        let mut data = [mem::MaybeUninit::<ValueType>::uninit(); LENGTH];
 
-impl<ValueType, const LENGTH: usize> std::ops::Mul<ValueType> for &Vector<ValueType, LENGTH>
-where
-    ValueType: std::ops::Mul<Output = ValueType> + Default + Copy,
-{
-    type Output = Vector<ValueType, LENGTH>;
+        for (elem, lhs) in data.iter_mut().zip(self.data.iter()) {
+            elem.write(*lhs * rhs);
+        }
 
-    /// Performs the `&Vector<T> * T` operation.
-    fn mul(self, rhs: ValueType) -> Self::Output {
-        let mut result = v![ValueType::default(); LENGTH];
-        self.data.iter().enumerate().for_each(|(i, value)| {
-            result.data[i] = *value * rhs;
-        });
-        result
-    }
-}
+        let ptr = &mut data as *mut _ as *mut [ValueType; LENGTH];
+        let transmuted = unsafe { ptr.read() };
 
-impl<ValueType, const LENGTH: usize> std::ops::Mul<&ValueType> for Vector<ValueType, LENGTH>
-where
-    ValueType: std::ops::Mul<Output = ValueType> + Default + Copy,
-{
-    type Output = Vector<ValueType, LENGTH>;
-
-    /// Performs the `Vector<T> * &T` operation.
-    fn mul(self, rhs: &ValueType) -> Self::Output {
-        let mut result = v![ValueType::default(); LENGTH];
-        self.data.iter().enumerate().for_each(|(i, value)| {
-            result.data[i] = *value * *rhs;
-        });
-        result
-    }
-}
-
-impl<ValueType, const LENGTH: usize> std::ops::Mul<&ValueType> for &Vector<ValueType, LENGTH>
-where
-    ValueType: std::ops::Mul<Output = ValueType> + Default + Copy,
-{
-    type Output = Vector<ValueType, LENGTH>;
-
-    /// Performs the `&Vector<T> * &T` operation.
-    fn mul(self, rhs: &ValueType) -> Self::Output {
-        let mut result = v![ValueType::default(); LENGTH];
-        self.data.iter().enumerate().for_each(|(i, value)| {
-            result.data[i] = *value * *rhs;
-        });
-        result
+        Vector { data: transmuted }
     }
 }
 
@@ -70,51 +28,14 @@ where
 
 macro_rules! lhs_scalar_mul_impl {
     ($($T: ty),* $(,)*) => {$(
-        // * operator for Vector<T> * T
         impl<const LENGTH: usize> std::ops::Mul<Vector<$T, LENGTH>> for $T
         where
             $T: std::ops::Mul<Output = $T> + Default + Copy,
         {
             type Output = Vector<$T, LENGTH>;
 
-            /// Performs the `T * Vector<T>` operation.
+            /// Perform the `T * Vector<T>` operation
             fn mul(self, rhs: Vector<$T, LENGTH>) -> Self::Output {
-                rhs * self
-            }
-        }
-
-        impl<const LENGTH: usize> std::ops::Mul<&Vector<$T, LENGTH>> for $T
-        where
-            $T: std::ops::Mul<Output = $T> + Default + Copy,
-        {
-            type Output = Vector<$T, LENGTH>;
-
-            /// Performs the `T * &Vector<T>` operation.
-            fn mul(self, rhs: &Vector<$T, LENGTH>) -> Self::Output {
-                rhs * self
-            }
-        }
-
-        impl<const LENGTH: usize> std::ops::Mul<Vector<$T, LENGTH>> for &$T
-        where
-            $T: std::ops::Mul<Output = $T> + Default + Copy,
-        {
-            type Output = Vector<$T, LENGTH>;
-
-            /// Performs the `&T * Vector<T>` operation.
-            fn mul(self, rhs: Vector<$T, LENGTH>) -> Self::Output {
-                rhs * self
-            }
-        }
-
-        impl<const LENGTH: usize> std::ops::Mul<&Vector<$T, LENGTH>> for &$T
-        where
-            $T: std::ops::Mul<Output = $T> + Default + Copy,
-        {
-            type Output = Vector<$T, LENGTH>;
-
-            /// Performs the `&T * &Vector<T>` operation.
-            fn mul(self, rhs: &Vector<$T, LENGTH>) -> Self::Output {
                 rhs * self
             }
         }
@@ -137,59 +58,9 @@ mod tests {
     }
 
     #[test]
-    fn scalar_mul_by_ref() {
-        let v = v![1, 2, 3];
-        let result = &v * 3;
-        assert_eq!(result.as_slice(), [3, 6, 9]);
-        let result_2 = &v * 2;
-        assert_eq!(result_2.as_slice(), [2, 4, 6]);
-    }
-
-    #[test]
-    fn scalar_ref_mul() {
-        let k: &i32 = &3;
-        let v = v![1, 2, 3];
-        let result = v * k;
-        assert_eq!(result.as_slice(), [3, 6, 9]);
-    }
-
-    #[test]
-    fn scalar_ref_mul_by_ref() {
-        let k: &i32 = &3;
-        let v = v![1, 2, 3];
-        let result = &v * k;
-        assert_eq!(result.as_slice(), [3, 6, 9]);
-    }
-
-    #[test]
     fn scalar_mul_lhs() {
         let v = v![1, 2, 3];
         let result = 3i32 * v;
-        assert_eq!(result.as_slice(), [3, 6, 9]);
-    }
-
-    #[test]
-    fn scalar_mul_by_ref_lhs() {
-        let v = v![1, 2, 3];
-        let result = 3i32 * &v;
-        assert_eq!(result.as_slice(), [3, 6, 9]);
-        let result_2 = &v * 2;
-        assert_eq!(result_2.as_slice(), [2, 4, 6]);
-    }
-
-    #[test]
-    fn scalar_ref_mul_lhs() {
-        let k: &i32 = &3;
-        let v = v![1, 2, 3];
-        let result = k * v;
-        assert_eq!(result.as_slice(), [3, 6, 9]);
-    }
-
-    #[test]
-    fn scalar_ref_mul_by_ref_lhs() {
-        let k: &i32 = &3;
-        let v = v![1, 2, 3];
-        let result = k * &v;
         assert_eq!(result.as_slice(), [3, 6, 9]);
     }
 }
