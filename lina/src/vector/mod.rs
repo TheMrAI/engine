@@ -11,6 +11,7 @@
 mod add;
 mod default;
 mod div;
+mod div_assign;
 mod macros;
 mod mul;
 mod mul_assign;
