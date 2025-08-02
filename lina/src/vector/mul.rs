@@ -23,6 +23,18 @@ where
     }
 }
 
+// impl<ValueType, const COLS: usize, const ROWS: usize> std::ops::Mul<Matrix<ValueType, COLS, ROWS>>
+//     for Vector<ValueType, COLS>
+// where
+//     ValueType: std::ops::Mul<Output = ValueType> + Copy,
+// {
+//     type Output = Matrix<ValueType, COLS, ROWS>;
+
+//     fn mul(self, rhs: Matrix<ValueType, COLS, ROWS>) -> Self::Output {
+//         m![]
+//     }
+// }
+
 // Implement the LHS scalar multiplication operators for built in types.
 // For custom types the user must provide the implementation given the Orphan rule.
 
