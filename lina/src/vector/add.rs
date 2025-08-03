@@ -9,7 +9,7 @@ where
 {
     type Output = Vector<ValueType, LENGTH>;
 
-    /// Implement `Vector<T> + T` operation.
+    /// Implement `Vector<T> + Vector<T>` operation.
     fn add(self, rhs: Vector<ValueType, LENGTH>) -> Self::Output {
         let mut data = [mem::MaybeUninit::<ValueType>::uninit(); LENGTH];
 

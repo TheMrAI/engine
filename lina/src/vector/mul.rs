@@ -30,7 +30,7 @@ macro_rules! lhs_scalar_mul_impl {
     ($($T: ty),* $(,)*) => {$(
         impl<const LENGTH: usize> std::ops::Mul<Vector<$T, LENGTH>> for $T
         where
-            $T: std::ops::Mul<Output = $T> + Default + Copy,
+            Vector<$T, LENGTH>: std::ops::Mul<$T, Output = Vector<$T, LENGTH>>,
         {
             type Output = Vector<$T, LENGTH>;
 
