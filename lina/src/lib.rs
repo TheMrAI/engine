@@ -7,5 +7,5 @@
 //!
 //! - Add custom allocator support.
 
-pub mod vector;
 pub mod matrix;
+pub mod vector;
