@@ -14,6 +14,9 @@ where
     fn mul(self, rhs: Matrix<ValueType, ROWS, COLS>) -> Self::Output {
         let mut data = [[mem::MaybeUninit::<ValueType>::uninit(); ROWS]; ROWS];
 
+        // Not entirely sure if transposition or just reading the values
+        // would be best, but probably there are faster algorithms anyways.
+        // This will work for now.
         let rhs = rhs.transpose();
         // We want the needless range loops, as we use the value to index multiple times.
         #[allow(clippy::needless_range_loop)]
@@ -37,17 +40,50 @@ where
     }
 }
 
-// impl<ValueType, const COLS: usize, const ROWS: usize> std::ops::Mul<Vector<ValueType, COLS>>
-//     for Matrix<ValueType, COLS, ROWS>
-// where
-//     ValueType: std::ops::Add<Output = ValueType> + Copy,
-// {
-//     type Output = Matrix<ValueType, COLS, ROWS>;
+impl<ValueType, const COLS: usize, const ROWS: usize> std::ops::Mul<ValueType>
+    for Matrix<ValueType, COLS, ROWS>
+where
+    ValueType: std::ops::Mul<ValueType, Output = ValueType> + Copy,
+{
+    type Output = Matrix<ValueType, COLS, ROWS>;
 
-//     fn mul(self, _rhs: Vector<ValueType, COLS>) -> Self::Output {
-//         m![]
-//     }
-// }
+    /// Implement `Matrix<T> * T` operation.
+    fn mul(self, rhs: ValueType) -> Self::Output {
+        let mut data = [[mem::MaybeUninit::<ValueType>::uninit(); COLS]; ROWS];
+
+        for (elem, lhs) in data.iter_mut().flatten().zip(self.data.iter().flatten()) {
+            elem.write(*lhs * rhs);
+        }
+
+        let ptr = &mut data as *mut _ as *mut [[ValueType; COLS]; ROWS];
+        let transmuted = unsafe { ptr.read() };
+
+        Matrix { data: transmuted }
+    }
+}
+
+// Implement the LHS scalar multiplication operators for built in types.
+// For custom types the user must provide the implementation given the Orphan rule.
+
+macro_rules! lhs_scalar_mul_impl {
+    ($($T: ty),* $(,)*) => {$(
+        impl<const COLS: usize, const ROWS: usize> std::ops::Mul<Matrix<$T, COLS, ROWS>> for $T
+        where
+            Matrix<$T, COLS, ROWS>: std::ops::Mul<$T, Output = Matrix<$T, COLS, ROWS>>,
+        {
+            type Output = Matrix<$T, COLS, ROWS>;
+
+            /// Implement `T * Matrix<T>` operation.
+            fn mul(self, rhs: Matrix<$T, COLS, ROWS>) -> Self::Output {
+                rhs * self
+            }
+}
+    )*};
+}
+
+lhs_scalar_mul_impl!(
+    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
+);
 
 #[cfg(test)]
 mod tests {
@@ -69,5 +105,19 @@ mod tests {
 
         let result = lhs * rhs;
         assert_eq!(result.as_slices(), &[[58, 64], [139, 154]]);
+    }
+
+    #[test]
+    fn scalar_mul() {
+        let lhs = m![[1, 2], [3, 4]];
+        let result = lhs * 3;
+        assert_eq!(result.as_slices(), &[[3, 6], [9, 12]]);
+    }
+
+    #[test]
+    fn scalar_mul_lhs() {
+        let rhs = m![[1, 2], [3, 4]];
+        let result = 3i32 * rhs;
+        assert_eq!(result.as_slices(), &[[3, 6], [9, 12]]);
     }
 }
