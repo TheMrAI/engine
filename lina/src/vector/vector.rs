@@ -1,3 +1,5 @@
+use crate::vector::sqrt::Sqrt;
+
 /// General [Vector] structure
 ///
 /// A simple `vector` type, which does not attempt
@@ -61,7 +63,7 @@ impl<ValueType, const LENGTH: usize> Vector<ValueType, LENGTH> {
     }
 
     /// Construct a [Vector] from the given slice
-    pub fn from_array(values: [ValueType; LENGTH]) -> Self {
+    pub fn from_array(values: [ValueType; LENGTH]) -> Vector<ValueType, LENGTH> {
         Self { data: values }
     }
 }
@@ -72,6 +74,49 @@ where
 {
     fn eq(&self, other: &[ValueType; LENGTH]) -> bool {
         &self.data == other
+    }
+}
+
+impl<ValueType, const LENGTH: usize> Vector<ValueType, LENGTH>
+where
+    ValueType: Copy
+        + std::ops::Mul<ValueType, Output = ValueType>
+        + std::ops::Div<ValueType, Output = ValueType>
+        + std::iter::Sum
+        + Sqrt<Output = ValueType>,
+{
+    /// Normalize the current vector in-place
+    ///
+    /// A convenience function for writing inline calculations.
+    /// ```
+    /// # use lina::vector::Vector;
+    /// let v = v![4.0, 4.0, 4.0].norm() * 2.0;
+    /// ```
+    pub fn norm(&mut self) -> &mut Vector<ValueType, LENGTH> {
+        let length = self.length();
+        for value in self.data.iter_mut() {
+            *value = *value / length;
+        }
+        self
+    }
+
+    /// Generate a normal vector without modifying the current one
+    pub fn normalized(&self) -> Vector<ValueType, LENGTH> {
+        let mut vector = *self;
+        *vector.norm()
+    }
+
+    /// Length of the vector
+    pub fn length(&self) -> ValueType {
+        self.length_squared().square_root()
+    }
+
+    /// Squared length of the vector
+    ///
+    /// A convenience function when the squared length of the vector is
+    /// required. Avoiding unnecessary multiplication operation.
+    pub fn length_squared(&self) -> ValueType {
+        self.data.iter().map(|value| *value * *value).sum()
     }
 }
 
