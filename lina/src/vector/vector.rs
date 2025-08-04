@@ -1,4 +1,4 @@
-use crate::vector::sqrt::Sqrt;
+use crate::{v, vector::sqrt::Sqrt};
 
 /// General [Vector] structure
 ///
@@ -117,6 +117,20 @@ where
     /// required. Avoiding unnecessary multiplication operation.
     pub fn length_squared(&self) -> ValueType {
         self.data.iter().map(|value| *value * *value).sum()
+    }
+}
+
+/// Cross product for a Vector<f32, 3>
+///
+/// As far as I could see a cross product only exists in 3 and 7 dimensions,
+/// but for now support for only three is enough.
+impl Vector<f32, 3> {
+    pub fn cross(self, rhs: Vector<f32, 3>) -> Vector<f32, 3> {
+        v![
+            self.data[1] * rhs.data[2] - self.data[2] * rhs.data[1],
+            self.data[2] * rhs.data[0] - self.data[0] * rhs.data[2],
+            self.data[0] * rhs.data[1] - self.data[1] * rhs.data[0]
+        ]
     }
 }
 
