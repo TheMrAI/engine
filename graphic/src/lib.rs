@@ -4,7 +4,7 @@
 //!
 //!
 
-use lina::{m, matrix::Matrix};
+use lina::{m, matrix::Matrix, v, vector::Vector};
 
 #[rustfmt::skip]
 pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix<f32, 4, 4> {
@@ -102,19 +102,33 @@ pub fn perspective_projection(fov_rad: f32, aspect_ratio: f32, z_near: f32, z_fa
     ]
 }
 
-// pub fn look_at(
-//     eye: Vector<f32, 4>,
-//     target: Vector<f32, 4>,
-//     up: Vector<f32, 4>,
-// ) -> Matrix<f32, 4, 4> {
-//     let z_axis = normalize(eye - target);
-//     let x_axis = normalize(&cross(up, &z_axis));
-//     let y_axis = normalize(&cross(&z_axis, &x_axis));
+/// Convenience function for generating cross product for 4D vectors
+///
+/// As the cross product doesn't exist for 4D vectors, this function takes the first
+/// three elements from each and calculates the cross product on those.
+/// Finally padding it out with a zero and returning a 4D vector.
+pub fn cross(lhs: Vector<f32, 4>, rhs: Vector<f32, 4>) -> Vector<f32, 4> {
+    let lhs_3 = Vector::from_array([lhs[0], lhs[1], lhs[2]]);
+    let rhs_3 = Vector::from_array([rhs[0], rhs[1], rhs[2]]);
 
-//     m![
-//         [x_axis[0], y_axis[0], z_axis[0], eye[0]],
-//         [x_axis[1], y_axis[1], z_axis[1], eye[1]],
-//         [x_axis[2], y_axis[2], z_axis[2], eye[2]],
-//         [0.0, 0.0, 0.0, 1.0],
-//     ]
-// }
+    let cross_product = lhs_3.cross(rhs_3);
+    v![cross_product[0], cross_product[1], cross_product[2], 0.0]
+}
+
+#[rustfmt::skip]
+pub fn look_at(
+    eye: Vector<f32, 4>,
+    target: Vector<f32, 4>,
+    up: Vector<f32, 4>,
+) -> Matrix<f32, 4, 4> {
+    let z_axis = (eye - target).normalized();
+    let x_axis = cross(up, z_axis).normalized();
+    let y_axis = cross(z_axis, x_axis).normalized();
+
+    m![
+        [x_axis[0], y_axis[0], z_axis[0], eye[0]],
+        [x_axis[1], y_axis[1], z_axis[1], eye[1]],
+        [x_axis[2], y_axis[2], z_axis[2], eye[2]],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+}
