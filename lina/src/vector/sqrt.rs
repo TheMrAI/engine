@@ -11,20 +11,3 @@ pub trait Sqrt {
     /// collide with the more common `sqrt` shorthands.
     fn square_root(self) -> Self::Output;
 }
-
-// Implement for build in floating point types.
-
-macro_rules! impl_sqrt_for_float_types {
-    ($($T: ty),* $(,)*) => {$(
-        impl Sqrt for $T
-        {
-            type Output = $T;
-
-            fn square_root(self) -> Self::Output {
-                self.sqrt()
-            }
-        }
-    )*};
-}
-
-impl_sqrt_for_float_types!(f32, f64);

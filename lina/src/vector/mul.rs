@@ -23,29 +23,6 @@ where
     }
 }
 
-// Implement the LHS scalar multiplication operators for built in types.
-// For custom types the user must provide the implementation given the Orphan rule.
-
-macro_rules! lhs_scalar_mul_impl {
-    ($($T: ty),* $(,)*) => {$(
-        impl<const LENGTH: usize> std::ops::Mul<Vector<$T, LENGTH>> for $T
-        where
-            Vector<$T, LENGTH>: std::ops::Mul<$T, Output = Vector<$T, LENGTH>>,
-        {
-            type Output = Vector<$T, LENGTH>;
-
-            /// Perform the `T * Vector<T>` operation
-            fn mul(self, rhs: Vector<$T, LENGTH>) -> Self::Output {
-                rhs * self
-            }
-        }
-    )*};
-}
-
-lhs_scalar_mul_impl!(
-    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
-);
-
 #[cfg(test)]
 mod tests {
     use crate::v;
