@@ -62,29 +62,6 @@ where
     }
 }
 
-// Implement the LHS scalar multiplication operators for built in types.
-// For custom types the user must provide the implementation given the Orphan rule.
-
-macro_rules! lhs_scalar_mul_impl {
-    ($($T: ty),* $(,)*) => {$(
-        impl<const COLS: usize, const ROWS: usize> std::ops::Mul<Matrix<$T, COLS, ROWS>> for $T
-        where
-            Matrix<$T, COLS, ROWS>: std::ops::Mul<$T, Output = Matrix<$T, COLS, ROWS>>,
-        {
-            type Output = Matrix<$T, COLS, ROWS>;
-
-            /// Implement `T * Matrix<T>` operation.
-            fn mul(self, rhs: Matrix<$T, COLS, ROWS>) -> Self::Output {
-                rhs * self
-            }
-}
-    )*};
-}
-
-lhs_scalar_mul_impl!(
-    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
-);
-
 #[cfg(test)]
 mod tests {
     use crate::m;

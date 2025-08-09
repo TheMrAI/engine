@@ -1,5 +1,5 @@
 //! All macro implementations
-//! 
+//!
 //! All macro_rules definitions and use should be placed into this file.
 //! This way we don't need to handle with the mess of exporting/importing the
 //! macros within the crate and the "cycle detected" compiler error.
@@ -9,7 +9,6 @@
 //! in the same file.
 use crate::vector::Sqrt;
 use crate::vector::Vector;
-
 
 /// Generate a [Vector](crate::vector::Vector) similar to the [vec!] macro.
 ///
