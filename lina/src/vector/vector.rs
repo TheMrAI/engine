@@ -90,20 +90,21 @@ where
     /// A convenience function for writing inline calculations.
     /// ```
     /// # use lina::vector::Vector;
+    /// # use lina::v;
     /// let v = v![4.0, 4.0, 4.0].norm() * 2.0;
     /// ```
-    pub fn norm(&mut self) -> &mut Vector<ValueType, LENGTH> {
+    pub fn norm(&mut self) -> Vector<ValueType, LENGTH> {
         let length = self.length();
         for value in self.data.iter_mut() {
             *value = *value / length;
         }
-        self
+        *self
     }
 
     /// Generate a normal vector without modifying the current one
     pub fn normalized(&self) -> Vector<ValueType, LENGTH> {
         let mut vector = *self;
-        *vector.norm()
+        vector.norm()
     }
 
     /// Length of the vector
