@@ -13,11 +13,16 @@ mod add_assign;
 mod default;
 mod div;
 mod div_assign;
+mod index;
 mod macros;
 mod mul;
 mod mul_assign;
+mod sqrt;
 mod sub;
 mod sub_assign;
+
+// Re-export to allow users their own implementations.
+pub use sqrt::Sqrt;
 
 // In this case module inception is allowed, because [vector] symbols
 // will be re-exported. The goal is to keep the modules structure separate from the
