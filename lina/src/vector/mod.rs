@@ -14,6 +14,7 @@ mod default;
 mod div;
 mod div_assign;
 mod index;
+mod index_mut;
 mod macros;
 mod mul;
 mod mul_assign;

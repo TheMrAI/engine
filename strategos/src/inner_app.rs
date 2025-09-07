@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use lina::{v, vector::Vector};
 use winit::window::Window;
 
 use crate::gpu::Wgpu;
@@ -7,7 +8,7 @@ use crate::gpu::Wgpu;
 pub(super) struct InnerApp {
     pub window: Arc<Window>,
     pub gpu: Wgpu,
-    pub camera_eye: [f32; 3],
+    pub camera_eye: Vector<f32, 3>,
 }
 
 impl InnerApp {
@@ -21,7 +22,7 @@ impl InnerApp {
 
         let gpu = pollster::block_on(Wgpu::new(Arc::clone(&window)));
 
-        let camera_eye = [0.0, 0.0, 0.0];
+        let camera_eye = v![0.0, 0.0, 0.0];
 
         InnerApp {
             window,
