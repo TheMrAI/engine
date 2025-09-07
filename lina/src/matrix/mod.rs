@@ -1,6 +1,8 @@
 mod add;
 mod add_assign;
 mod default;
+mod index;
+mod index_mut;
 mod macros;
 mod mul;
 mod mul_assign;

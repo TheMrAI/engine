@@ -42,7 +42,7 @@ impl ApplicationHandler for App {
 
                 // Draw.
                 if let Some(app) = self.app.as_mut() {
-                    app.gpu.render(&app.camera_eye);
+                    app.gpu.render(app.camera_eye);
                     // for continuos rendering
                     app.window.request_redraw();
                 }

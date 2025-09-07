@@ -117,13 +117,13 @@ pub fn cross(lhs: Vector<f32, 4>, rhs: Vector<f32, 4>) -> Vector<f32, 4> {
 
 #[rustfmt::skip]
 pub fn look_at(
-    eye: Vector<f32, 4>,
-    target: Vector<f32, 4>,
-    up: Vector<f32, 4>,
+    eye: Vector<f32, 3>,
+    target: Vector<f32, 3>,
+    up: Vector<f32, 3>,
 ) -> Matrix<f32, 4, 4> {
     let z_axis = (eye - target).normalized();
-    let x_axis = cross(up, z_axis).normalized();
-    let y_axis = cross(z_axis, x_axis).normalized();
+    let x_axis = up.cross(z_axis).normalized();
+    let y_axis = z_axis.cross(x_axis).normalized();
 
     m![
         [x_axis[0], y_axis[0], z_axis[0], eye[0]],
