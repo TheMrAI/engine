@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use inner_app::InnerApp;
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -42,7 +44,7 @@ impl ApplicationHandler for App {
 
                 // Draw.
                 if let Some(app) = self.app.as_mut() {
-                    app.gpu.render(app.camera_eye);
+                    app.gpu.render(&app.camera);
                     // for continuos rendering
                     app.window.request_redraw();
                 }
@@ -84,11 +86,29 @@ impl ApplicationHandler for App {
                         return;
                     }
                     match key_event.physical_key {
-                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                            app.camera_eye[0] -= 1.0
+                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyW) => {
+                            app.camera.move_on_look_at_vector(1.0);
+                        }
+                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyS) => {
+                            app.camera.move_on_look_at_vector(-1.0);
+                        }
+                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => {
+                            app.camera.yaw(-PI / 60.0);
+                        }
+                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => {
+                            app.camera.yaw(PI / 60.0);
+                        }
+                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
+                            app.camera.move_on_up_vector(1.0);
+                        }
+                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
+                            app.camera.move_on_up_vector(-1.0);
                         }
                         PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                            app.camera_eye[0] += 1.0
+                            app.camera.move_on_right_vector(1.0);
+                        }
+                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                            app.camera.move_on_right_vector(-1.0);
                         }
                         _ => (),
                     }

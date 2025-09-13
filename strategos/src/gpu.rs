@@ -1,6 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use lina::{v, vector::Vector};
+use graphic::camera::Camera;
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
     DepthStencilState, Device, Face, Operations, Queue, RenderPassDepthStencilAttachment,
@@ -259,7 +259,7 @@ impl Wgpu {
         }
     }
 
-    pub fn render(&mut self, camera_eye: Vector<f32, 3>) {
+    pub fn render(&mut self, camera: &Camera) {
         // Create render texture
         let frame = self
             .surface
@@ -313,10 +313,8 @@ impl Wgpu {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
-            // the up vector for the camera
-            let up = v![0.0, 1.0, 0.0];
             // the camera matrix
-            let look_at = graphic::look_at(camera_eye, v![0.0, 0.0, 0.0], up);
+            let look_at = camera.as_transform_matrix();
             // view matrix
             let view_matrix = look_at;
 

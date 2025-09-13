@@ -7,6 +7,7 @@
 //! This library uses the right handed, Y vector up convention.
 
 use lina::{m, matrix::Matrix, v, vector::Vector};
+pub mod camera;
 
 #[rustfmt::skip]
 pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix<f32, 4, 4> {
