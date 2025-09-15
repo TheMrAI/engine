@@ -64,91 +64,59 @@ impl Wgpu {
 
         // Vertex buffer
         #[rustfmt::skip]
-        let f_char_vertices: Vec<f32> = vec![
-            // left column
-            -50.0,  75.0,  15.0,
-            -20.0,  75.0,  15.0,
-            -50.0, -75.0,  15.0,
-            -20.0, -75.0,  15.0,
-           // top rung
-            -20.0,  75.0,  15.0,
-             50.0,  75.0,  15.0,
-            -20.0,  45.0,  15.0,
-             50.0,  45.0,  15.0,
-           // middle rung
-            -20.0,  15.0,  15.0,
-             20.0,  15.0,  15.0,
-            -20.0, -15.0,  15.0,
-             20.0, -15.0,  15.0,
-           // left column back
-            -50.0,  75.0, -15.0,
-            -20.0,  75.0, -15.0,
-            -50.0, -75.0, -15.0,
-            -20.0, -75.0, -15.0,
-           // top rung back
-            -20.0,  75.0, -15.0,
-             50.0,  75.0, -15.0,
-            -20.0,  45.0, -15.0,
-             50.0,  45.0, -15.0,
-           // middle rung back
-            -20.0,  15.0, -15.0,
-             20.0,  15.0, -15.0,
-            -20.0, -15.0, -15.0,
-             20.0, -15.0, -15.0,
+        let cube_vertices: Vec<f32> = vec![
+            0.0, 0.0, 1.0, // 0
+            1.0, 0.0, 1.0, // 1
+            1.0, 1.0, 1.0, // 2
+            0.0, 1.0, 1.0, // 3
+            0.0, 0.0, 0.0, // 4
+            1.0, 0.0, 0.0, // 5
+            1.0, 1.0, 0.0, // 6
+            0.0, 1.0, 0.0, // 7
         ];
 
         // Vertex indices
-        let f_char_indices: Vec<u32> = vec![
-            0, 2, 1, 2, 3, 1, // left column
-            4, 6, 5, 6, 7, 5, // top run
-            8, 10, 9, 10, 11, 9, // middle run
-            12, 13, 14, 14, 13, 15, // left column back
-            16, 17, 18, 18, 17, 19, // top run back
-            20, 21, 22, 22, 21, 23, // middle run back
-            0, 5, 12, 12, 5, 17, // top
-            5, 7, 17, 17, 7, 19, // top rung right
-            6, 18, 7, 18, 19, 7, // top rung bottom
-            6, 8, 18, 18, 8, 20, // between top and middle rung
-            8, 9, 20, 20, 9, 21, // middle rung top
-            9, 11, 21, 21, 11, 23, // middle rung right
-            10, 22, 11, 22, 23, 11, // middle rung bottom
-            10, 3, 22, 22, 3, 15, // stem right
-            2, 14, 3, 14, 15, 3, // bottom
-            0, 12, 2, 12, 14, 2, // left
+        #[rustfmt::skip]
+        let cube_indices: Vec<u32> = vec![
+            // front face
+            0, 1, 2,
+            2, 3, 0,
+            // back face
+            5, 4, 7,
+            7, 6, 5,
+            // top face
+            3, 2, 6,
+            6, 7, 3,
+            // bottom face
+            4, 5, 1,
+            1, 0, 4,
+            // right face
+            5, 6, 2,
+            2, 1, 5,
+            // left face
+            4, 0, 3,
+            3, 7, 4
         ];
-        // Each vertex index corresponds to a vertex to be used which is
-        // more than the number of vertices we have.
-        let vertex_count = f_char_indices.len() as u32;
 
         let quad_colors: Vec<u8> = vec![
-            200, 70, 120, // left column front
-            200, 70, 120, // top rung front
-            200, 70, 120, // middle rung front
-            80, 70, 200, // left column back
-            80, 70, 200, // top rung back
-            80, 70, 200, // middle rung back
-            70, 200, 210, // top
-            160, 160, 220, // top rung right
-            90, 130, 110, // top rung bottom
-            200, 200, 70, // between top and middle rung
-            210, 100, 70, // middle rung top
-            210, 160, 70, // middle rung right
-            70, 180, 210, // middle rung bottom
-            100, 70, 210, // stem right
-            76, 210, 100, // bottom
-            140, 210, 80, // left
+            33, 188, 255, // front (light blue / Z+)
+            28, 105, 168, // back (dark blue)
+            5, 223, 114, // top (light green / Y+)
+            23, 130, 54, // bottom (dark green)
+            255, 100, 103, // right (light red / X+)
+            193, 16, 7, // left (dark red)
         ];
 
         let vertex_data = {
-            f_char_indices
+            cube_indices
                 .iter()
                 .enumerate()
                 .flat_map(|(i, index)| {
                     let start_vertex_index = (index * 3) as usize;
                     let vertex_iter = (start_vertex_index..start_vertex_index + 3)
-                        .map(|vertex_index| f_char_vertices[vertex_index]);
+                        .map(|vertex_index| cube_vertices[vertex_index]);
 
-                    let start_color_index = (i / 6 | 0) as usize * 3;
+                    let start_color_index = (i / 6) * 3;
                     let color = f32::from_le_bytes([
                         quad_colors[start_color_index],
                         quad_colors[start_color_index + 1],
@@ -286,7 +254,7 @@ impl Wgpu {
             queue,
             render_pipeline,
             vertex_buffer,
-            vertex_count,
+            vertex_count: cube_indices.len() as u32,
             object_data,
         }
     }
