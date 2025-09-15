@@ -76,6 +76,7 @@ impl ApplicationHandler for App {
         _device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
+        #[allow(clippy::single_match)]
         match event {
             DeviceEvent::Key(key_event) => {
                 if let Some(app) = self.app.as_mut() {

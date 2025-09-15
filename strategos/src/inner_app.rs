@@ -22,7 +22,7 @@ impl InnerApp {
 
         let gpu = pollster::block_on(Wgpu::new(Arc::clone(&window)));
 
-        let camera_eye = v![0.0, 0.0, 0.0];
+        let camera_eye = v![5.0, 0.0, -5.0];
 
         InnerApp {
             window,

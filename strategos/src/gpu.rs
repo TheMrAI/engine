@@ -1,6 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use lina::{matrix::Matrix, v, vector::Vector};
+use lina::{v, vector::Vector};
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
     DepthStencilState, Device, Face, Operations, Queue, RenderPassDepthStencilAttachment,
@@ -8,92 +8,6 @@ use wgpu::{
     VertexBufferLayout,
 };
 use winit::{dpi::PhysicalSize, window::Window};
-
-pub fn inverse(a: Matrix<f32, 4, 4>) -> Matrix<f32, 4, 4> {
-    let mut inverse = Matrix::<f32, 4, 4>::from_value(0.0);
-
-    let m00 = a[(0, 0)];
-    let m01 = a[(0, 1)];
-    let m02 = a[(0, 2)];
-    let m03 = a[(0, 3)];
-    let m10 = a[(1, 0)];
-    let m11 = a[(1, 1)];
-    let m12 = a[(1, 2)];
-    let m13 = a[(1, 3)];
-    let m20 = a[(2, 0)];
-    let m21 = a[(2, 1)];
-    let m22 = a[(2, 2)];
-    let m23 = a[(2, 3)];
-    let m30 = a[(3, 0)];
-    let m31 = a[(3, 1)];
-    let m32 = a[(3, 2)];
-    let m33 = a[(3, 3)];
-
-    let tmp0 = m22 * m33;
-    let tmp1 = m32 * m23;
-    let tmp2 = m12 * m33;
-    let tmp3 = m32 * m13;
-    let tmp4 = m12 * m23;
-    let tmp5 = m22 * m13;
-    let tmp6 = m02 * m33;
-    let tmp7 = m32 * m03;
-    let tmp8 = m02 * m23;
-    let tmp9 = m22 * m03;
-    let tmp10 = m02 * m13;
-    let tmp11 = m12 * m03;
-    let tmp12 = m20 * m31;
-    let tmp13 = m30 * m21;
-    let tmp14 = m10 * m31;
-    let tmp15 = m30 * m11;
-    let tmp16 = m10 * m21;
-    let tmp17 = m20 * m11;
-    let tmp18 = m00 * m31;
-    let tmp19 = m30 * m01;
-    let tmp20 = m00 * m21;
-    let tmp21 = m20 * m01;
-    let tmp22 = m00 * m11;
-    let tmp23 = m10 * m01;
-
-    let t0 = (tmp0 * m11 + tmp3 * m21 + tmp4 * m31) - (tmp1 * m11 + tmp2 * m21 + tmp5 * m31);
-    let t1 = (tmp1 * m01 + tmp6 * m21 + tmp9 * m31) - (tmp0 * m01 + tmp7 * m21 + tmp8 * m31);
-    let t2 = (tmp2 * m01 + tmp7 * m11 + tmp10 * m31) - (tmp3 * m01 + tmp6 * m11 + tmp11 * m31);
-    let t3 = (tmp5 * m01 + tmp8 * m11 + tmp11 * m21) - (tmp4 * m01 + tmp9 * m11 + tmp10 * m21);
-
-    let d = 1.0 / (m00 * t0 + m10 * t1 + m20 * t2 + m30 * t3);
-
-    inverse[(0, 0)] = d * t0;
-    inverse[(0, 1)] = d * t1;
-    inverse[(0, 2)] = d * t2;
-    inverse[(0, 3)] = d * t3;
-
-    inverse[(1, 0)] =
-        d * ((tmp1 * m10 + tmp2 * m20 + tmp5 * m30) - (tmp0 * m10 + tmp3 * m20 + tmp4 * m30));
-    inverse[(1, 1)] =
-        d * ((tmp0 * m00 + tmp7 * m20 + tmp8 * m30) - (tmp1 * m00 + tmp6 * m20 + tmp9 * m30));
-    inverse[(1, 2)] =
-        d * ((tmp3 * m00 + tmp6 * m10 + tmp11 * m30) - (tmp2 * m00 + tmp7 * m10 + tmp10 * m30));
-    inverse[(1, 3)] =
-        d * ((tmp4 * m00 + tmp9 * m10 + tmp10 * m20) - (tmp5 * m00 + tmp8 * m10 + tmp11 * m20));
-
-    inverse[(2, 0)] =
-        d * ((tmp12 * m13 + tmp15 * m23 + tmp16 * m33) - (tmp13 * m13 + tmp14 * m23 + tmp17 * m33));
-    inverse[(2, 1)] =
-        d * ((tmp13 * m03 + tmp18 * m23 + tmp21 * m33) - (tmp12 * m03 + tmp19 * m23 + tmp20 * m33));
-    inverse[(2, 2)] =
-        d * ((tmp14 * m03 + tmp19 * m13 + tmp22 * m33) - (tmp15 * m03 + tmp18 * m13 + tmp23 * m33));
-    inverse[(2, 3)] =
-        d * ((tmp17 * m03 + tmp20 * m13 + tmp23 * m23) - (tmp16 * m03 + tmp21 * m13 + tmp22 * m23));
-
-    inverse[(3, 0)] =
-        d * ((tmp14 * m22 + tmp17 * m32 + tmp13 * m12) - (tmp16 * m32 + tmp12 * m12 + tmp15 * m22));
-    inverse[(3, 1)] =
-        d * ((tmp20 * m32 + tmp12 * m02 + tmp19 * m22) - (tmp18 * m22 + tmp21 * m32 + tmp13 * m02));
-    inverse[(3, 2)] =
-        d * ((tmp18 * m12 + tmp23 * m32 + tmp15 * m02) - (tmp22 * m32 + tmp14 * m02 + tmp19 * m12));
-    inverse[(3, 3)] =
-        d * ((tmp22 * m22 + tmp16 * m02 + tmp21 * m12) - (tmp20 * m12 + tmp23 * m22 + tmp17 * m02));
-    return inverse;
-}
 
 pub struct Wgpu {
     pub inner_size: PhysicalSize<u32>,
@@ -134,7 +48,7 @@ impl Wgpu {
             })
             .await
             .expect("Failed to create device");
-        println!("Prepared device: {:?}", device);
+        println!("Prepared device: {device:?}",);
 
         // Configure surface
         let config = surface
@@ -434,9 +348,9 @@ impl Wgpu {
             // the up vector for the camera
             let up = v![0.0, 1.0, 0.0];
             // the camera matrix
-            let camera = graphic::look_at(camera_eye, v![0.0, 0.0, -120.0], up);
+            let look_at = graphic::look_at(camera_eye, v![0.0, 0.0, 0.0], up);
             // view matrix
-            let view_matrix = inverse(camera);
+            let view_matrix = look_at;
 
             let projecton_matrix = graphic::perspective_projection(
                 PI / 2.0, // PI / 2.0 rad => 90 degrees
@@ -445,15 +359,7 @@ impl Wgpu {
                 2000.0,
             );
             let view_projection_matrix = projecton_matrix * view_matrix;
-
-            let translation = graphic::translate(0.0, 0.0, -120.0);
-            let rotation_on_y = graphic::rotate_y(-PI / 4.0);
-            let rotation_on_z = graphic::rotate_z(-PI / 4.0);
-            let scaling = graphic::scale(1.0, 1.0, 1.0);
-            // move the origin of the 'F' into the origo
-            let translate_origin = graphic::translate(-50.0, -75.0, 0.0);
-            let matrix = view_projection_matrix
-                * ((((translation * rotation_on_z) * rotation_on_y) * scaling) * translate_origin);
+            let matrix = view_projection_matrix;
 
             let matrix = matrix.transpose();
 
