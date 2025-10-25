@@ -4,20 +4,23 @@
 //!
 //! # Coordinate system
 //!
-//! This library uses the right handed, Y vector up convention.
+//! This library uses the right handed, Y vector up convention for the coordinate system and
+//! all matrices are defined in column-major form.
+//!
+//! In case a row-major format is necessary, then that can be achieved by simply transposing
+//! each matrix.
+//!
+//! # Transformation matrix inversion
+//!
+//! Whenever possible all transformation matrices will be accompanied by their inverse matrix.
+//! This is for two reasons. Calculating an inversion matrix isn't necessarily cheap nor precise.
+//! But more importantly it is entirely unnecessary. As long as the developer is aware that a chain
+//! of matrix transformation will be inverted in the end, they can simply generate the inverted matrix
+//! equivalent transformation.
 
 use lina::{m, matrix::Matrix, v, vector::Vector};
 pub mod camera;
-
-#[rustfmt::skip]
-pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix<f32, 4, 4> {
-    m![
-        [1.0, 0.0, 0.0, translate_x],
-        [0.0, 1.0, 0.0, translate_y],
-        [0.0, 0.0, 1.0, translate_z],
-        [0.0, 0.0, 0.0, 1.0]
-    ]
-}
+pub mod transform;
 
 #[rustfmt::skip]
 pub fn rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
@@ -27,7 +30,7 @@ pub fn rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
         [1.0, 0.0,    0.0,    0.0],
         [0.0, cosine, -sine,  0.0], 
         [0.0, sine,   cosine, 0.0],
-        [0.0, 0.0,    0.0,    1.0] 
+        [0.0, 0.0,    0.0,    1.0]    
     ]
 }
 
