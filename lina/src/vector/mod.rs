@@ -8,6 +8,7 @@
 //! assert_eq!(lhs + rhs, [2, 4, 6]);
 //! ```
 
+mod accessor;
 mod add;
 mod add_assign;
 mod default;

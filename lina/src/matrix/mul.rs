@@ -1,5 +1,7 @@
 use std::mem;
 
+use crate::vector::Vector;
+
 use super::Matrix;
 
 impl<ValueType, const COLS: usize, const ROWS: usize> std::ops::Mul<Matrix<ValueType, ROWS, COLS>>
@@ -62,9 +64,37 @@ where
     }
 }
 
+impl<ValueType, const COLS: usize, const ROWS: usize> std::ops::Mul<Vector<ValueType, COLS>>
+    for Matrix<ValueType, COLS, ROWS>
+where
+    Vector<ValueType, COLS>: std::ops::Mul<Vector<ValueType, COLS>, Output = ValueType>,
+    ValueType: Copy,
+{
+    type Output = Vector<ValueType, ROWS>;
+
+    /// Perform `Matrix<T> * Vector<T>` multiplication.
+    ///
+    /// For a `Matrix` with `M` number of columns, `N` number of rows, and a
+    /// `Vector` with `M` elements, it will produce a `Vector` with `N`
+    /// elements.
+    fn mul(self, rhs: Vector<ValueType, COLS>) -> Self::Output {
+        let mut data = [mem::MaybeUninit::<ValueType>::uninit(); ROWS];
+
+        for (elem, lhs) in data.iter_mut().zip(self.data.iter()) {
+            let dot = Vector::from_array(*lhs) * rhs;
+            elem.write(dot);
+        }
+
+        let ptr = &mut data as *mut _ as *mut [ValueType; ROWS];
+        let transmuted = unsafe { ptr.read() };
+
+        Vector::from_array(transmuted)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::m;
+    use crate::{m, v};
 
     #[test]
     fn square_matrix() {
@@ -96,5 +126,13 @@ mod tests {
         let rhs = m![[1, 2], [3, 4]];
         let result = 3i32 * rhs;
         assert_eq!(result.as_slices(), &[[3, 6], [9, 12]]);
+    }
+
+    #[test]
+    fn matrix_vector_mul() {
+        let lhs = m![[1, 2, 3], [4, 5, 6]];
+        let rhs = v![4, 3, 2];
+        let result = lhs * rhs;
+        assert_eq!(result.as_slice(), &[16, 43]);
     }
 }
