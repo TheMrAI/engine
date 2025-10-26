@@ -1,3 +1,35 @@
+//! Basic transformation matrices.
+//! 
+//! # Definitions
+//! 
+//! To properly work with the transformation matrices, it is
+//! vital to understand their properties. For which all relevant
+//! definitions will be listed below.
+//! 
+//! ## Linear transformation
+//! 
+//! A linear transform is one that preserves vector addition and scalar
+//! multiplication properties.
+//! 
+//! Example:
+//! ```text
+//! f(x) + f(y) = f(x + y),
+//! kf(x) = f(kx),
+//! ```
+//! where **f** is the transformation function (in practice the transformation matrix)
+//! **x**, **y** the vectors to be transformed and **k** a scalar.
+//!  
+//! ## Affine transformation
+//! 
+//! A transformation that performs a linear transformation and then
+//! a translation.
+//! It preserves the parallelism of lines but not necessarily the lengths
+//! or the angles.
+//! Can be constructed as a sequence of concatenations of individual affine
+//! transforms.
+//! 
+//! All translation, rotation, scaling, reflection and shearing matrices are affine.
+
 use lina::{m, matrix::Matrix, vector::Vector};
 
 /// Generate a T translation matrix given 3 scalars.
