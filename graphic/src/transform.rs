@@ -1,16 +1,16 @@
 //! Basic transformation matrices.
-//! 
+//!
 //! # Definitions
-//! 
+//!
 //! To properly work with the transformation matrices, it is
 //! vital to understand their properties. For which all relevant
 //! definitions will be listed below.
-//! 
+//!
 //! ## Linear transformation
-//! 
+//!
 //! A linear transform is one that preserves vector addition and scalar
 //! multiplication properties.
-//! 
+//!
 //! Example:
 //! ```text
 //! f(x) + f(y) = f(x + y),
@@ -20,14 +20,14 @@
 //! **x**, **y** the vectors to be transformed and **k** a scalar.
 //!  
 //! ## Affine transformation
-//! 
+//!
 //! A transformation that performs a linear transformation and then
 //! a translation.
 //! It preserves the parallelism of lines but not necessarily the lengths
 //! or the angles.
 //! Can be constructed as a sequence of concatenations of individual affine
 //! transforms.
-//! 
+//!
 //! All translation, rotation, scaling, reflection and shearing matrices are affine.
 
 use lina::{m, matrix::Matrix, vector::Vector};
@@ -36,6 +36,7 @@ use lina::{m, matrix::Matrix, vector::Vector};
 /// 
 /// Move a point.
 /// Affine.
+/// Preserves handedness.
 #[rustfmt::skip]
 pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix<f32, 4, 4> {
     m![
@@ -46,17 +47,17 @@ pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix
     ]
 }
 
-/// Generate inverse of T translation matrix given the 3 scalars.
+/// Generate inverse of T translation matrix given 3 scalars.
 ///
 /// Move a point in the inverse of T.
 /// Affine.
+/// Preserves handedness.
 ///
 /// # Example:
 /// ```
-/// use graphic::translate;
-/// use graphic::inverse_translate;
-/// use graphic::identity_matrix;
-///
+/// # use graphic::transform::translate;
+/// # use graphic::transform::inverse_translate;
+/// # use graphic::identity_matrix;
 /// let T = translate(1.0, 2.0, 3.0);
 /// let T_inv = inverse_translate(1.0, 2.0, 3.0);
 ///
@@ -74,26 +75,25 @@ pub fn inverse_translate(
 
 /// Generate a translation matrix by a given `t` [Vector].
 /// 
-/// Move a point.
-/// Affine. 
+/// Vector based wrapper for [translate].
 #[rustfmt::skip]
 pub fn translate_v(t: &Vector<f32, 3>) -> Matrix<f32, 4, 4> {
     translate(t[0], t[1], t[2])
 }
 
-/// Generate inverse of T translation matrix given the 3 scalars.
+/// Generate inverse of T translation matrix by a given `t` [Vector].
 ///
-/// Move a point in the inverse of T.
-/// Affine.
+/// Vector based wrapper for [inverse_translate].
 ///
 /// # Example:
 /// ```
-/// use graphic::translate;
-/// use graphic::inverse_translate;
-/// use graphic::identity_matrix;
-///
-/// let T = translate(1.0, 2.0, 3.0);
-/// let T_inv = inverse_translate(1.0, 2.0, 3.0);
+/// # use graphic::transform::translate_v;
+/// # use graphic::transform::inverse_translate_v;
+/// # use graphic::identity_matrix;
+/// # use lina::v;
+/// let v = v![1.0, 2.0, 3.0];
+/// let T = translate_v(&v);
+/// let T_inv = inverse_translate_v(&v);
 ///
 /// let identity = identity_matrix();
 ///
