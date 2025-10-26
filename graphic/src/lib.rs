@@ -49,16 +49,6 @@ pub mod camera;
 pub mod transform;
 
 #[rustfmt::skip]
-pub fn scale(scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix<f32, 4, 4> {
-    m![
-        [scale_x, 0.0,     0.0,     0.0],
-        [0.0,     scale_y, 0.0,     0.0],
-        [0.0,     0.0,     scale_z, 0.0],
-        [0.0,     0.0,     0.0,     1.0]
-    ]
-}
-
-#[rustfmt::skip]
 pub fn identity_matrix() -> Matrix<f32, 4, 4> {
     m![
         [1.0, 0.0, 0.0, 0.0],

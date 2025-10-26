@@ -103,7 +103,7 @@ pub fn inverse_translate_v(t_inv: &Vector<f32, 3>) -> Matrix<f32, 4, 4> {
     inverse_translate(t_inv[0], t_inv[1], t_inv[2])
 }
 
-/// Generate counter-clockwise rotation matrix by the given radians around the X axis.
+/// Generate counter-clockwise R rotation matrix by the given radians around the X axis.
 /// 
 /// Affine.
 /// 
@@ -124,7 +124,7 @@ pub fn rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// Rotate clockwise by the given radians around the X axis.
 ///
 /// Affine.
-/// 
+///
 /// # Example:
 /// ```
 /// # use std::f32::consts::PI;
@@ -143,7 +143,7 @@ pub fn inverse_rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
     rotate_x(-rad_angle)
 }
 
-/// Generate counter-clockwise rotation matrix by the given radians around the Y axis.
+/// Generate counter-clockwise R rotation matrix by the given radians around the Y axis.
 /// 
 /// Affine.
 /// 
@@ -164,7 +164,7 @@ pub fn rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// Rotate clockwise by the given radians around the Y axis.
 ///
 /// Affine.
-/// 
+///
 /// # Example:
 /// ```
 /// # use std::f32::consts::PI;
@@ -183,7 +183,7 @@ pub fn inverse_rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
     rotate_y(-rad_angle)
 }
 
-/// Generate counter-clockwise rotation matrix by the given radians around the Z axis.
+/// Generate counter-clockwise R rotation matrix by the given radians around the Z axis.
 /// 
 /// Affine.
 /// 
@@ -204,7 +204,7 @@ pub fn rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// Rotate clockwise by the given radians around the Z axis.
 ///
 /// Affine.
-/// 
+///
 /// # Example:
 /// ```
 /// # use std::f32::consts::PI;
@@ -221,4 +221,90 @@ pub fn rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// ```
 pub fn inverse_rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
     rotate_z(-rad_angle)
+}
+
+/// Generate S scaling matrix from the given scaling factors.
+/// 
+/// Affine.
+/// 
+/// A negative scaling factor for one or more scaling factors will
+/// result in a `reflection` or `mirror` matrix. Depending on the use
+/// this may have to be handled appropriately. For example
+/// reflecting a triangle, may invert it's vertex order, resulting
+/// in incorrect rendering. 
+#[rustfmt::skip]
+pub fn scale(scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix<f32, 4, 4> {
+    m![
+        [scale_x, 0.0,     0.0,     0.0],
+        [0.0,     scale_y, 0.0,     0.0],
+        [0.0,     0.0,     scale_z, 0.0],
+        [0.0,     0.0,     0.0,     1.0]
+    ]
+}
+
+/// Generate the inverse of the [scale] matrix.
+/// 
+/// Affine.
+/// 
+/// # Panics
+/// 
+/// If any scalar is zero, or very close to zero.
+/// 
+/// # Example
+/// ```
+/// # use std::f32::consts::PI;
+/// # use graphic::transform::scale;
+/// # use graphic::transform::inverse_scale;
+/// # use graphic::identity_matrix;
+/// let radians = PI/2.0;
+/// let S = scale(1.0, 2.0, 3.0);
+/// let S_inv = inverse_scale(1.0, 2.0, 3.0);
+///
+/// let identity = identity_matrix();
+///
+/// assert_eq!(S * S_inv, identity);
+/// ```
+#[rustfmt::skip]
+pub fn inverse_scale(scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix<f32, 4, 4> {
+    scale(1.0/scale_x, 1.0/scale_y, 1.0/scale_z)
+}
+
+/// Generate S scaling matrix from the given scaling [Vector].
+/// 
+/// Affine.
+/// 
+/// [Vector] based wrapper for [scale].
+#[rustfmt::skip]
+pub fn scale_v(s: Vector<f32, 3>) -> Matrix<f32, 4, 4> {
+    scale(s[0], s[1], s[2])
+}
+
+/// Generate the inverse of the [scale_v] matrix.
+/// 
+/// Affine.
+///
+/// [Vector] based wrapper for [inverse_scale].
+/// 
+/// # Panics
+/// 
+/// If any scalar is zero, or very close to zero.
+/// 
+/// # Example
+/// ```
+/// # use std::f32::consts::PI;
+/// # use graphic::transform::scale_v;
+/// # use graphic::transform::inverse_scale_v;
+/// # use graphic::identity_matrix;
+/// # use lina::v;
+/// let v = v![1.0, 2.0, 3.0];
+/// let S = scale_v(v);
+/// let S_inv = inverse_scale_v(v);
+///
+/// let identity = identity_matrix();
+///
+/// assert_eq!(S * S_inv, identity);
+/// ```
+#[rustfmt::skip]
+pub fn inverse_scale_v(s: Vector<f32, 3>) -> Matrix<f32, 4, 4> {
+    inverse_scale(s[0], s[1], s[2])
 }
