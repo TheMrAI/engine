@@ -35,7 +35,7 @@ use lina::{m, matrix::Matrix, vector::Vector};
 /// Generate a T translation matrix given 3 scalars.
 /// 
 /// Move a point.
-/// Affine.
+/// Affine, orthogonal.
 /// Preserves handedness.
 #[rustfmt::skip]
 pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix<f32, 4, 4> {
@@ -50,7 +50,7 @@ pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix
 /// Generate inverse of T translation matrix given 3 scalars.
 ///
 /// Move a point in the inverse of T.
-/// Affine.
+/// Affine, orthogonal.
 /// Preserves handedness.
 ///
 /// # Example:
@@ -105,7 +105,7 @@ pub fn inverse_translate_v(t_inv: &Vector<f32, 3>) -> Matrix<f32, 4, 4> {
 
 /// Generate counter-clockwise R rotation matrix by the given radians around the X axis.
 /// 
-/// Affine.
+/// Affine, orthogonal.
 /// 
 /// Prone to "Gimbal lock", if used with other matrix rotations.
 #[rustfmt::skip]
@@ -123,7 +123,7 @@ pub fn rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// Generate the inverse rotation of [rotate_x].
 /// Rotate clockwise by the given radians around the X axis.
 ///
-/// Affine.
+/// Affine, orthogonal.
 ///
 /// # Example:
 /// ```
@@ -145,7 +145,7 @@ pub fn inverse_rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
 
 /// Generate counter-clockwise R rotation matrix by the given radians around the Y axis.
 /// 
-/// Affine.
+/// Affine, orthogonal.
 /// 
 /// Prone to "Gimbal lock", if used with other matrix rotations. 
 #[rustfmt::skip]
@@ -163,7 +163,7 @@ pub fn rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// Generate the inverse rotation of [rotate_y].
 /// Rotate clockwise by the given radians around the Y axis.
 ///
-/// Affine.
+/// Affine, orthogonal.
 ///
 /// # Example:
 /// ```
@@ -185,7 +185,7 @@ pub fn inverse_rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
 
 /// Generate counter-clockwise R rotation matrix by the given radians around the Z axis.
 /// 
-/// Affine.
+/// Affine, orthogonal.
 /// 
 /// Prone to "Gimbal lock", if used with other matrix rotations.
 #[rustfmt::skip]
@@ -203,7 +203,7 @@ pub fn rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// Generate the inverse rotation of [rotate_z].
 /// Rotate clockwise by the given radians around the Z axis.
 ///
-/// Affine.
+/// Affine, orthogonal.
 ///
 /// # Example:
 /// ```
@@ -225,7 +225,7 @@ pub fn inverse_rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
 
 /// Generate S scaling matrix from the given scaling factors.
 /// 
-/// Affine.
+/// Affine, orthogonal.
 /// 
 /// A negative scaling factor for one or more scaling factors will
 /// result in a `reflection` or `mirror` matrix. Depending on the use
@@ -244,7 +244,7 @@ pub fn scale(scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix<f32, 4, 4> {
 
 /// Generate the inverse of the [scale] matrix.
 /// 
-/// Affine.
+/// Affine, orthogonal.
 /// 
 /// # Panics
 /// 
@@ -271,7 +271,7 @@ pub fn inverse_scale(scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix<f32, 4,
 
 /// Generate S scaling matrix from the given scaling [Vector].
 /// 
-/// Affine.
+/// Affine, orthogonal.
 /// 
 /// [Vector] based wrapper for [scale].
 #[rustfmt::skip]
@@ -281,7 +281,7 @@ pub fn scale_v(s: Vector<f32, 3>) -> Matrix<f32, 4, 4> {
 
 /// Generate the inverse of the [scale_v] matrix.
 /// 
-/// Affine.
+/// Affine, orthogonal.
 ///
 /// [Vector] based wrapper for [inverse_scale].
 /// 
