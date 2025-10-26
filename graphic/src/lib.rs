@@ -49,42 +49,6 @@ pub mod camera;
 pub mod transform;
 
 #[rustfmt::skip]
-pub fn rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
-    let cosine = rad_angle.cos();
-    let sine = rad_angle.sin();
-    m![
-        [1.0, 0.0,    0.0,    0.0],
-        [0.0, cosine, -sine,  0.0], 
-        [0.0, sine,   cosine, 0.0],
-        [0.0, 0.0,    0.0,    1.0]    
-    ]
-}
-
-#[rustfmt::skip]
-pub fn rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
-    let cosine = rad_angle.cos();
-    let sine = rad_angle.sin();
-    m![ 
-        [cosine, 0.0,  sine,    0.0],
-        [0.0,    1.0,  0.0,     0.0], 
-        [-sine,  0.0,  cosine,  0.0],
-        [0.0,    0.0,  0.0,     1.0] 
-    ]
-}
-
-#[rustfmt::skip]
-pub fn rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
-    let cosine = rad_angle.cos();
-    let sine = rad_angle.sin();
-    m![
-         [cosine, -sine,  0.0, 0.0],
-         [sine,   cosine, 0.0, 0.0],
-         [0.0,    0.0,    1.0, 0.0], 
-         [0.0,    0.0,    0.0, 1.0] 
-    ]
-}
-
-#[rustfmt::skip]
 pub fn scale(scale_x: f32, scale_y: f32, scale_z: f32) -> Matrix<f32, 4, 4> {
     m![
         [scale_x, 0.0,     0.0,     0.0],
