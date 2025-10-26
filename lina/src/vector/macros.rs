@@ -113,3 +113,45 @@ macro_rules! impl_sqrt_for_float_types {
 }
 
 impl_sqrt_for_float_types!(f32, f64);
+
+macro_rules! impl_neg_trait {
+   ($($T: ty),* $(,)*) => {$(
+        impl<const LENGTH: usize> std::ops::Neg for Vector<$T, LENGTH>
+        where
+            $T: std::ops::Mul<Output = $T> + Copy,
+        {
+            type Output = Vector<$T, LENGTH>;
+
+            /// Perform the `-V` operation.
+            fn neg(self) -> Self::Output {
+                self * -1 as $T
+            }
+        }
+    )*};
+}
+
+impl_neg_trait!(i8, i16, i32, i64, i128, isize, f32, f64);
+
+#[cfg(test)]
+mod tests {
+    use crate::vector::Vector;
+
+    #[test]
+    fn cross_on_basis_vectors() {
+        let x: Vector<f32, 3> = v![1.0, 0.0, 0.0];
+        let y: Vector<f32, 3> = v![0.0, 1.0, 0.0];
+        let z: Vector<f32, 3> = v![0.0, 0.0, 1.0];
+
+        assert_eq!(x.cross(y), z);
+        assert_eq!(y.cross(x), -z);
+        assert_eq!(y.cross(z), x);
+        assert_eq!(z.cross(y), -x);
+        assert_eq!(z.cross(x), y);
+        assert_eq!(x.cross(z), -y);
+    }
+
+    #[test]
+    fn negate() {
+        assert_eq!(-v![1.0, 2.0, 3.0], v![-1.0, -2.0, -3.0]);
+    }
+}
