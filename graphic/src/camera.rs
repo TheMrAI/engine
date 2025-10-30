@@ -5,7 +5,7 @@
 
 use lina::{matrix::Matrix, v, vector::Vector};
 
-use crate::{cross, look_at, transform::rotate_y};
+use crate::{cross, transform::look_at, transform::rotate_y};
 
 /// Simple Camera with basic movement support.
 ///
