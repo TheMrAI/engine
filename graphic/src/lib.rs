@@ -59,23 +59,6 @@ pub fn identity_matrix() -> Matrix<f32, 4, 4> {
 }
 
 #[rustfmt::skip]
-pub fn orthographic_projection(
-    left: f32,
-    right: f32,
-    bottom: f32,
-    top: f32,
-    z_near: f32,
-    z_far: f32,
-) -> Matrix<f32, 4, 4> {
-    m![
-        [2.0/(right - left), 0.0,                0.0,                  (right + left)  /(left - right)],
-        [0.0,                2.0/(top - bottom), 0.0,                  (top + bottom) / (bottom - top)],
-        [0.0,                0.0,                1.0/(z_near - z_far), z_near / (z_near - z_far)],
-        [0.0,                0.0,                0.0,                  1.0]
-    ]
-}
-
-#[rustfmt::skip]
 pub fn perspective_projection(fov_rad: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Matrix<f32, 4, 4> {
     let f = (std::f32::consts::PI * 0.5 - 0.5 * fov_rad).tan();
     let range_inverse = 1.0 / (z_near - z_far);

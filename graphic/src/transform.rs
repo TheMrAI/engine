@@ -401,3 +401,57 @@ pub fn look_at(
         [0.0,        0.0,        0.0,        1.0],
     ]
 }
+
+/// Generate an orthographic projection matrix for the given AABB (axis aligned bounding box).
+/// 
+/// Affine.
+/// 
+/// An orthographic projection keeps parallel lines parallel and objects maintain the
+/// same size, regardless of the distance to the camera.
+/// 
+/// The projection is nothing more than a translation and a scaling:
+/// ```text
+/// P = S(s)T(t)
+/// ```
+/// It merely moves and scales the view volume into **normalized view volume**.
+/// 
+/// This matrix assumes the dimensions of the **normalized view volume** to be
+/// ```text
+/// -1.0 <= x <= 1.0
+/// -1.0 <= y <= 1.0
+///  0.0 <= z <= 1.0
+/// ```
+/// where the coordinates use a left-handed system.
+/// This is what `DirectX` and `WebGPU` are using.
+/// 
+/// # Preconditions
+/// 
+/// This projection assumes that the camera is at the origo looking down at the -Z direction.
+/// Thus (`left`, `bottom`, `z_near`) is the minimum corner and (`right`, `top`, `z_far`) the maximum
+/// point of the bounding volume.
+/// For this reason for proper results, it is expected that
+/// ```text
+/// left < right
+/// bottom < top
+/// z_far < z_near
+/// ```
+/// Keep especial attention on `z_far` being smaller than `z_near`. This is because
+/// the camera is assumed to be looking down the -Z direction.
+/// 
+/// Breaking these preconditions leads to undefined behavior. 
+#[rustfmt::skip]
+pub fn orthographic_projection(
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
+    z_near: f32,
+    z_far: f32,
+) -> Matrix<f32, 4, 4> {
+    m![
+        [2.0 / (right - left), 0.0,                  0.0,                    -(right + left)  / (right - left)],
+        [0.0,                  2.0 / (top - bottom), 0.0,                    -(top + bottom) / (top - bottom)],
+        [0.0,                  0.0,                  1.0 / (z_far - z_near), -z_near / (z_far - z_near)],
+        [0.0,                  0.0,                  0.0,                    1.0]
+    ]
+}
