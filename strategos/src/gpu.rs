@@ -1,6 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use graphic::camera::Camera;
+use graphic::{camera::Camera, transform::rotate_y};
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
     DepthStencilState, Device, Face, Operations, Queue, RenderPassDepthStencilAttachment,
@@ -259,7 +259,12 @@ impl Wgpu {
         }
     }
 
-    pub fn render(&mut self, camera: &Camera) {
+    pub fn render(
+        &mut self,
+        camera: &Camera,
+        delta_t: std::time::Duration,
+        cube_delta_t: &mut std::time::Duration,
+    ) {
         // Create render texture
         let frame = self
             .surface
@@ -318,15 +323,30 @@ impl Wgpu {
             // view matrix
             let view_matrix = look_at;
 
-            let projecton_matrix = graphic::perspective_projection(
+            let projection_matrix = graphic::perspective_projection(
                 PI / 2.0, // PI / 2.0 rad => 90 degrees
                 self.inner_size.width as f32 / self.inner_size.height as f32,
                 1.0,
                 2000.0,
             );
-            let view_projection_matrix = projecton_matrix * view_matrix;
+
+            // Handle error with checked add?
+            // Makes little sense
+            let cube_full_rotation_time = std::time::Duration::from_secs(3);
+            *cube_delta_t = cube_delta_t.saturating_add(delta_t);
+            if *cube_delta_t > cube_full_rotation_time {
+                *cube_delta_t = cube_delta_t.saturating_sub(cube_full_rotation_time);
+            }
+            let rotate_y = rotate_y(
+                2.0 * PI
+                    * (cube_delta_t.as_millis() as f32
+                        / cube_full_rotation_time.as_millis() as f32),
+            );
+
+            let view_projection_matrix = projection_matrix * view_matrix * rotate_y;
             let matrix = view_projection_matrix;
 
+            // WGPU works with row major matrices
             let matrix = matrix.transpose();
 
             let uniforms = matrix

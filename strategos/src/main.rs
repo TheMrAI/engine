@@ -44,9 +44,15 @@ impl ApplicationHandler for App {
 
                 // Draw.
                 if let Some(app) = self.app.as_mut() {
-                    app.gpu.render(&app.camera);
+                    let current_time = std::time::Instant::now();
+                    let delta_t = current_time.duration_since(app.prev_render_time);
+                    app.gpu
+                        .render(&app.camera, delta_t, &mut app.delta_t_for_cube);
                     // for continuos rendering
                     app.window.request_redraw();
+
+                    // Dirty update time
+                    app.prev_render_time = current_time;
                 }
                 // else nothing to do yet
             }
