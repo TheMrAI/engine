@@ -58,19 +58,6 @@ pub fn identity_matrix() -> Matrix<f32, 4, 4> {
     ]
 }
 
-#[rustfmt::skip]
-pub fn perspective_projection(fov_rad: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Matrix<f32, 4, 4> {
-    let f = (std::f32::consts::PI * 0.5 - 0.5 * fov_rad).tan();
-    let range_inverse = 1.0 / (z_near - z_far);
-
-    m![
-        [f / aspect_ratio, 0.0, 0.0,                    0.0],
-        [0.0,              f,   0.0,                    0.0],
-        [0.0,              0.0, z_far * range_inverse,  z_near * z_far * range_inverse],
-        [0.0,              0.0, -1.0,                   0.0]
-    ]
-}
-
 /// Convenience function for generating cross product for 4D vectors
 ///
 /// As the cross product doesn't exist for 4D vectors, this function takes the first

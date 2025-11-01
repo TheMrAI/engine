@@ -455,3 +455,97 @@ pub fn orthographic_projection(
         [0.0,                  0.0,                  0.0,                    1.0]
     ]
 }
+
+// ok this works as expected!!!
+// now we need to translate and scale the z axis
+#[rustfmt::skip]
+pub fn perspective_projection_general(
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
+    z_near: f32,
+    z_far: f32,
+) -> Matrix<f32, 4, 4> {
+    // The values are inverted, because the matrix expects them to be positive.
+    // They could be expected to positive on the interface as well, but that would
+    // only lead to unnecessary confusion as this matrix expect the camera
+    // to face down the -Z axis in a right handed coordinate system.
+    let z_near = z_near * -1.0;
+    let z_far = z_far * -1.0;
+
+     m![
+        [(2.0 * z_near) / (right - left), 0.0, (right + left) / (right - left),    0.0],
+        [0.0, (2.0 * z_near) / (top - bottom), (top + bottom) / (top - bottom), 0.0],
+        [0.0, 0.0, -z_far/(z_far - z_near), -(z_far * z_near) / (z_far - z_near)],
+        [0.0, 0.0, -1.0, 0.0] 
+    ]
+}
+
+#[rustfmt::skip]
+pub fn perspective_projection_general_inf(
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
+    z_near: f32,
+) -> Matrix<f32, 4, 4> {
+    // The values are inverted, because the matrix expects them to be positive.
+    // They could be expected to positive on the interface as well, but that would
+    // only lead to unnecessary confusion as this matrix expect the camera
+    // to face down the -Z axis in a right handed coordinate system.
+    let z_near = z_near * -1.0;
+
+     m![
+        [(2.0 * z_near) / (right - left), 0.0, (right + left) / (right - left),    0.0],
+        [0.0, (2.0 * z_near) / (top - bottom), (top + bottom) / (top - bottom), 0.0],
+        [0.0, 0.0, -1.0, -z_near],
+        [0.0, 0.0, -1.0, 0.0] 
+    ]
+}
+
+/// For symmetric frustra it is assumed that:
+/// - r = -l
+/// - top = -bottom
+/// Which leads to the simplified transformation matrix derived from: [perspective_projection_general].
+#[rustfmt::skip]
+pub fn perspective_projection_symmetric(
+    right: f32,
+    top: f32,
+    z_near: f32,
+    z_far: f32,
+) -> Matrix<f32, 4, 4> {
+    // The values are inverted, because the matrix expects them to be positive.
+    // They could be expected to positive on the interface as well, but that would
+    // only lead to unnecessary confusion as this matrix expect the camera
+    // to face down the -Z axis in a right handed coordinate system.
+    let z_near = z_near * -1.0;
+    let z_far = z_far * -1.0;
+
+     m![
+        [z_near / right,    0.0,          0.0,                      0.0],
+        [0.0,               z_near / top, 0.0,                      0.0],
+        [0.0,               0.0,          -z_far/(z_far - z_near),  -(z_far * z_near) / (z_far - z_near)],
+        [0.0,               0.0,          -1.0,                     0.0] 
+    ]
+}
+
+#[rustfmt::skip]
+pub fn perspective_projection_symmetric_inf(
+    right: f32,
+    top: f32,
+    z_near: f32,
+) -> Matrix<f32, 4, 4> {
+    // The values are inverted, because the matrix expects them to be positive.
+    // They could be expected to positive on the interface as well, but that would
+    // only lead to unnecessary confusion as this matrix expect the camera
+    // to face down the -Z axis in a right handed coordinate system.
+    let z_near = z_near * -1.0;
+
+     m![
+        [z_near / right,    0.0,           0.0,   0.0],
+        [0.0,               z_near / top,  0.0,   0.0],
+        [0.0,               0.0,          -1.0,   -z_near],
+        [0.0,               0.0,          -1.0,    0.0] 
+    ]
+}
