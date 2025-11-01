@@ -29,6 +29,27 @@
 //! transforms.
 //!
 //! All translation, rotation, scaling, reflection and shearing matrices are affine.
+//!
+//! ## Projection matrices
+//!
+//! Projection matrices transform **world space** into the **normalized view volume**.
+//!
+//! The transformations bellow assume the dimensions of the **normalized view volume** to be
+//! ```text
+//! -1.0 <= x <= 1.0
+//! -1.0 <= y <= 1.0
+//!  0.0 <= z <= 1.0
+//! ```
+//! where the coordinates use a left-handed system.
+//! This is what `DirectX` and `WebGPU` uses.
+//! `OpenGL` and `Vulkan` are similar, but they are not supported here.
+//!
+//! The topic is not trivial and may be confusing to the uninitiated.
+//! Good resources describing the underlying math can be found at:
+//! [OpenGL Overview](https://www.songho.ca/opengl/gl_overview.html), while it is about
+//! `OpenGL` the basic math is the exact same. In combination with some in-depth descriptions
+//! from [Real-Time Rendering](https://www.realtimerendering.com/) book one may understand
+//! what is necessary.
 
 use lina::{m, matrix::Matrix, vector::Vector};
 mod project;
