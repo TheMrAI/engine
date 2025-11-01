@@ -24,20 +24,16 @@ pub fn translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix
 /// # Example:
 /// ```
 /// # use graphic::transform::translate;
-/// # use graphic::transform::inverse_translate;
+/// # use graphic::transform::inv_translate;
 /// # use graphic::identity_matrix;
 /// let T = translate(1.0, 2.0, 3.0);
-/// let T_inv = inverse_translate(1.0, 2.0, 3.0);
+/// let T_inv = inv_translate(1.0, 2.0, 3.0);
 ///
 /// let identity = identity_matrix();
 ///
 /// assert_eq!(T * T_inv, identity);
 /// ```
-pub fn inverse_translate(
-    translate_x: f32,
-    translate_y: f32,
-    translate_z: f32,
-) -> Matrix<f32, 4, 4> {
+pub fn inv_translate(translate_x: f32, translate_y: f32, translate_z: f32) -> Matrix<f32, 4, 4> {
     translate(-translate_x, -translate_y, -translate_z)
 }
 
@@ -51,22 +47,22 @@ pub fn translate_v(t: &Vector<f32, 3>) -> Matrix<f32, 4, 4> {
 
 /// Generate inverse of T translation matrix by a given `t` [Vector].
 ///
-/// Vector based wrapper for [inverse_translate].
+/// Vector based wrapper for [inv_translate].
 ///
 /// # Example:
 /// ```
 /// # use graphic::transform::translate_v;
-/// # use graphic::transform::inverse_translate_v;
+/// # use graphic::transform::inv_translate_v;
 /// # use graphic::identity_matrix;
 /// # use lina::v;
 /// let v = v![1.0, 2.0, 3.0];
 /// let T = translate_v(&v);
-/// let T_inv = inverse_translate_v(&v);
+/// let T_inv = inv_translate_v(&v);
 ///
 /// let identity = identity_matrix();
 ///
 /// assert_eq!(T * T_inv, identity);
 /// ```
-pub fn inverse_translate_v(t_inv: &Vector<f32, 3>) -> Matrix<f32, 4, 4> {
-    inverse_translate(t_inv[0], t_inv[1], t_inv[2])
+pub fn inv_translate_v(t_inv: &Vector<f32, 3>) -> Matrix<f32, 4, 4> {
+    inv_translate(t_inv[0], t_inv[1], t_inv[2])
 }

@@ -26,17 +26,17 @@ pub fn rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// ```
 /// # use std::f32::consts::PI;
 /// # use graphic::transform::rotate_x;
-/// # use graphic::transform::inverse_rotate_x;
+/// # use graphic::transform::inv_rotate_x;
 /// # use graphic::identity_matrix;
 /// let radians = PI/2.0;
 /// let Rx = rotate_x(radians);
-/// let Rx_inv = inverse_rotate_x(radians);
+/// let Rx_inv = inv_rotate_x(radians);
 ///
 /// let identity = identity_matrix();
 ///
 /// assert_eq!(Rx * Rx_inv, identity);
 /// ```
-pub fn inverse_rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
+pub fn inv_rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
     rotate_x(-rad_angle)
 }
 
@@ -66,17 +66,17 @@ pub fn rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// ```
 /// # use std::f32::consts::PI;
 /// # use graphic::transform::rotate_y;
-/// # use graphic::transform::inverse_rotate_y;
+/// # use graphic::transform::inv_rotate_y;
 /// # use graphic::identity_matrix;
 /// let radians = PI/2.0;
 /// let Rx = rotate_y(radians);
-/// let Rx_inv = inverse_rotate_y(radians);
+/// let Rx_inv = inv_rotate_y(radians);
 ///
 /// let identity = identity_matrix();
 ///
 /// assert_eq!(Rx * Rx_inv, identity);
 /// ```
-pub fn inverse_rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
+pub fn inv_rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
     rotate_y(-rad_angle)
 }
 
@@ -106,16 +106,16 @@ pub fn rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// ```
 /// # use std::f32::consts::PI;
 /// # use graphic::transform::rotate_z;
-/// # use graphic::transform::inverse_rotate_z;
+/// # use graphic::transform::inv_rotate_z;
 /// # use graphic::identity_matrix;
 /// let radians = PI/2.0;
 /// let Rx = rotate_z(radians);
-/// let Rx_inv = inverse_rotate_z(radians);
+/// let Rx_inv = inv_rotate_z(radians);
 ///
 /// let identity = identity_matrix();
 ///
 /// assert_eq!(Rx * Rx_inv, identity);
 /// ```
-pub fn inverse_rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
+pub fn inv_rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
     rotate_z(-rad_angle)
 }

@@ -38,7 +38,7 @@ use lina::{m, matrix::Matrix};
 /// 
 /// Breaking these preconditions leads to undefined behavior. 
 #[rustfmt::skip]
-pub fn orthographic_projection(
+pub fn orthographic_proj(
     left: f32,
     right: f32,
     bottom: f32,
@@ -57,7 +57,7 @@ pub fn orthographic_projection(
 // ok this works as expected!!!
 // now we need to translate and scale the z axis
 #[rustfmt::skip]
-pub fn perspective_projection_general(
+pub fn perspective_proj_g(
     left: f32,
     right: f32,
     bottom: f32,
@@ -81,7 +81,7 @@ pub fn perspective_projection_general(
 }
 
 #[rustfmt::skip]
-pub fn perspective_projection_general_inf(
+pub fn perspective_proj_g_inf(
     left: f32,
     right: f32,
     bottom: f32,
@@ -106,9 +106,9 @@ pub fn perspective_projection_general_inf(
 /// - r = -l
 /// - top = -bottom
 /// 
-/// Which leads to the simplified transformation matrix derived from: [perspective_projection_general].
+/// Which leads to the simplified transformation matrix derived from: [perspective_proj_g].
 #[rustfmt::skip]
-pub fn perspective_projection_symmetric(
+pub fn perspective_proj_sym(
     right: f32,
     top: f32,
     z_near: f32,
@@ -130,7 +130,7 @@ pub fn perspective_projection_symmetric(
 }
 
 #[rustfmt::skip]
-pub fn perspective_projection_symmetric_inf(
+pub fn perspective_proj_sym_inf(
     right: f32,
     top: f32,
     z_near: f32,
@@ -150,7 +150,7 @@ pub fn perspective_projection_symmetric_inf(
 }
 
 #[rustfmt::skip]
-pub fn perspective_projection_symmetric_horizontal_fov(
+pub fn perspective_proj_sym_h_fov(
     fov_x: f32,
     aspect_ratio: f32,
     z_near: f32,
@@ -163,11 +163,11 @@ pub fn perspective_projection_symmetric_horizontal_fov(
     let right = -z_near * tangent;
     let top = right / aspect_ratio;
 
-    perspective_projection_symmetric(right, top, z_near, z_far)
+    perspective_proj_sym(right, top, z_near, z_far)
 }
 
 #[rustfmt::skip]
-pub fn perspective_projection_symmetric_vertical_fov(
+pub fn perspective_proj_sym_v_fov(
     fov_y: f32,
     aspect_ratio: f32,
     z_near: f32,
@@ -180,5 +180,5 @@ pub fn perspective_projection_symmetric_vertical_fov(
     let top = -z_near * tangent;
     let right = top * aspect_ratio;
 
-    perspective_projection_symmetric(right, top, z_near, z_far)
+    perspective_proj_sym(right, top, z_near, z_far)
 }
