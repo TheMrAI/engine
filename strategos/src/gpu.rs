@@ -324,14 +324,13 @@ impl Wgpu {
             let view_matrix = look_at;
 
             let aspect_ratio = self.inner_size.width as f32 / self.inner_size.height as f32;
-            let half_width = 8.0 / 4.0;
-            let half_height = half_width / aspect_ratio;
-
-            let projection_matrix = graphic::transform::perspective_projection_symmetric_inf(
-                half_width,
-                half_height,
-                -1.0,
-            );
+            let projection_matrix =
+                graphic::transform::perspective_projection_symmetric_horizontal_fov(
+                    PI / 2.0,
+                    aspect_ratio,
+                    -1.0,
+                    -20000.0,
+                );
 
             // Handle error with checked add?
             // Makes little sense

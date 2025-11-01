@@ -471,8 +471,8 @@ pub fn perspective_projection_general(
     // They could be expected to positive on the interface as well, but that would
     // only lead to unnecessary confusion as this matrix expect the camera
     // to face down the -Z axis in a right handed coordinate system.
-    let z_near = z_near * -1.0;
-    let z_far = z_far * -1.0;
+    let z_near = -z_near;
+    let z_far = -z_far;
 
      m![
         [(2.0 * z_near) / (right - left), 0.0, (right + left) / (right - left),    0.0],
@@ -494,7 +494,7 @@ pub fn perspective_projection_general_inf(
     // They could be expected to positive on the interface as well, but that would
     // only lead to unnecessary confusion as this matrix expect the camera
     // to face down the -Z axis in a right handed coordinate system.
-    let z_near = z_near * -1.0;
+    let z_near = -z_near;
 
      m![
         [(2.0 * z_near) / (right - left), 0.0, (right + left) / (right - left),    0.0],
@@ -507,6 +507,7 @@ pub fn perspective_projection_general_inf(
 /// For symmetric frustra it is assumed that:
 /// - r = -l
 /// - top = -bottom
+/// 
 /// Which leads to the simplified transformation matrix derived from: [perspective_projection_general].
 #[rustfmt::skip]
 pub fn perspective_projection_symmetric(
@@ -519,8 +520,8 @@ pub fn perspective_projection_symmetric(
     // They could be expected to positive on the interface as well, but that would
     // only lead to unnecessary confusion as this matrix expect the camera
     // to face down the -Z axis in a right handed coordinate system.
-    let z_near = z_near * -1.0;
-    let z_far = z_far * -1.0;
+    let z_near = -z_near;
+    let z_far = -z_far;
 
      m![
         [z_near / right,    0.0,          0.0,                      0.0],
@@ -540,7 +541,7 @@ pub fn perspective_projection_symmetric_inf(
     // They could be expected to positive on the interface as well, but that would
     // only lead to unnecessary confusion as this matrix expect the camera
     // to face down the -Z axis in a right handed coordinate system.
-    let z_near = z_near * -1.0;
+    let z_near = -z_near;
 
      m![
         [z_near / right,    0.0,           0.0,   0.0],
@@ -548,4 +549,38 @@ pub fn perspective_projection_symmetric_inf(
         [0.0,               0.0,          -1.0,   -z_near],
         [0.0,               0.0,          -1.0,    0.0] 
     ]
+}
+
+#[rustfmt::skip]
+pub fn perspective_projection_symmetric_horizontal_fov(
+    fov_x: f32,
+    aspect_ratio: f32,
+    z_near: f32,
+    z_far: f32,
+) -> Matrix<f32, 4, 4> {
+    
+    let tangent = (fov_x / 2.0).tan();
+    // The z_near is negated because it comes in as a negative value
+    // but we do not with to invert the right value.
+    let right = -z_near * tangent;
+    let top = right / aspect_ratio;
+
+    perspective_projection_symmetric(right, top, z_near, z_far)
+}
+
+#[rustfmt::skip]
+pub fn perspective_projection_symmetric_vertical_fov(
+    fov_y: f32,
+    aspect_ratio: f32,
+    z_near: f32,
+    z_far: f32,
+) -> Matrix<f32, 4, 4> {
+    
+    let tangent = (fov_y / 2.0).tan();
+    // The z_near is negated because it comes in as a negative value
+    // but we do not with to invert the right value.
+    let top = -z_near * tangent;
+    let right = top * aspect_ratio;
+
+    perspective_projection_symmetric(right, top, z_near, z_far)
 }
