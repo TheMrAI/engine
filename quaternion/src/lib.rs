@@ -37,10 +37,13 @@
 //! - [Quaternion by Song Ho Ahn](https://www.songho.ca/math/quaternion/quaternion.html)
 //! - [Real Time Rendering, quaternion chapter](https://www.realtimerendering.com/)
 
+use std::ops::{Add, Mul};
+
 use lina::vector::Vector;
 
 mod default;
 mod into;
+mod length;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Quaternion<ValueType> {
@@ -59,6 +62,45 @@ where
     pub fn vector(&self) -> Vector<ValueType, 3> {
         self.vector
     }
+
+    /// Construct a quaternion by supplying the scalar and vector parts directly.
+    ///
+    /// Given a quaternion q:
+    /// ```text
+    /// q = (s, v) = s + ix + jy + kz
+    /// ```
+    ///
+    /// Where `s` is the scalar and `v = [x, y, z]` vector.
+    pub fn new_parts(scalar: ValueType, vector: Vector<ValueType, 3>) -> Quaternion<ValueType> {
+        Quaternion { scalar, vector }
+    }
+}
+
+impl<ValueType> Quaternion<ValueType>
+where
+    ValueType: Default + Copy + Add<Output = ValueType> + Mul<Output = ValueType>,
+{
+    /// Calculate the second power of the length/norm.
+    ///
+    /// For a given quaternion q:
+    /// ```text
+    /// q = s + ix + jy + kz
+    /// ```
+    /// It will calculate the length/norm `n(q)^2`:
+    /// ```text
+    /// n(q)^2 = s^2 + x^2 + y^2 + z^2
+    /// ```
+    ///
+    /// Instead of having to call [Quaternion::length] and raising it to the second
+    /// power the function calculates the value directly.
+    pub fn length_squared(&self) -> ValueType {
+        self.vector
+            .as_slice()
+            .iter()
+            .fold(self.scalar * self.scalar, |acc, value| {
+                acc + (*value * *value)
+            })
+    }
 }
 
 impl Quaternion<f32> {
@@ -69,10 +111,6 @@ impl Quaternion<f32> {
             scalar: tensor * theta.cos(),
             vector: tensor * theta.sin() * rotation_axis,
         }
-    }
-
-    pub fn new_parts(scalar: f32, vector: Vector<f32, 3>) -> Quaternion<f32> {
-        Quaternion { scalar, vector }
     }
 
     pub fn new_unit(theta: f32, rotation_axis: Vector<f32, 3>) -> Quaternion<f32> {
@@ -90,19 +128,6 @@ impl Quaternion<f32> {
             scalar: 0.0,
             vector: v,
         }
-    }
-
-    pub fn length_squared(&self) -> f32 {
-        self.vector
-            .as_slice()
-            .iter()
-            .fold(self.scalar * self.scalar, |acc, value| {
-                acc + (*value * *value)
-            })
-    }
-
-    pub fn length(&self) -> f32 {
-        self.length_squared().sqrt()
     }
 
     pub fn conjugate(&self) -> Quaternion<f32> {
@@ -164,5 +189,18 @@ where
     /// Implement `Vector<T> / T` operation.
     fn div(self, rhs: f32) -> Self::Output {
         Quaternion::new_parts(self.scalar / rhs, self.vector / rhs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use lina::v;
+
+    use crate::Quaternion;
+
+    #[test]
+    fn length_squared() {
+        let q = Quaternion::new_parts(1, v![2, 3, 4]);
+        assert_eq!(q.length_squared(), 30);
     }
 }
