@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn default() {
         let q = Quaternion::<i32>::default();
-        assert_eq!(q.scalar(), 0);
+        assert_eq!(q.scalar(), 1);
         assert_eq!(q.vector(), Vector::from_value(0));
     }
 }

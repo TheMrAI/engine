@@ -1,24 +1,47 @@
-use lina::{m, matrix::Matrix, vector::Vector};
+//! # Quaternion
+//!
+//! Used for representing unique orientations in 3D space.
+//!
+//! A quaternion has the following form:
+//! ```text
+//! q = B/A(cos(Theta) + u*sin(Theta))
+//! ```
+//! where the scalar `B/A` is the tensor (scaling factor)
+//! and `(cost(Theta) + u*sin(Theta))` is the versor (the rotation).
+//!
+//! ```text
+//! S(q) = B/A * cos(Theta)
+//! V(q) = u * B/A * sin(Theta)
+//!
+//! q = S(q) + V(q) = s + (ix + jy + kz) =
+//! = [s, v]
+//! ```
+//!
+//! Some sources swap the `[s, v]` component order in their definitions `[v, s]`.
+//!
+//! This form is useful for observing/understanding the transformation encoded
+//! within the quaternion. But for defining operations on a quaternion a different
+//! form is used.
+//!
+//! ```text
+//! q = (s, V) = s + i * Vx + j * Vy + k * Vz
+//! i^2 = j^2 = k^2 = -1
+//! jk = -kj = i
+//! ki = -ik = j
+//! ij = -ji = k
+//! ```
+//!
+//! Where `s` is the real and `V` is the imaginary part.
+//!
+//! Some good resources on quaternions:
+//! - [Quaternion by Song Ho Ahn](https://www.songho.ca/math/quaternion/quaternion.html)
+//! - [Real Time Rendering, quaternion chapter](https://www.realtimerendering.com/)
+
+use lina::vector::Vector;
 
 mod default;
+mod into;
 
-///
-/// A quaternion has the following form:
-/// ```text
-/// q = B/A(cos(Theta) + u*sin(Theta))
-/// ```
-/// where the scalar `B/A` is the tensor (scaling factor)
-/// and `(cost(Theta) + u*sin(Theta))` is the versor (the rotation).
-///
-/// ```text
-/// S(q) = B/A * cos(Theta)
-/// V(q) = u * B/A * sin(Theta)
-///
-/// q = S(q) + V(q) = s + (ix + jy + kz) =
-/// = [s, v]
-/// ```
-///
-/// Some sources swap the `[s, v]` component order in their definitions `[v, s]`.
 #[derive(Copy, Clone, Debug)]
 pub struct Quaternion<ValueType> {
     scalar: ValueType,
@@ -40,6 +63,8 @@ where
 
 impl Quaternion<f32> {
     pub fn new(tensor: f32, theta: f32, rotation_axis: Vector<f32, 3>) -> Quaternion<f32> {
+        let theta = theta / 2.0;
+
         Quaternion {
             scalar: tensor * theta.cos(),
             vector: tensor * theta.sin() * rotation_axis,
@@ -57,6 +82,13 @@ impl Quaternion<f32> {
         Quaternion {
             scalar: theta.cos(),
             vector: theta.sin() * rotation_axis,
+        }
+    }
+
+    pub fn from_vector(v: Vector<f32, 3>) -> Quaternion<f32> {
+        Quaternion {
+            scalar: 0.0,
+            vector: v,
         }
     }
 
@@ -98,32 +130,6 @@ impl Quaternion<f32> {
     }
 }
 
-impl std::convert::Into<Matrix<f32, 4, 4>> for Quaternion<f32> {
-    fn into(self) -> Matrix<f32, 4, 4> {
-        let x = self.vector[0];
-        let y = self.vector[1];
-        let z = self.vector[2];
-        let w = self.scalar;
-
-        let v0_0 = w.powi(2) + x.powi(2) - y.powi(2) - z.powi(2);
-        let v0_1 = 2.0 * x * y - 2.0 * w * z;
-        let v0_2 = 2.0 * x * z + 2.0 * w * y;
-        let v1_0 = 2.0 * x * y + 2.0 * w * z;
-        let v1_1 = w.powi(2) - x.powi(2) + y.powi(2) - z.powi(2);
-        let v1_2 = 2.0 * y * z - 2.0 * w * x;
-        let v2_0 = 2.0 * x * z - 2.0 * w * y;
-        let v2_1 = 2.0 * y * z + 2.0 * w * x;
-        let v2_2 = w.powi(2) - x.powi(2) - y.powi(2) + z.powi(2);
-
-        m!(
-            [v0_0, v0_1, v0_2, 0.0],
-            [v1_0, v1_1, v1_2, 0.0],
-            [v2_0, v2_1, v2_2, 0.0],
-            [0.0, 0.0, 0.0, 1.0]
-        )
-    }
-}
-
 impl std::ops::Mul<f32> for Quaternion<f32>
 where
     f32: std::ops::Mul<Output = f32> + Copy,
@@ -136,10 +142,7 @@ where
     }
 }
 
-impl std::ops::Mul<Quaternion<f32>> for Quaternion<f32>
-where
-    f32: std::ops::Mul<Output = f32> + Copy,
-{
+impl std::ops::Mul<Quaternion<f32>> for Quaternion<f32> {
     type Output = Quaternion<f32>;
 
     /// Performs the `Quaternion<T> * Quaternion<T>` operation
