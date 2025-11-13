@@ -5,3 +5,6 @@ edition = "2024"
 
 [dependencies]
 lina = { path = "../lina" }
+
+[dev-dependencies]
+float_eq = "1.0.1"

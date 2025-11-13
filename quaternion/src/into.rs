@@ -28,11 +28,11 @@ macro_rules! impl_into_matrix_for_float_types {
         /// components of `VR` as its imaginary part.
         ///
         /// ```
-        /// use lina::v;
-        /// use quaternion::Quaternion;
-        /// use lina::matrix::Matrix;
-        /// use std::f32::consts::PI;
-        ///
+        /// # use lina::v;
+        /// # use quaternion::Quaternion;
+        /// # use lina::matrix::Matrix;
+        /// # use std::f32::consts::PI;
+        /// # use float_eq::assert_float_eq;
         /// let v = v![1.0, 2.0, 3.0, 1.0];
         /// let p = Quaternion::from_vector(v.xyz().unwrap());
         /// let q = Quaternion::new_unit(PI / 2.0, v![1.0, 0.0, 0.0]);
@@ -42,7 +42,9 @@ macro_rules! impl_into_matrix_for_float_types {
         /// let with_mq = mq * v;
         /// let with_conjugate = p.conjugate_by(q);
         ///
-        /// //assert_eq!(with_mq.xyz().unwrap(), with_conjugate.vector());
+        /// let lhs = with_mq.xyz().unwrap();
+        /// let rhs = with_conjugate.vector();
+        /// lhs.as_slice().iter().zip(rhs.as_slice()).for_each(|(l, r)| assert_float_eq!(l, r, ulps <= 4));
         /// ```
         impl std::convert::Into<Matrix<$T, 4, 4>> for Quaternion<$T> {
             fn into(self) -> Matrix<$T, 4, 4> {
