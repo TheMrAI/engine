@@ -34,8 +34,8 @@ macro_rules! impl_matrix_from_for_float_types {
         /// # use std::f32::consts::PI;
         /// # use float_eq::assert_float_eq;
         /// let v = v![1.0, 2.0, 3.0, 1.0];
-        /// let p = Quaternion::from_vector(v.xyz().unwrap());
-        /// let q = Quaternion::new_unit(PI / 2.0, v![1.0, 0.0, 0.0]);
+        /// let p = Quaternion::<f32>::from_vector(v.xyz().unwrap());
+        /// let q = Quaternion::<f32>::new_unit(PI / 2.0, v![1.0, 0.0, 0.0]);
         ///
         /// let mq: Matrix<f32, 4, 4> = q.into();
         ///
