@@ -43,7 +43,7 @@ use lina::vector::Vector;
 
 mod conjugate;
 mod default;
-mod into;
+mod from;
 mod length;
 mod mul;
 mod mul_assign;
