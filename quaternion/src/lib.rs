@@ -41,6 +41,8 @@ use std::ops::{Add, Mul};
 
 use lina::vector::Vector;
 
+mod add;
+mod add_assign;
 mod conjugate;
 mod default;
 mod from;
