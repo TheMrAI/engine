@@ -70,6 +70,15 @@ where
     /// ```text
     /// qp != pq
     /// ```
+    ///
+    /// Multiplying multiple quaternions in sequence implies combining the
+    /// transformations one after another. Similar to transformation matrices,
+    /// with the exception that "Gimbal lock" can no longer occur.
+    ///
+    /// For example given 3 quaternions, `pitch`, `yaw`, `roll` their multiplication
+    /// `q = pitch * yaw * roll`, represents a transformation that first applies the roll,
+    /// then the yaw and finally the pitch, just as a similar expression for transformation matrices
+    /// would.
     fn mul(self, rhs: Quaternion<ValueType>) -> Self::Output {
         let scalar = (self.scalar * rhs.scalar) - (self.vector * rhs.vector);
         let vector =
