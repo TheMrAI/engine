@@ -49,6 +49,8 @@ mod from;
 mod length;
 mod mul;
 mod mul_assign;
+mod sub;
+mod sub_assign;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Quaternion<ValueType> {
@@ -58,7 +60,7 @@ pub struct Quaternion<ValueType> {
 
 impl<ValueType> Quaternion<ValueType>
 where
-    ValueType: Default + Copy,
+    ValueType: Copy,
 {
     pub fn scalar(&self) -> ValueType {
         self.scalar
