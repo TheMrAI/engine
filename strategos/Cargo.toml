@@ -9,3 +9,4 @@ wgpu = "25.0.2"
 winit = "0.30.11"
 lina = { path = "../lina" }
 graphic = { path = "../graphic" }
+quaternion = { path = "../quaternion" }

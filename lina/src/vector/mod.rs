@@ -11,6 +11,7 @@
 mod accessor;
 mod add;
 mod add_assign;
+mod cross;
 mod default;
 mod div;
 mod div_assign;
