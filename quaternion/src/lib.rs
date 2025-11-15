@@ -41,6 +41,7 @@ use std::ops::{Add, Mul};
 
 use lina::vector::Vector;
 
+mod conjugate;
 mod default;
 mod into;
 mod length;
@@ -129,13 +130,6 @@ impl Quaternion<f32> {
         Quaternion {
             scalar: 0.0,
             vector: v,
-        }
-    }
-
-    pub fn conjugate(&self) -> Quaternion<f32> {
-        Quaternion {
-            scalar: self.scalar,
-            vector: -1.0 * self.vector,
         }
     }
 
