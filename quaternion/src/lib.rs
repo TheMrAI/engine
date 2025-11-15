@@ -44,8 +44,9 @@ use lina::vector::Vector;
 mod default;
 mod into;
 mod length;
+mod mul;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Quaternion<ValueType> {
     scalar: ValueType,
     vector: Vector<ValueType, 3>,
@@ -152,31 +153,6 @@ impl Quaternion<f32> {
     /// ```
     pub fn conjugate_by(self, q: Quaternion<f32>) -> Quaternion<f32> {
         q * self * q.inverse()
-    }
-}
-
-impl std::ops::Mul<f32> for Quaternion<f32>
-where
-    f32: std::ops::Mul<Output = f32> + Copy,
-{
-    type Output = Quaternion<f32>;
-
-    /// Performs the `Quaternion<T> * T` operation
-    fn mul(self, rhs: f32) -> Self::Output {
-        Quaternion::new_parts(self.scalar * rhs, self.vector * rhs)
-    }
-}
-
-impl std::ops::Mul<Quaternion<f32>> for Quaternion<f32> {
-    type Output = Quaternion<f32>;
-
-    /// Performs the `Quaternion<T> * Quaternion<T>` operation
-    fn mul(self, rhs: Quaternion<f32>) -> Self::Output {
-        let scalar = (self.scalar * rhs.scalar) - (self.vector * rhs.vector);
-        let vector =
-            self.vector.cross(rhs.vector) + (self.scalar * rhs.vector) + (rhs.scalar * self.vector);
-
-        Quaternion::new_parts(scalar, vector)
     }
 }
 
