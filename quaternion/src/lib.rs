@@ -45,6 +45,8 @@ mod add;
 mod add_assign;
 mod conjugate;
 mod default;
+mod div;
+mod div_assign;
 mod from;
 mod length;
 mod mul;
@@ -152,18 +154,6 @@ impl Quaternion<f32> {
     /// ```
     pub fn conjugate_by(self, q: Quaternion<f32>) -> Quaternion<f32> {
         q * self * q.inverse()
-    }
-}
-
-impl std::ops::Div<f32> for Quaternion<f32>
-where
-    f32: std::ops::Div<f32, Output = f32> + Copy,
-{
-    type Output = Quaternion<f32>;
-
-    /// Implement `Vector<T> / T` operation.
-    fn div(self, rhs: f32) -> Self::Output {
-        Quaternion::new_parts(self.scalar / rhs, self.vector / rhs)
     }
 }
 
