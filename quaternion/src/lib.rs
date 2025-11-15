@@ -45,6 +45,7 @@ mod default;
 mod into;
 mod length;
 mod mul;
+mod mul_assign;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Quaternion<ValueType> {
