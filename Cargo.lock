@@ -527,6 +527,7 @@ name = "graphic"
 version = "0.1.0"
 dependencies = [
  "lina",
+ "quaternion",
 ]
 
 [[package]]
