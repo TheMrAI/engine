@@ -70,6 +70,61 @@ impl<ValueType, const COLS: usize, const ROWS: usize> Matrix<ValueType, COLS, RO
     }
 }
 
+impl Matrix<f32, 3, 3> {
+    pub fn adjoint(&self) -> Matrix<f32, 3, 3> {
+        let d00 = self[(1, 1)] * self[(2, 2)] - self[(1, 2)] * self[(2, 1)];
+        let d10 = self[(0, 1)] * self[(2, 2)] - self[(0, 2)] * self[(2, 1)];
+        let d20 = self[(0, 1)] * self[(1, 2)] - self[(0, 2)] * self[(1, 1)];
+        let d01 = self[(1, 0)] * self[(2, 2)] - self[(1, 2)] * self[(2, 0)];
+        let d11 = self[(0, 0)] * self[(2, 2)] - self[(0, 2)] * self[(2, 0)];
+        let d21 = self[(0, 0)] * self[(1, 2)] - self[(0, 2)] * self[(1, 0)];
+        let d02 = self[(1, 0)] * self[(2, 1)] - self[(1, 1)] * self[(2, 0)];
+        let d12 = self[(0, 0)] * self[(2, 1)] - self[(0, 1)] * self[(2, 0)];
+        let d22 = self[(0, 0)] * self[(1, 1)] - self[(0, 1)] * self[(1, 0)];
+
+        Matrix::from_matrix([[d00, -d10, d20], [-d01, d11, -d21], [d02, -d12, d22]])
+    }
+
+    pub fn determinant(&self) -> f32 {
+        self[(0, 0)] * self[(1, 1)] * self[(2, 2)]
+            + self[(0, 1)] * self[(1, 2)] * self[(2, 0)]
+            + self[(0, 2)] * self[(1, 0)] * self[(2, 1)]
+            - self[(0, 2)] * self[(1, 1)] * self[(2, 0)]
+            - self[(0, 1)] * self[(1, 0)] * self[(2, 2)]
+            - self[(0, 0)] * self[(1, 2)] * self[(2, 1)]
+    }
+
+    /// Calculate the inverse of the [Matrix].
+    ///
+    /// The [Matrix] must be a square matrix and its
+    /// determinant cannot be zero.
+    ///
+    /// None is returned if the determinant was zero.
+    ///
+    /// ```
+    /// # use lina::m;
+    ///
+    /// let m = m![[1.0, 2.0, 3.0],
+    ///            [4.0, 5.0, 6.0],
+    ///            [0.0, 0.0, 9.0]];
+    /// let m_inv = m.inverse().unwrap();
+    ///
+    /// let identity = m![[1.0, 0.0, 0.0],
+    ///                   [0.0, 1.0, 0.0],
+    ///                   [0.0, 0.0, 1.0]];
+    /// assert_eq!(m.determinant(), -27.0);
+    /// //assert_eq!(m.adjoint(), identity);
+    /// assert_eq!(identity, m * m_inv);
+    /// ```
+    pub fn inverse(&self) -> Option<Matrix<f32, 3, 3>> {
+        let determinant = self.determinant();
+        if determinant == 0.0 {
+            return None;
+        }
+        Some((1.0 / self.determinant()) * self.adjoint())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::m;
