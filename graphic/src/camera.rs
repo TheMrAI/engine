@@ -4,51 +4,89 @@
 //!
 
 use lina::{matrix::Matrix, v, vector::Vector};
+use quaternion::Quaternion;
 
-use crate::{
-    cross,
-    transform::{look_at, rotate_y},
-};
+use crate::transform::look_at;
 
 /// Simple Camera with basic movement support.
 ///
 /// It supports a basic classic FPS like movement,
 /// by going forward, backwards, up/down and turning left/right.
-/// Not very smart, or good, but it works for now.
-/// More complicated movements like, proper mouse support are
-/// problematic with the current matrix rotation system.
 pub struct Camera {
-    eye: Vector<f32, 4>,
-    look_dir: Vector<f32, 4>,
-    up_dir: Vector<f32, 4>,
+    eye: Vector<f32, 3>,
+    pitch: f32,
+    roll: f32,
+    yaw: f32,
 }
 
 impl Camera {
+    fn recalculate_orientation(&self) -> Quaternion<f32> {
+        let pitch = Quaternion::<f32>::new_unit(self.pitch, v![1.0, 0.0, 0.0]);
+        // Camera is looking down at the -Z direction.
+        let roll = Quaternion::<f32>::new_unit(self.roll, v![0.0, 0.0, -1.0]);
+        let yaw = Quaternion::<f32>::new_unit(self.yaw, v![0.0, 1.0, 0.0]);
+
+        roll * yaw * pitch
+    }
+
     pub fn move_on_look_at_vector(&mut self, units: f32) {
-        self.eye += self.look_dir * units;
+        let q = self.recalculate_orientation();
+
+        let look_dir = Quaternion::from_vector(v![0.0, 0.0, -1.0])
+            .conjugate_by(q)
+            .vector();
+
+        self.eye += look_dir * units;
     }
 
     pub fn move_on_right_vector(&mut self, units: f32) {
-        let right = cross(self.look_dir, self.up_dir).norm();
+        let q = self.recalculate_orientation();
+
+        let look_dir = Quaternion::from_vector(v![0.0, 0.0, -1.0])
+            .conjugate_by(q)
+            .vector();
+        let up_dir = Quaternion::from_vector(v![0.0, 1.0, 0.0])
+            .conjugate_by(q)
+            .vector();
+
+        let right = look_dir.cross(up_dir).norm();
         self.eye += right * units;
     }
 
     pub fn move_on_up_vector(&mut self, units: f32) {
-        self.eye += self.up_dir * units;
+        let q = self.recalculate_orientation();
+
+        let up_dir = Quaternion::from_vector(v![0.0, 1.0, 0.0])
+            .conjugate_by(q)
+            .vector();
+        self.eye += up_dir * units;
+    }
+
+    pub fn roll(&mut self, radians: f32) {
+        self.roll += radians;
+    }
+
+    pub fn pitch(&mut self, radians: f32) {
+        self.pitch += radians;
     }
 
     pub fn yaw(&mut self, radians: f32) {
-        self.look_dir = rotate_y(radians) * self.look_dir;
+        self.yaw += radians;
     }
 
     pub fn as_transform_matrix(&self) -> Matrix<f32, 4, 4> {
-        let target = self.eye + self.look_dir;
+        let q = self.recalculate_orientation();
+
+        let look_dir = Quaternion::from_vector(v![0.0, 0.0, -1.0])
+            .conjugate_by(q)
+            .vector();
+        let up_dir = Quaternion::from_vector(v![0.0, 1.0, 0.0])
+            .conjugate_by(q)
+            .vector();
+
+        let target = self.eye + look_dir;
         // Unwrap is perfectly safe as we are in a 4x4 matrix
-        look_at(
-            self.eye.xyz().unwrap(),
-            target.xyz().unwrap(),
-            self.up_dir.xyz().unwrap(),
-        )
+        look_at(self.eye, target, up_dir)
     }
 }
 
@@ -57,9 +95,10 @@ impl Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            eye: v![0.0, 0.0, 5.0, 1.0],
-            look_dir: v![0.0, 0.0, -1.0, 0.0],
-            up_dir: v![0.0, 1.0, 0.0, 0.0],
+            eye: v![0.0, 0.0, 5.0],
+            pitch: 0.0,
+            roll: 0.0,
+            yaw: 0.0,
         }
     }
 }

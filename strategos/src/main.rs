@@ -99,10 +99,10 @@ impl ApplicationHandler for App {
                             app.camera.move_on_look_at_vector(-1.0);
                         }
                         PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => {
-                            app.camera.yaw(-PI / 60.0);
+                            app.camera.move_on_right_vector(1.0);
                         }
                         PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => {
-                            app.camera.yaw(PI / 60.0);
+                            app.camera.move_on_right_vector(-1.0);
                         }
                         PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
                             app.camera.move_on_up_vector(1.0);
@@ -118,6 +118,13 @@ impl ApplicationHandler for App {
                         }
                         _ => (),
                     }
+                }
+            }
+            DeviceEvent::MouseMotion { delta } => {
+                if let Some(app) = self.app.as_mut() {
+                    // Negate all inputs, inverting the movements
+                    app.camera.pitch(-delta.1 as f32 / 50.0);
+                    app.camera.yaw(-delta.0 as f32 / 50.0);
                 }
             }
             _ => (), // the rest we don't care
