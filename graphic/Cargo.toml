@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 lina = { path = "../lina"}
 quaternion = { path = "../quaternion"}
+
+[dev-dependencies]
+float_eq = "1.0.1"

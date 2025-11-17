@@ -111,8 +111,6 @@ impl_neg_trait!(i8, i16, i32, i64, i128, isize, f32, f64);
 
 #[cfg(test)]
 mod tests {
-    use crate::vector::Vector;
-
     #[test]
     fn negate() {
         assert_eq!(-v![1.0, 2.0, 3.0], v![-1.0, -2.0, -3.0]);
