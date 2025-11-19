@@ -8,6 +8,7 @@ mod mul;
 mod mul_assign;
 mod sub;
 mod sub_assign;
+mod adjoint;
 
 #[allow(clippy::module_inception)]
 mod matrix;
