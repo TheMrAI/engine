@@ -250,7 +250,7 @@ impl Wgpu {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
                 #[allow(clippy::identity_op)] // for clearer explanation
-                size: (16 + 16 + 4 + 4) * 4, // (view projection matrix + normal matrix + light color + light direction) * float size + padding
+                size: (12 + 16 + 4 + 4) * 4, // (normal matrix + view projection matrix + light color + light direction) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -359,7 +359,7 @@ impl Wgpu {
 
             // Handle error with checked add?
             // Makes little sense
-            let cube_full_rotation_time = std::time::Duration::from_secs(3);
+            let cube_full_rotation_time = std::time::Duration::from_secs(10);
             *cube_delta_t = cube_delta_t.saturating_add(delta_t);
             if *cube_delta_t > cube_full_rotation_time {
                 *cube_delta_t = cube_delta_t.saturating_sub(cube_full_rotation_time);
@@ -382,44 +382,57 @@ impl Wgpu {
             let view_projection_matrix = projection_matrix * view_matrix;
             let world_view_projection_matrix = view_projection_matrix * world;
 
-            // Normal matrix would need to be transposed,
-            // but for WGPU we have to transpose the view_projection_matrix
-            // itself, so omitting transposition on the normal_matrix
-            // will produce the expected result.
-            // let normal_matrix = {
-            //     let mut matrix = Matrix::<f32, 3, 3>::new();
-            //     let view_slices = model_view.as_slices();
+            let normal_matrix = {
+                let mut matrix = Matrix::<f32, 3, 3>::new();
 
-            //     matrix[(0, 0)] = view_slices[0][0];
-            //     matrix[(0, 1)] = view_slices[0][1];
-            //     matrix[(0, 2)] = view_slices[0][2];
+                matrix[(0, 0)] = world[(0, 0)];
+                matrix[(0, 1)] = world[(0, 1)];
+                matrix[(0, 2)] = world[(0, 2)];
 
-            //     matrix[(1, 0)] = view_slices[1][0];
-            //     matrix[(1, 1)] = view_slices[1][1];
-            //     matrix[(1, 2)] = view_slices[1][2];
+                matrix[(1, 0)] = world[(1, 0)];
+                matrix[(1, 1)] = world[(1, 1)];
+                matrix[(1, 2)] = world[(1, 2)];
 
-            //     matrix[(2, 0)] = view_slices[2][0];
-            //     matrix[(2, 1)] = view_slices[2][1];
-            //     matrix[(2, 2)] = view_slices[2][2];
+                matrix[(2, 0)] = world[(2, 0)];
+                matrix[(2, 1)] = world[(2, 1)];
+                matrix[(2, 2)] = world[(2, 2)];
 
-            //     // Adjoint is better as it always exists
-            //     // , unlike the inverse. The only difference
-            //     // is that the inverse is the adjoint divided by
-            //     // the determinant.
-            //     // So there is a scaling issue, but normals have
-            //     // be renormalized later anyways.
-            //     // matrix.adjoint()
-            //     matrix
-            // };
+                // Adjoint is better as it always exists
+                // , unlike the inverse. The only difference
+                // is that the inverse is the adjoint divided by
+                // the determinant.
+                // So there is a scaling issue, but normals have
+                // be renormalized later anyways.
+                // Normal matrix would need to be transposed,
+                // but WGPU already expects matrices in row major form
+                // and we work with column major form.
+                // So by omitting transposition on our normal matrix in
+                // column major form, we provide WGPU with the transposed
+                // in row major form.
+                matrix.adjoint()
+            };
 
+            // Serialize to the gpu
             // WGPU works with row major matrices
-            let world = world.transpose();
+
+            let padded_flattened_normal_matrix = [
+                normal_matrix[(0, 0)],
+                normal_matrix[(0, 1)],
+                normal_matrix[(0, 2)],
+                0.0,
+                normal_matrix[(1, 0)],
+                normal_matrix[(1, 1)],
+                normal_matrix[(1, 2)],
+                0.0,
+                normal_matrix[(2, 0)],
+                normal_matrix[(2, 1)],
+                normal_matrix[(2, 2)],
+                0.0,
+            ];
             let world_view_projection_matrix = world_view_projection_matrix.transpose();
 
-            let uniforms = world
-                .as_slices()
+            let uniforms = padded_flattened_normal_matrix
                 .iter()
-                .flatten()
                 .flat_map(|entry| entry.to_le_bytes())
                 .chain(
                     world_view_projection_matrix
