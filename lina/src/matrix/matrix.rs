@@ -71,15 +71,6 @@ impl<ValueType, const COLS: usize, const ROWS: usize> Matrix<ValueType, COLS, RO
 }
 
 impl Matrix<f32, 3, 3> {
-    pub fn determinant(&self) -> f32 {
-        self[(0, 0)] * self[(1, 1)] * self[(2, 2)]
-            + self[(0, 1)] * self[(1, 2)] * self[(2, 0)]
-            + self[(0, 2)] * self[(1, 0)] * self[(2, 1)]
-            - self[(0, 2)] * self[(1, 1)] * self[(2, 0)]
-            - self[(0, 1)] * self[(1, 0)] * self[(2, 2)]
-            - self[(0, 0)] * self[(1, 2)] * self[(2, 1)]
-    }
-
         // / # use lina::m;
     // /
     // / let m = m![[1.0, 2.0, 3.0],
