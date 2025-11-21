@@ -29,6 +29,10 @@ impl Camera {
         roll * yaw * pitch
     }
 
+    pub fn eye(&self) -> Vector<f32, 3> {
+        self.eye
+    }
+
     pub fn move_on_look_at_vector(&mut self, units: f32) {
         let q = self.recalculate_orientation();
 
