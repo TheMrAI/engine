@@ -5,6 +5,7 @@ struct Uniforms {
     world: mat4x4f,
     light_color: vec4f,
     light_position: vec3f,
+    view_world_position: vec3f,
 };
 
 struct Vertex {
@@ -20,6 +21,7 @@ struct VSOutput {
     // Will be interpolated and have to renormalized.
     @location(0) normal: vec3f,
     @location(1) surface_to_light: vec3f,
+    @location(2) surface_to_view: vec3f,
 };
 
 @group(0)
@@ -32,11 +34,16 @@ fn vs_main(vertex: Vertex) -> VSOutput {
 
     // Compute the vertex position in device coordinates
     vsOut.position = uni.worldViewProjection * vertex.position;
+    
     // Orient the normals in world space
     vsOut.normal = uni.normalMatrix * vertex.normal;
+    
     // Compute surface_to_light vector in world space
     let surface_world_position = (uni.world * vertex.position).xyz;
     vsOut.surface_to_light = uni.light_position - surface_world_position;
+
+    // Compute the surface_to_view vector in world space
+    vsOut.surface_to_view = uni.view_world_position - surface_world_position;
 
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]
@@ -50,8 +57,13 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
     let normal = normalize(vsOut.normal);
 
     let surface_to_light_direction = normalize(vsOut.surface_to_light);
-    let light = clamp(dot(normal, surface_to_light_direction), 0, 1);
+    let light = dot(normal, surface_to_light_direction);
 
-    let color = uni.light_color.rgb * light;
+    let surface_to_view_direction = normalize(vsOut.surface_to_view);
+    let half_vector = normalize(surface_to_light_direction + surface_to_view_direction);
+    var specular = dot(normal, half_vector);   
+    specular = select(0.0, pow(specular, 100), specular > 0.0);
+
+    let color = uni.light_color.rgb * light + specular;
     return vec4f(color, uni.light_color.a);
 }
