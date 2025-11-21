@@ -1,6 +1,9 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use graphic::{camera::Camera, transform::translate};
+use graphic::{
+    camera::Camera,
+    transform::{scale_v, translate},
+};
 use lina::{matrix::Matrix, v};
 use quaternion::Quaternion;
 use wgpu::{
@@ -250,7 +253,7 @@ impl Wgpu {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
                 #[allow(clippy::identity_op)] // for clearer explanation
-                size: (12 + 16 + 4 + 4) * 4, // (normal matrix + view projection matrix + light color + light direction) * float size + padding
+                size: (12 + 16 + 16 + 4 + 4) * 4, // (normal matrix + view projection matrix + world matrix + light color + light position) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -378,7 +381,10 @@ impl Wgpu {
             // center the cube at the origo
             let translate = translate(-0.5, -0.5, -0.5);
 
-            let world = rotate_y * translate;
+            let world = rotate_y *
+                 graphic::transform::scale(10.0, 30.0, 2.0) *
+                // * graphic::transform::rotate_x(PI / 4.0)
+                 translate;
             let view_projection_matrix = projection_matrix * view_matrix;
             let world_view_projection_matrix = view_projection_matrix * world;
 
@@ -430,6 +436,7 @@ impl Wgpu {
                 0.0,
             ];
             let world_view_projection_matrix = world_view_projection_matrix.transpose();
+            let world = world.transpose();
 
             let uniforms = padded_flattened_normal_matrix
                 .iter()
@@ -442,13 +449,22 @@ impl Wgpu {
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
                 .chain(
+                    world
+                        .as_slices()
+                        .iter()
+                        .flatten()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .chain(
                     // light color
                     [0.2f32, 1.0, 0.2, 1.0]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
                 .chain(
-                    [-0.5f32, -0.7, -1.0]
+                    // light position
+                    // last value is padding
+                    [-11.0f32, 25.0, 35.0, 0.0]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
