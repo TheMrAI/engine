@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use inner_app::InnerApp;
 use winit::event_loop::{ControlFlow, EventLoop};
 

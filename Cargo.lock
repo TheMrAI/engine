@@ -674,6 +674,9 @@ dependencies = [
 [[package]]
 name = "lina"
 version = "0.1.0"
+dependencies = [
+ "float_eq",
+]
 
 [[package]]
 name = "linux-raw-sys"

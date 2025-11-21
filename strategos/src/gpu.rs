@@ -1,6 +1,8 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use graphic::{camera::Camera, transform::rotate_y};
+use graphic::{camera::Camera, transform::translate};
+use lina::{matrix::Matrix, v};
+use quaternion::Quaternion;
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
     DepthStencilState, Device, Face, Operations, Queue, RenderPassDepthStencilAttachment,
@@ -98,6 +100,15 @@ impl Wgpu {
             3, 7, 4
         ];
 
+        let cube_normals: Vec<f32> = vec![
+            0.0, 0.0, 1.0, // front (Z+)
+            0.0, 0.0, -1.0, // back
+            0.0, 1.0, 0.0, // top (Y+)
+            0.0, -1.0, 0.0, // bottom
+            1.0, 0.0, 0.0, // right (X+)
+            -1.0, 0.0, 0.0, // left
+        ];
+
         let quad_colors: Vec<u8> = vec![
             33, 188, 255, // front (light blue / Z+)
             28, 105, 168, // back (dark blue)
@@ -116,15 +127,21 @@ impl Wgpu {
                     let vertex_iter = (start_vertex_index..start_vertex_index + 3)
                         .map(|vertex_index| cube_vertices[vertex_index]);
 
-                    let start_color_index = (i / 6) * 3;
-                    let color = f32::from_le_bytes([
-                        quad_colors[start_color_index],
-                        quad_colors[start_color_index + 1],
-                        quad_colors[start_color_index + 2],
-                        255,
-                    ]);
+                    let quad_index = (i / 6) * 3;
 
-                    vertex_iter.chain([color])
+                    let normal_iter =
+                        (quad_index..quad_index + 3).map(|normal_index| cube_normals[normal_index]);
+
+                    vertex_iter.chain(normal_iter)
+
+                    // let color = f32::from_le_bytes([
+                    //     quad_colors[quad_index],
+                    //     quad_colors[quad_index + 1],
+                    //     quad_colors[quad_index + 2],
+                    //     255,
+                    // ]);
+
+                    // vertex_iter.chain(normal_iter).chain([color])
                 })
                 .collect::<Vec<f32>>()
         };
@@ -174,19 +191,27 @@ impl Wgpu {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 buffers: &[VertexBufferLayout {
-                    array_stride: 4 * 4,
+                    array_stride: (3 + 3) * 4,
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[
+                        // position
                         VertexAttribute {
                             format: wgpu::VertexFormat::Float32x3,
                             offset: 0,
                             shader_location: 0,
                         },
+                        // normal
                         VertexAttribute {
-                            format: wgpu::VertexFormat::Unorm8x4,
+                            format: wgpu::VertexFormat::Float32x3,
                             offset: 12,
                             shader_location: 1,
                         },
+                        // // color
+                        // VertexAttribute {
+                        //     format: wgpu::VertexFormat::Unorm8x4,
+                        //     offset: 24,
+                        //     shader_location: 2,
+                        // },
                     ],
                 }],
                 compilation_options: Default::default(),
@@ -224,7 +249,8 @@ impl Wgpu {
             let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
-                size: 16 * 4_u64, // matrix * float32 + padding
+                #[allow(clippy::identity_op)] // for clearer explanation
+                size: (12 + 16 + 4 + 4) * 4, // (normal matrix + view projection matrix + light color + light direction) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -333,28 +359,99 @@ impl Wgpu {
 
             // Handle error with checked add?
             // Makes little sense
-            let cube_full_rotation_time = std::time::Duration::from_secs(3);
+            let cube_full_rotation_time = std::time::Duration::from_secs(10);
             *cube_delta_t = cube_delta_t.saturating_add(delta_t);
             if *cube_delta_t > cube_full_rotation_time {
                 *cube_delta_t = cube_delta_t.saturating_sub(cube_full_rotation_time);
             }
-            let rotate_y = rotate_y(
+
+            // for quick rotation checks
+            #[allow(unused_variables)]
+            let rotate_y: Matrix<f32, 4, 4> = Quaternion::<f32>::new_unit(
                 2.0 * PI
                     * (cube_delta_t.as_millis() as f32
                         / cube_full_rotation_time.as_millis() as f32),
-            );
+                v![0.0, 1.0, 0.0],
+            )
+            .into();
 
-            let view_projection_matrix = projection_matrix * view_matrix * rotate_y;
-            let matrix = view_projection_matrix;
+            // center the cube at the origo
+            let translate = translate(-0.5, -0.5, -0.5);
 
+            let world = rotate_y * translate;
+            let view_projection_matrix = projection_matrix * view_matrix;
+            let world_view_projection_matrix = view_projection_matrix * world;
+
+            let normal_matrix = {
+                let mut matrix = Matrix::<f32, 3, 3>::new();
+
+                matrix[(0, 0)] = world[(0, 0)];
+                matrix[(0, 1)] = world[(0, 1)];
+                matrix[(0, 2)] = world[(0, 2)];
+
+                matrix[(1, 0)] = world[(1, 0)];
+                matrix[(1, 1)] = world[(1, 1)];
+                matrix[(1, 2)] = world[(1, 2)];
+
+                matrix[(2, 0)] = world[(2, 0)];
+                matrix[(2, 1)] = world[(2, 1)];
+                matrix[(2, 2)] = world[(2, 2)];
+
+                // Adjoint is better as it always exists
+                // , unlike the inverse. The only difference
+                // is that the inverse is the adjoint divided by
+                // the determinant.
+                // So there is a scaling issue, but normals have
+                // be renormalized later anyways.
+                // Normal matrix would need to be transposed,
+                // but WGPU already expects matrices in row major form
+                // and we work with column major form.
+                // So by omitting transposition on our normal matrix in
+                // column major form, we provide WGPU with the transposed
+                // in row major form.
+                matrix.adjoint()
+            };
+
+            // Serialize to the gpu
             // WGPU works with row major matrices
-            let matrix = matrix.transpose();
 
-            let uniforms = matrix
-                .as_slices()
+            let padded_flattened_normal_matrix = [
+                normal_matrix[(0, 0)],
+                normal_matrix[(0, 1)],
+                normal_matrix[(0, 2)],
+                0.0,
+                normal_matrix[(1, 0)],
+                normal_matrix[(1, 1)],
+                normal_matrix[(1, 2)],
+                0.0,
+                normal_matrix[(2, 0)],
+                normal_matrix[(2, 1)],
+                normal_matrix[(2, 2)],
+                0.0,
+            ];
+            let world_view_projection_matrix = world_view_projection_matrix.transpose();
+
+            let uniforms = padded_flattened_normal_matrix
                 .iter()
-                .flatten()
                 .flat_map(|entry| entry.to_le_bytes())
+                .chain(
+                    world_view_projection_matrix
+                        .as_slices()
+                        .iter()
+                        .flatten()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .chain(
+                    // light color
+                    [0.2f32, 1.0, 0.2, 1.0]
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .chain(
+                    [-0.5f32, -0.7, -1.0]
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
                 .collect::<Vec<u8>>();
 
             self.queue.write_buffer(&self.object_data.0, 0, &uniforms);

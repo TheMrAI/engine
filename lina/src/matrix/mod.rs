@@ -1,8 +1,11 @@
 mod add;
 mod add_assign;
+mod adjoint;
 mod default;
+mod determinant;
 mod index;
 mod index_mut;
+mod inverse;
 mod macros;
 mod mul;
 mod mul_assign;
