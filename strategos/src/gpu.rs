@@ -1,9 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use graphic::{
-    camera::Camera,
-    transform::{scale_v, translate},
-};
+use graphic::{camera::Camera, transform::translate};
 use lina::{matrix::Matrix, v};
 use quaternion::Quaternion;
 use wgpu::{
@@ -253,7 +250,7 @@ impl Wgpu {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
                 #[allow(clippy::identity_op)] // for clearer explanation
-                size: (12 + 16 + 16 + 4 + 4 + 4) * 4, // (normal matrix + view projection matrix + world matrix + light color + light position + view position) * float size + padding
+                size: (12 + 16 + 16 + 4 + 4 + 3 + 1) * 4, // (normal matrix + view projection matrix + world matrix + light color + light position + view position + shininess) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -469,10 +466,11 @@ impl Wgpu {
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
                 .chain(
-                    [camera.eye()[0], camera.eye()[1], camera.eye()[2], 0.0]
+                    [camera.eye()[0], camera.eye()[1], camera.eye()[2]]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
+                .chain([30.0f32].iter().flat_map(|entry| entry.to_le_bytes()))
                 .collect::<Vec<u8>>();
 
             self.queue.write_buffer(&self.object_data.0, 0, &uniforms);
