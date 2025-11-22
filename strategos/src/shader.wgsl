@@ -7,6 +7,8 @@ struct Uniforms {
     light_position: vec3f,
     view_world_position: vec3f,
     shininess: f32,
+    light_direction: vec3f,
+    limit: f32,
 };
 
 struct Vertex {
@@ -58,12 +60,21 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
     let normal = normalize(vsOut.normal);
 
     let surface_to_light_direction = normalize(vsOut.surface_to_light);
-    let light = dot(normal, surface_to_light_direction);
-
+    
     let surface_to_view_direction = normalize(vsOut.surface_to_view);
     let half_vector = normalize(surface_to_light_direction + surface_to_view_direction);
-    var specular = dot(normal, half_vector);   
-    specular = select(0.0, pow(specular, uni.shininess), specular > 0.0);
+    
+    var light = 0.0;
+    var specular = 0.0;
+
+    let dot_from_direction = dot(surface_to_light_direction, -uni.light_direction);
+    if (dot_from_direction > uni.limit) {
+        light = dot(normal, surface_to_light_direction);
+
+        specular = dot(normal, half_vector);   
+        specular = select(0.0, pow(specular, uni.shininess), specular > 0.0);
+    }
+
 
     let color = uni.light_color.rgb * light + specular;
     return vec4f(color, uni.light_color.a);
