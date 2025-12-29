@@ -1,9 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use graphic::{
-    camera::Camera,
-    transform::{scale_v, translate},
-};
+use graphic::{camera::Camera, transform::translate};
 use lina::{matrix::Matrix, v};
 use quaternion::Quaternion;
 use wgpu::{
@@ -112,6 +109,7 @@ impl Wgpu {
             -1.0, 0.0, 0.0, // left
         ];
 
+        #[allow(unused_variables)]
         let quad_colors: Vec<u8> = vec![
             33, 188, 255, // front (light blue / Z+)
             28, 105, 168, // back (dark blue)
@@ -253,7 +251,7 @@ impl Wgpu {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
                 #[allow(clippy::identity_op)] // for clearer explanation
-                size: (12 + 16 + 16 + 4 + 4 + 4) * 4, // (normal matrix + view projection matrix + world matrix + light color + light position + view position) * float size + padding
+                size: (12 + 16 + 16 + 4 + 4 + 3 + 1 + 3 + 1) * 4, // (normal matrix + view projection matrix + world matrix + light color + light position + view position + shininess + light direction + limit) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -379,12 +377,13 @@ impl Wgpu {
             .into();
 
             // center the cube at the origo
+            #[allow(unused_variables)]
             let translate = translate(-0.5, -0.5, -0.5);
 
-            let world = rotate_y *
-                 graphic::transform::scale(10.0, 30.0, 2.0) *
-                // * graphic::transform::rotate_x(PI / 4.0)
-                 translate;
+            let world = rotate_y;
+            //  graphic::transform::scale(10.0, 30.0, 2.0) *
+            // * graphic::transform::rotate_x(PI / 4.0)
+            //  translate;
             let view_projection_matrix = projection_matrix * view_matrix;
             let world_view_projection_matrix = view_projection_matrix * world;
 
@@ -464,12 +463,27 @@ impl Wgpu {
                 .chain(
                     // light position
                     // last value is padding
-                    [-11.0f32, 25.0, 35.0, 0.0]
+                    [-1.5f32, 1.2, 2.0, 0.0]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
                 .chain(
-                    [camera.eye()[0], camera.eye()[1], camera.eye()[2], 0.0]
+                    // view position
+                    [camera.eye()[0], camera.eye()[1], camera.eye()[2]]
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                // shininess
+                .chain([100.0f32].iter().flat_map(|entry| entry.to_le_bytes()))
+                .chain(
+                    // light direction
+                    ((-v![-1.5f32, 1.2, 2.0]).normalized())
+                        .as_slice()
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .chain(
+                    [(25.0f32 * (PI / 180.0f32)).cos()]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
