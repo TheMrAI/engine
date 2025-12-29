@@ -18,7 +18,7 @@ where
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use float_eq::assert_float_eq;
 
     use crate::m;
@@ -28,7 +28,7 @@ mod tests{
         let m = m![[1, 2, 3], [4, 5, 6], [7, 8, 9]];
         let result_determinant = m.determinant();
         let expected_determinant = 0;
-        
+
         assert_eq!(result_determinant, expected_determinant);
     }
 
@@ -37,7 +37,7 @@ mod tests{
         let m = m![[1, 2, 3], [4, 5, 6], [0, 0, 9]];
         let result_determinant = m.determinant();
         let expected_determinant = -27;
-        
+
         assert_eq!(result_determinant, expected_determinant);
     }
 
@@ -46,7 +46,7 @@ mod tests{
         let m = m![[1.2f32, -2.1, 5.6], [0.0, 1.0, -2.4], [-1.2, 0.8, 3.0]];
         let result_determinant = m.determinant();
         let expected_determinant = 6.576;
-        
+
         assert_float_eq!(result_determinant, expected_determinant, ulps <= 1);
     }
 }
