@@ -1,4 +1,5 @@
 use inner_app::InnerApp;
+use winit::event::ElementState;
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use winit::keyboard::PhysicalKey;
@@ -13,6 +14,8 @@ mod inner_app;
 #[derive(Default)]
 struct App {
     app: Option<InnerApp>,
+    focused: bool,
+    navigating: bool,
 }
 
 impl ApplicationHandler for App {
@@ -54,7 +57,7 @@ impl ApplicationHandler for App {
                 }
                 // else nothing to do yet
             }
-            WindowEvent::Focused(_) => {}
+            WindowEvent::Focused(focus_state) => self.focused = focus_state,
             WindowEvent::CursorEntered { device_id: _ } => {}
             WindowEvent::CursorLeft { device_id: _ } => {}
             WindowEvent::Resized(inner_resolution) => {
@@ -89,40 +92,47 @@ impl ApplicationHandler for App {
                     if !key_event.state.is_pressed() {
                         return;
                     }
-                    match key_event.physical_key {
-                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyW) => {
-                            app.camera.move_on_look_at_vector(1.0);
+                    // camera navigation controls for the engine
+                    if self.focused && self.navigating {
+                        match key_event.physical_key {
+                            PhysicalKey::Code(winit::keyboard::KeyCode::KeyW) => {
+                                app.camera.move_on_look_at_vector(1.0);
+                            }
+                            PhysicalKey::Code(winit::keyboard::KeyCode::KeyS) => {
+                                app.camera.move_on_look_at_vector(-1.0);
+                            }
+                            PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => {
+                                app.camera.move_on_right_vector(1.0);
+                            }
+                            PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => {
+                                app.camera.move_on_right_vector(-1.0);
+                            }
+                            PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => {
+                                app.camera.move_on_up_vector(1.0);
+                            }
+                            PhysicalKey::Code(winit::keyboard::KeyCode::KeyQ) => {
+                                app.camera.move_on_up_vector(-1.0);
+                            }
+                            _ => (),
                         }
-                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyS) => {
-                            app.camera.move_on_look_at_vector(-1.0);
-                        }
-                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => {
-                            app.camera.move_on_right_vector(1.0);
-                        }
-                        PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => {
-                            app.camera.move_on_right_vector(-1.0);
-                        }
-                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                            app.camera.move_on_up_vector(1.0);
-                        }
-                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                            app.camera.move_on_up_vector(-1.0);
-                        }
-                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                            app.camera.move_on_right_vector(1.0);
-                        }
-                        PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                            app.camera.move_on_right_vector(-1.0);
-                        }
-                        _ => (),
                     }
                 }
             }
             DeviceEvent::MouseMotion { delta } => {
-                if let Some(app) = self.app.as_mut() {
-                    // Negate all inputs, inverting the movements
-                    app.camera.pitch(-delta.1 as f32 / 50.0);
-                    app.camera.yaw(-delta.0 as f32 / 50.0);
+                if self.focused && self.navigating {
+                    if let Some(app) = self.app.as_mut() {
+                        // Negate all inputs, inverting the movements
+                        app.camera.pitch(-delta.1 as f32 / 50.0);
+                        app.camera.yaw(-delta.0 as f32 / 50.0);
+                    }
+                }
+            }
+            DeviceEvent::Button { button, state } => {
+                if self.focused && button == 1 {
+                    match state {
+                        ElementState::Pressed => self.navigating = true,
+                        ElementState::Released => self.navigating = false,
+                    }
                 }
             }
             _ => (), // the rest we don't care
