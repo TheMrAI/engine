@@ -1,5 +1,5 @@
 use inner_app::InnerApp;
-use winit::event::ElementState;
+use winit::event::{ElementState, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use winit::keyboard::PhysicalKey;
@@ -11,11 +11,22 @@ use winit::{
 mod gpu;
 mod inner_app;
 
-#[derive(Default)]
 struct App {
     app: Option<InnerApp>,
     focused: bool,
     navigating: bool,
+    speed_ms: f32, // speed in m/s
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self {
+            app: None,
+            focused: false,
+            navigating: false,
+            speed_ms: 1.0,
+        }
+    }
 }
 
 impl ApplicationHandler for App {
@@ -96,22 +107,22 @@ impl ApplicationHandler for App {
                     if self.focused && self.navigating {
                         match key_event.physical_key {
                             PhysicalKey::Code(winit::keyboard::KeyCode::KeyW) => {
-                                app.camera.move_on_look_at_vector(1.0);
+                                app.camera.move_on_look_at_vector(self.speed_ms);
                             }
                             PhysicalKey::Code(winit::keyboard::KeyCode::KeyS) => {
-                                app.camera.move_on_look_at_vector(-1.0);
+                                app.camera.move_on_look_at_vector(-self.speed_ms);
                             }
                             PhysicalKey::Code(winit::keyboard::KeyCode::KeyD) => {
-                                app.camera.move_on_right_vector(1.0);
+                                app.camera.move_on_right_vector(self.speed_ms);
                             }
                             PhysicalKey::Code(winit::keyboard::KeyCode::KeyA) => {
-                                app.camera.move_on_right_vector(-1.0);
+                                app.camera.move_on_right_vector(-self.speed_ms);
                             }
                             PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => {
-                                app.camera.move_on_up_vector(1.0);
+                                app.camera.move_on_up_vector(self.speed_ms);
                             }
                             PhysicalKey::Code(winit::keyboard::KeyCode::KeyQ) => {
-                                app.camera.move_on_up_vector(-1.0);
+                                app.camera.move_on_up_vector(-self.speed_ms);
                             }
                             _ => (),
                         }
@@ -124,6 +135,24 @@ impl ApplicationHandler for App {
                         // Negate all inputs, inverting the movements
                         app.camera.pitch(-delta.1 as f32 / 50.0);
                         app.camera.yaw(-delta.0 as f32 / 50.0);
+                    }
+                }
+            }
+            DeviceEvent::MouseWheel { delta } => {
+                if self.focused && self.navigating {
+                    match delta {
+                        MouseScrollDelta::LineDelta(_dx, dy) => {
+                            // To change the speed we use a logarithm function as
+                            // those types of inputs fell much more natural.
+                            // Shift it by 1 to the left so it reaches zero at zero,
+                            // then flatten the result by half.
+                            // This way within the range os 0.1 - 30 the user
+                            // gets finer control on the lower ends and coarser on the
+                            // higher ends.
+                            self.speed_ms += dy * ((self.speed_ms + 1.0).log2() / 2.0);
+                            self.speed_ms = self.speed_ms.clamp(0.1, 30.0);
+                        }
+                        MouseScrollDelta::PixelDelta(_) => {}
                     }
                 }
             }
