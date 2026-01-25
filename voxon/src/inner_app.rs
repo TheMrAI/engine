@@ -18,7 +18,7 @@ pub(super) struct InnerApp {
 impl InnerApp {
     pub fn new(event_loop: &winit::event_loop::ActiveEventLoop) -> Self {
         let window_attributes = Window::default_attributes()
-            .with_title("Strategos")
+            .with_title("Voxon")
             .with_resizable(false)
             .with_inner_size(winit::dpi::LogicalSize::new(1024.0, 768.0));
 
