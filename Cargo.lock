@@ -1453,18 +1453,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "strategos"
-version = "0.1.0"
-dependencies = [
- "graphic",
- "lina",
- "pollster",
- "quaternion",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1639,6 +1627,18 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "voxon"
+version = "0.1.0"
+dependencies = [
+ "graphic",
+ "lina",
+ "pollster",
+ "quaternion",
+ "wgpu",
+ "winit",
+]
 
 [[package]]
 name = "walkdir"

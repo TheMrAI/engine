@@ -8,7 +8,7 @@ where
     ValueType: Copy + std::convert::From<i8>,
 {
     /// Generate the conjugate.
-    /// 
+    ///
     /// Given a quaternion `q`:
     /// ```text
     /// q = [s, v]
