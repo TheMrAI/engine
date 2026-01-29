@@ -144,9 +144,9 @@ impl ApplicationHandler for App {
                 if !focused {
                     // If focus is lost from the application
                     // we simply clear all keys. Resetting the state.
-                    // Otherwise the user could click away while holding a
-                    // key, let go of the key, but that will no longer be
-                    // registered by the application.
+                    // Otherwise the user could click away while
+                    // navigating, then release all key, and keep moving in the
+                    // last read direction.
                     self.key_state.clear();
                 }
                 self.focused = focused
@@ -226,7 +226,15 @@ impl ApplicationHandler for App {
                 if self.focused && button == 1 {
                     match state {
                         ElementState::Pressed => self.navigating = true,
-                        ElementState::Released => self.navigating = false,
+                        ElementState::Released => {
+                            self.navigating = false;
+                            // If 'navigation' is stopped
+                            // we simply clear all keys. Resetting the state.
+                            // Otherwise the user could release the 'navigation' key while
+                            // navigating, then release all key, and keep moving in the
+                            // last read direction.
+                            self.key_state.clear();
+                        }
                     }
                 }
             }
