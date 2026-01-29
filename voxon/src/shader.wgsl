@@ -81,7 +81,6 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
         specular = select(0.0, pow(specular, global.shininess), specular > 0.0);
     }
 
-
     let color = global.light_color.rgb * light + specular;
     return vec4f(color, global.light_color.a);
 }

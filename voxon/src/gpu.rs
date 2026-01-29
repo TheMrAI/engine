@@ -600,9 +600,6 @@ impl Wgpu {
                 -20000.0,
             );
 
-            //  graphic::transform::scale(10.0, 30.0, 2.0) *
-            // * graphic::transform::rotate_x(PI / 4.0)
-            //  translate;
             let view_projection_matrix = projection_matrix * view_matrix;
 
             // Serialize to the gpu
@@ -640,13 +637,13 @@ impl Wgpu {
                 .chain([100.0f32].iter().flat_map(|entry| entry.to_le_bytes()))
                 .chain(
                     // light direction
-                    ((-v![-1.0f32, 1.0, -1.0]).normalized())
+                    ((v![1.0f32, -1.0, -1.0]).normalized())
                         .as_slice()
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
                 .chain(
-                    [(90.0f32 * (PI / 180.0f32)).cos()]
+                    [(10.0f32 * (PI / 180.0f32)).cos()]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
