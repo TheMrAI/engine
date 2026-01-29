@@ -1,7 +1,7 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use graphic::{camera::Camera, identity_matrix, transform::translate};
-use lina::{matrix::Matrix, v, vector::Vector};
+use lina::{m, matrix::Matrix, v, vector::Vector};
 use quaternion::Quaternion;
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, Buffer,
@@ -97,6 +97,36 @@ fn generate_cube() -> Mesh {
     Mesh { vertices, indices }
 }
 
+// A 2x2 big plane centered a the origo,
+// laying on the XZ plane.
+fn generate_plane() -> Mesh {
+    // Vertex buffer
+    #[rustfmt::skip]
+    let vertex_positions: Vec<Vector<f32, 4>> = vec![
+        v![-1.0, 0.0, 1.0, 1.0], // 0
+        v![1.0, 0.0, 1.0, 1.0], // 1
+        v![1.0, 0.0, -1.0, 1.0], // 2
+        v![-1.0, 0.0, -1.0, 1.0], // 3
+    ];
+    // The normal will be the same for each vertex, up.
+    let vertices = vertex_positions
+        .iter()
+        .map(|position| Vertex {
+            position: *position,
+            normal: v![0.0, 1.0, 0.0],
+        })
+        .collect();
+
+    // Vertex indices
+    #[rustfmt::skip]
+    let indices: Vec<u32> = vec![
+        0, 1, 3,
+        3, 1, 2  
+    ];
+
+    Mesh { vertices, indices }
+}
+
 impl Wgpu {
     pub async fn new(window: Arc<Window>) -> Self {
         let instance = wgpu::Instance::default();
@@ -138,6 +168,7 @@ impl Wgpu {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
+        // CUBE
         let cube_mesh = generate_cube();
         let cube_vertex_data = cube_mesh
             .vertices
@@ -153,7 +184,7 @@ impl Wgpu {
             .collect::<Vec<u8>>();
 
         let cube_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("vertices"),
+            label: Some("cube_vertex_buffer"),
             size: cube_vertex_data.len() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -173,16 +204,71 @@ impl Wgpu {
         });
         queue.write_buffer(&cube_index_buffer, 0, &cube_index_data);
 
+        // PLANE
+        let plane_mesh = generate_plane();
+        let plane_vertex_data = plane_mesh
+            .vertices
+            .iter()
+            .flat_map(|entry| {
+                entry
+                    .position
+                    .as_slice()
+                    .iter()
+                    .chain(entry.normal.as_slice().iter().chain([&0.0]))
+                    .flat_map(|value| value.to_le_bytes())
+            })
+            .collect::<Vec<u8>>();
+
+        let plane_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("plane_vertex_buffer"),
+            size: plane_vertex_data.len() as u64,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&plane_vertex_buffer, 0, &plane_vertex_data);
+
+        let plane_index_data = plane_mesh
+            .indices
+            .iter()
+            .flat_map(|index| index.to_le_bytes())
+            .collect::<Vec<_>>();
+        let plane_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("plane_index_buffer"),
+            size: plane_index_data.len() as u64,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&plane_index_buffer, 0, &plane_index_data);
+
+        let entity_uniform_size = (16 + 16) * 4;
+        let entity_uniform_alignment = {
+            let alignment =
+                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+            align_to(entity_uniform_size, alignment)
+        };
+
         let entities = {
-            [Entity {
-                vertex_buffer: cube_vertex_buffer,
-                index_buffer: cube_index_buffer,
-                index_format: wgpu::IndexFormat::Uint32,
-                index_count: cube_mesh.indices.len(),
-                world_matrix: identity_matrix(),
-                normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
-                uniform_offset: 0,
-            }]
+            [
+                Entity {
+                    vertex_buffer: cube_vertex_buffer,
+                    index_buffer: cube_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: cube_mesh.indices.len(),
+                    world_matrix: identity_matrix(),
+                    normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
+                    uniform_offset: 0,
+                },
+                Entity {
+                    vertex_buffer: plane_vertex_buffer,
+                    index_buffer: plane_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: plane_mesh.indices.len(),
+                    world_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
+                        * graphic::transform::scale(3.0, 1.0, 3.0),
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                    uniform_offset: entity_uniform_alignment as u32,
+                },
+            ]
             .into_iter()
             .collect::<Vec<Entity>>()
         };
@@ -231,13 +317,6 @@ impl Wgpu {
 
         let global_uniforms = (global_uniform_buffer, bind_group);
 
-        let entity_uniform_size = (16 + 16) * 4;
-
-        let entity_uniform_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            align_to(entity_uniform_size, alignment)
-        };
         let entity_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Entity uniform buffer"),
             size: entities.len() as u64 * entity_uniform_alignment,
@@ -581,7 +660,7 @@ impl Wgpu {
 
             // entities
             for entity in &self.entities {
-                render_pass.set_bind_group(1, &self.entity_uniforms.1, &[0]);
+                render_pass.set_bind_group(1, &self.entity_uniforms.1, &[entity.uniform_offset]);
                 render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
                 render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
                 render_pass.draw_indexed(0..entity.index_count as u32, 0, 0..1);
