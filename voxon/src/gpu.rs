@@ -4,10 +4,10 @@ use graphic::{camera::Camera, identity_matrix, transform::translate};
 use lina::{matrix::Matrix, v, vector::Vector};
 use quaternion::Quaternion;
 use wgpu::{
-    Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
-    DepthStencilState, Device, Face, Operations, Queue, RenderPassDepthStencilAttachment,
-    RenderPipeline, StencilState, Surface, TextureDescriptor, TextureUsages, VertexAttribute,
-    VertexBufferLayout,
+    Adapter, BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, Buffer,
+    BufferBinding, BufferUsages, DepthBiasState, DepthStencilState, Device, Face, Operations,
+    Queue, RenderPassDepthStencilAttachment, RenderPipeline, StencilState, Surface,
+    TextureDescriptor, TextureUsages, VertexAttribute, VertexBufferLayout, util::align_to,
 };
 use winit::{dpi::PhysicalSize, window::Window};
 
@@ -19,7 +19,8 @@ pub struct Wgpu {
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
     pub entities: Vec<Entity>,
-    pub object_data: (Buffer, BindGroup),
+    pub global_uniforms: (Buffer, BindGroup),
+    pub entity_uniforms: (Buffer, BindGroup),
 }
 
 pub struct Vertex {
@@ -39,9 +40,8 @@ pub struct Entity {
     index_format: wgpu::IndexFormat,
     index_count: usize,
     // Transformation data
-    #[allow(dead_code)]
+    uniform_offset: wgpu::DynamicOffset,
     world_matrix: Matrix<f32, 4, 4>,
-    #[allow(dead_code)]
     normal_matrix: Matrix<f32, 3, 3>,
 }
 
@@ -181,30 +181,106 @@ impl Wgpu {
                 index_count: cube_mesh.indices.len(),
                 world_matrix: identity_matrix(),
                 normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
+                uniform_offset: 0,
             }]
             .into_iter()
             .collect::<Vec<Entity>>()
         };
 
+        // Preparing for rendering
+
         // Bind group layout
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("bind_group"),
-            entries: &[wgpu::BindGroupLayoutEntry {
+        let global_uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind_group"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        // Uniform buffer
+        let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("uniforms"),
+                // uniforms have to be padded to a multiple of 8
+                #[allow(clippy::identity_op)] // for clearer explanation
+                size: (16 + 4 + 4 + 3 + 1 + 3 + 1) * 4, // (view projection matrix + light color + light position + view position + shininess + light direction + limit) * float size + padding
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+
+        // Create bind group
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("global_uniforms"),
+            layout: &global_uniform_bind_group_layout,
+            entries: &[BindGroupEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
+                resource: wgpu::BindingResource::Buffer(BufferBinding {
+                    buffer: &global_uniform_buffer,
+                    offset: 0,
+                    size: None, // use whole buffer
+                }),
             }],
         });
+
+        let global_uniforms = (global_uniform_buffer, bind_group);
+
+        let entity_uniform_size = (16 + 16) * 4;
+
+        let entity_uniform_alignment = {
+            let alignment =
+                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
+            align_to(entity_uniform_size, alignment)
+        };
+        let entity_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Entity uniform buffer"),
+            size: entities.len() as u64 * entity_uniform_alignment,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let entity_uniform_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("Local bind group layout"),
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: wgpu::BufferSize::new(entity_uniform_size), // (world matrix + normal matrix) * float size, no padding needed
+                    },
+                    count: None,
+                }],
+            });
+
+        let entity_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Entity bind group"),
+            layout: &entity_uniform_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &entity_uniform_buffer,
+                    offset: 0,
+                    size: wgpu::BufferSize::new(entity_uniform_size),
+                }),
+            }],
+        });
+        let entity_uniforms = (entity_uniform_buffer, entity_bind_group);
 
         // Pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[
+                &global_uniform_bind_group_layout,
+                &entity_uniform_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -264,35 +340,6 @@ impl Wgpu {
             cache: None,
         });
 
-        // Preparing for rendering
-        let object_data = {
-            // Uniform buffer
-            let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("uniforms"),
-                // uniforms have to be padded to a multiple of 8
-                #[allow(clippy::identity_op)] // for clearer explanation
-                size: (12 + 16 + 16 + 4 + 4 + 3 + 1 + 3 + 1) * 4, // (normal matrix + view projection matrix + world matrix + light color + light position + view position + shininess + light direction + limit) * float size + padding
-                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-
-            // Create bind group
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("uniforms"),
-                layout: &bind_group_layout,
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(BufferBinding {
-                        buffer: &uniform_buffer,
-                        offset: 0,
-                        size: None, // use whole buffer
-                    }),
-                }],
-            });
-
-            (uniform_buffer, bind_group)
-        };
-
         Wgpu {
             inner_size,
             adapter,
@@ -301,7 +348,8 @@ impl Wgpu {
             queue,
             render_pipeline,
             entities,
-            object_data,
+            global_uniforms,
+            entity_uniforms,
         }
     }
 
@@ -394,6 +442,44 @@ impl Wgpu {
         });
         let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+        for entity in &self.entities {
+            let padded_flattened_normal_matrix = [
+                entity.normal_matrix[(0, 0)],
+                entity.normal_matrix[(0, 1)],
+                entity.normal_matrix[(0, 2)],
+                0.0,
+                entity.normal_matrix[(1, 0)],
+                entity.normal_matrix[(1, 1)],
+                entity.normal_matrix[(1, 2)],
+                0.0,
+                entity.normal_matrix[(2, 0)],
+                entity.normal_matrix[(2, 1)],
+                entity.normal_matrix[(2, 2)],
+                0.0,
+            ];
+
+            let gpu_entity_bytes = entity
+                .world_matrix
+                .transpose()
+                .as_slices()
+                .iter()
+                .flatten()
+                .flat_map(|entry| entry.to_le_bytes())
+                .chain(
+                    padded_flattened_normal_matrix
+                        .as_slice()
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .collect::<Vec<u8>>();
+
+            self.queue.write_buffer(
+                &self.entity_uniforms.0,
+                entity.uniform_offset as wgpu::BufferAddress,
+                &gpu_entity_bytes,
+            );
+        }
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -441,45 +527,19 @@ impl Wgpu {
             // * graphic::transform::rotate_x(PI / 4.0)
             //  translate;
             let view_projection_matrix = projection_matrix * view_matrix;
-            let world_view_projection_matrix = view_projection_matrix * cube_world_matrix;
 
             // Serialize to the gpu
             // WGPU works with row major matrices
 
-            let padded_flattened_normal_matrix = [
-                cube_normal_matrix[(0, 0)],
-                cube_normal_matrix[(0, 1)],
-                cube_normal_matrix[(0, 2)],
-                0.0,
-                cube_normal_matrix[(1, 0)],
-                cube_normal_matrix[(1, 1)],
-                cube_normal_matrix[(1, 2)],
-                0.0,
-                cube_normal_matrix[(2, 0)],
-                cube_normal_matrix[(2, 1)],
-                cube_normal_matrix[(2, 2)],
-                0.0,
-            ];
-            let world_view_projection_matrix = world_view_projection_matrix.transpose();
-            let world = cube_world_matrix.transpose();
+            let view_projection_matrix = view_projection_matrix.transpose();
 
-            let uniforms = padded_flattened_normal_matrix
+            // UPDATE Uniforms
+
+            let global_uniforms = view_projection_matrix
+                .as_slices()
                 .iter()
+                .flatten()
                 .flat_map(|entry| entry.to_le_bytes())
-                .chain(
-                    world_view_projection_matrix
-                        .as_slices()
-                        .iter()
-                        .flatten()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
-                    world
-                        .as_slices()
-                        .iter()
-                        .flatten()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
                 .chain(
                     // light color
                     [0.2f32, 1.0, 0.2, 1.0]
@@ -515,15 +575,17 @@ impl Wgpu {
                 )
                 .collect::<Vec<u8>>();
 
-            self.queue.write_buffer(&self.object_data.0, 0, &uniforms);
+            self.queue
+                .write_buffer(&self.global_uniforms.0, 0, &global_uniforms);
+            render_pass.set_bind_group(0, &self.global_uniforms.1, &[]);
 
-            render_pass.set_bind_group(0, &self.object_data.1, &[]);
-            render_pass.set_index_buffer(
-                self.entities[0].index_buffer.slice(..),
-                self.entities[0].index_format,
-            );
-            render_pass.set_vertex_buffer(0, self.entities[0].vertex_buffer.slice(..));
-            render_pass.draw_indexed(0..self.entities[0].index_count as u32, 0, 0..1);
+            // entities
+            for entity in &self.entities {
+                render_pass.set_bind_group(1, &self.entity_uniforms.1, &[0]);
+                render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
+                render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
+                render_pass.draw_indexed(0..entity.index_count as u32, 0, 0..1);
+            }
         }
 
         self.queue.submit(Some(encoder.finish()));
