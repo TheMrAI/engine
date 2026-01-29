@@ -273,8 +273,6 @@ impl Wgpu {
             .collect::<Vec<Entity>>()
         };
 
-        // Preparing for rendering
-
         // Bind group layout
         let global_uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -302,7 +300,7 @@ impl Wgpu {
             });
 
         // Create bind group
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let global_uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("global_uniforms"),
             layout: &global_uniform_bind_group_layout,
             entries: &[BindGroupEntry {
@@ -315,7 +313,7 @@ impl Wgpu {
             }],
         });
 
-        let global_uniforms = (global_uniform_buffer, bind_group);
+        let global_uniforms = (global_uniform_buffer, global_uniform_bind_group);
 
         let entity_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Entity uniform buffer"),
