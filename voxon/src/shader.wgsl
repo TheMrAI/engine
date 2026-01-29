@@ -1,8 +1,6 @@
 
-struct Uniforms {
-    normalMatrix: mat3x3f,
-    worldViewProjection: mat4x4f,
-    world: mat4x4f,
+struct Globals {
+    view_projection: mat4x4f,
     light_color: vec4f,
     light_position: vec3f,
     view_world_position: vec3f,
@@ -11,11 +9,23 @@ struct Uniforms {
     limit: f32,
 };
 
+struct Entity {
+    world: mat4x4f,
+    normal: mat3x3f,
+}
+
+@group(0)
+@binding(0)
+var<uniform> global: Globals;
+
+@group(1)
+@binding(0)
+var<uniform> entity: Entity;
+
 struct Vertex {
     // The position of the vertex.
     @location(0) position: vec4f,
     @location(1) normal: vec3f,
-    // @location(2) color: vec4f,
 };
 
 struct VSOutput {
@@ -27,26 +37,22 @@ struct VSOutput {
     @location(2) surface_to_view: vec3f,
 };
 
-@group(0)
-@binding(0)
-var<uniform> uni: Uniforms;
-
 @vertex
 fn vs_main(vertex: Vertex) -> VSOutput {
     var vsOut: VSOutput;
 
     // Compute the vertex position in device coordinates
-    vsOut.position = uni.worldViewProjection * vertex.position;
+    vsOut.position = global.view_projection * entity.world * vertex.position;
     
     // Orient the normals in world space
-    vsOut.normal = uni.normalMatrix * vertex.normal;
+    vsOut.normal = entity.normal * vertex.normal;
     
     // Compute surface_to_light vector in world space
-    let surface_world_position = (uni.world * vertex.position).xyz;
-    vsOut.surface_to_light = uni.light_position - surface_world_position;
+    let surface_world_position = (entity.world * vertex.position).xyz;
+    vsOut.surface_to_light = global.light_position - surface_world_position;
 
     // Compute the surface_to_view vector in world space
-    vsOut.surface_to_view = uni.view_world_position - surface_world_position;
+    vsOut.surface_to_view = global.view_world_position - surface_world_position;
 
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]
@@ -67,15 +73,15 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
     var light = 0.0;
     var specular = 0.0;
 
-    let dot_from_direction = dot(surface_to_light_direction, -uni.light_direction);
-    if (dot_from_direction > uni.limit) {
+    let dot_from_direction = dot(surface_to_light_direction, -global.light_direction);
+    if (dot_from_direction > global.limit) {
         light = dot(normal, surface_to_light_direction);
 
         specular = dot(normal, half_vector);   
-        specular = select(0.0, pow(specular, uni.shininess), specular > 0.0);
+        specular = select(0.0, pow(specular, global.shininess), specular > 0.0);
     }
 
 
-    let color = uni.light_color.rgb * light + specular;
-    return vec4f(color, uni.light_color.a);
+    let color = global.light_color.rgb * light + specular;
+    return vec4f(color, global.light_color.a);
 }
