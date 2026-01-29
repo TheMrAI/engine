@@ -15,7 +15,6 @@ struct Vertex {
     // The position of the vertex.
     @location(0) position: vec4f,
     @location(1) normal: vec3f,
-    // @location(2) color: vec4f,
 };
 
 struct VSOutput {

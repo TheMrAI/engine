@@ -1,7 +1,7 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
 use graphic::{camera::Camera, transform::translate};
-use lina::{matrix::Matrix, v};
+use lina::{matrix::Matrix, v, vector::Vector};
 use quaternion::Quaternion;
 use wgpu::{
     Adapter, BindGroup, BindGroupEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState,
@@ -18,9 +18,72 @@ pub struct Wgpu {
     pub device: Device,
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
-    pub vertex_buffer: Buffer,
-    pub vertex_count: u32,
+    pub cube_vertex_buffer: Buffer,
+    pub cube_index_buffer: Buffer,
+    pub cube_index_count: u32,
     pub object_data: (Buffer, BindGroup),
+}
+
+pub struct Vertex {
+    position: Vector<f32, 4>,
+    normal: Vector<f32, 3>,
+}
+
+pub struct Mesh {
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
+}
+
+// The cube center is at (0, 0, 0) and has a dimensions
+// of 2.
+// Return a pair of vertices and their indexes.
+fn generate_cube() -> Mesh {
+    // Vertex buffer
+    #[rustfmt::skip]
+    let vertex_positions: Vec<Vector<f32, 4>> = vec![
+        v![-1.0, -1.0, 1.0, 1.0], // 0
+        v![1.0, -1.0, 1.0, 1.0], // 1
+        v![1.0, 1.0, 1.0, 1.0], // 2
+        v![-1.0, 1.0, 1.0, 1.0], // 3
+        v![-1.0, -1.0, -1.0, 1.0], // 4
+        v![1.0, -1.0, -1.0, 1.0], // 5
+        v![1.0, 1.0, -1.0, 1.0], // 6
+        v![-1.0, 1.0, -1.0, 1.0], // 7
+    ];
+    // The normal will be the same for each vertex as it's position,
+    // normalized.
+    let vertices = vertex_positions
+        .iter()
+        .map(|position| Vertex {
+            position: *position,
+            normal: position.xyz().unwrap().normalized(),
+        })
+        .collect();
+
+    // Vertex indices
+    #[rustfmt::skip]
+    let indices: Vec<u32> = vec![
+        // front face
+        0, 1, 2,
+        2, 3, 0,
+        // back face
+        5, 4, 7,
+        7, 6, 5,
+        // top face
+        3, 2, 6,
+        6, 7, 3,
+        // bottom face
+        4, 5, 1,
+        1, 0, 4,
+        // right face
+        5, 6, 2,
+        2, 1, 5,
+        // left face
+        4, 0, 3,
+        3, 7, 4
+    ];
+
+    Mesh { vertices, indices }
 }
 
 impl Wgpu {
@@ -64,101 +127,40 @@ impl Wgpu {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        // Vertex buffer
-        #[rustfmt::skip]
-        let cube_vertices: Vec<f32> = vec![
-            0.0, 0.0, 1.0, // 0
-            1.0, 0.0, 1.0, // 1
-            1.0, 1.0, 1.0, // 2
-            0.0, 1.0, 1.0, // 3
-            0.0, 0.0, 0.0, // 4
-            1.0, 0.0, 0.0, // 5
-            1.0, 1.0, 0.0, // 6
-            0.0, 1.0, 0.0, // 7
-        ];
-
-        // Vertex indices
-        #[rustfmt::skip]
-        let cube_indices: Vec<u32> = vec![
-            // front face
-            0, 1, 2,
-            2, 3, 0,
-            // back face
-            5, 4, 7,
-            7, 6, 5,
-            // top face
-            3, 2, 6,
-            6, 7, 3,
-            // bottom face
-            4, 5, 1,
-            1, 0, 4,
-            // right face
-            5, 6, 2,
-            2, 1, 5,
-            // left face
-            4, 0, 3,
-            3, 7, 4
-        ];
-
-        let cube_normals: Vec<f32> = vec![
-            0.0, 0.0, 1.0, // front (Z+)
-            0.0, 0.0, -1.0, // back
-            0.0, 1.0, 0.0, // top (Y+)
-            0.0, -1.0, 0.0, // bottom
-            1.0, 0.0, 0.0, // right (X+)
-            -1.0, 0.0, 0.0, // left
-        ];
-
-        #[allow(unused_variables)]
-        let quad_colors: Vec<u8> = vec![
-            33, 188, 255, // front (light blue / Z+)
-            28, 105, 168, // back (dark blue)
-            5, 223, 114, // top (light green / Y+)
-            23, 130, 54, // bottom (dark green)
-            255, 100, 103, // right (light red / X+)
-            193, 16, 7, // left (dark red)
-        ];
-
-        let vertex_data = {
-            cube_indices
-                .iter()
-                .enumerate()
-                .flat_map(|(i, index)| {
-                    let start_vertex_index = (index * 3) as usize;
-                    let vertex_iter = (start_vertex_index..start_vertex_index + 3)
-                        .map(|vertex_index| cube_vertices[vertex_index]);
-
-                    let quad_index = (i / 6) * 3;
-
-                    let normal_iter =
-                        (quad_index..quad_index + 3).map(|normal_index| cube_normals[normal_index]);
-
-                    vertex_iter.chain(normal_iter)
-
-                    // let color = f32::from_le_bytes([
-                    //     quad_colors[quad_index],
-                    //     quad_colors[quad_index + 1],
-                    //     quad_colors[quad_index + 2],
-                    //     255,
-                    // ]);
-
-                    // vertex_iter.chain(normal_iter).chain([color])
-                })
-                .collect::<Vec<f32>>()
-        };
-
-        let vertex_data = vertex_data
+        let cube_mesh = generate_cube();
+        let cube_vertex_data = cube_mesh
+            .vertices
             .iter()
-            .flat_map(|entry| entry.to_le_bytes())
+            .flat_map(|entry| {
+                entry
+                    .position
+                    .as_slice()
+                    .iter()
+                    .chain(entry.normal.as_slice().iter().chain([&0.0]))
+                    .flat_map(|value| value.to_le_bytes())
+            })
             .collect::<Vec<u8>>();
 
-        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let cube_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("vertices"),
-            size: vertex_data.len() as u64,
+            size: cube_vertex_data.len() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        queue.write_buffer(&vertex_buffer, 0, &vertex_data);
+        queue.write_buffer(&cube_vertex_buffer, 0, &cube_vertex_data);
+
+        let cube_index_data = cube_mesh
+            .indices
+            .iter()
+            .flat_map(|index| index.to_le_bytes())
+            .collect::<Vec<_>>();
+        let cube_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("cube_index_buffer"),
+            size: cube_index_data.len() as u64,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&cube_index_buffer, 0, &cube_index_data);
 
         // Bind group layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -192,27 +194,21 @@ impl Wgpu {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 buffers: &[VertexBufferLayout {
-                    array_stride: (3 + 3) * 4,
+                    array_stride: (4 + 3 + 1) * 4, // (4 floats for position + 3 floats for normal + 1 padding) * f32 byte count
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[
                         // position
                         VertexAttribute {
-                            format: wgpu::VertexFormat::Float32x3,
+                            format: wgpu::VertexFormat::Float32x4,
                             offset: 0,
                             shader_location: 0,
                         },
                         // normal
                         VertexAttribute {
                             format: wgpu::VertexFormat::Float32x3,
-                            offset: 12,
+                            offset: 16,
                             shader_location: 1,
                         },
-                        // // color
-                        // VertexAttribute {
-                        //     format: wgpu::VertexFormat::Unorm8x4,
-                        //     offset: 24,
-                        //     shader_location: 2,
-                        // },
                     ],
                 }],
                 compilation_options: Default::default(),
@@ -280,8 +276,9 @@ impl Wgpu {
             device,
             queue,
             render_pipeline,
-            vertex_buffer,
-            vertex_count: cube_indices.len() as u32,
+            cube_vertex_buffer,
+            cube_index_buffer,
+            cube_index_count: cube_mesh.indices.len() as u32,
             object_data,
         }
     }
@@ -343,7 +340,6 @@ impl Wgpu {
                 occlusion_query_set: None,
             });
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 
             // the camera matrix
             let look_at = camera.as_transform_matrix();
@@ -380,7 +376,7 @@ impl Wgpu {
             #[allow(unused_variables)]
             let translate = translate(-0.5, -0.5, -0.5);
 
-            let world = rotate_y;
+            let world = /*graphic::identity_matrix();*/ rotate_y;
             //  graphic::transform::scale(10.0, 30.0, 2.0) *
             // * graphic::transform::rotate_x(PI / 4.0)
             //  translate;
@@ -463,7 +459,7 @@ impl Wgpu {
                 .chain(
                     // light position
                     // last value is padding
-                    [-1.5f32, 1.2, 2.0, 0.0]
+                    [-10.0f32, 10.0, 10.0, 0.0]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
@@ -477,13 +473,13 @@ impl Wgpu {
                 .chain([100.0f32].iter().flat_map(|entry| entry.to_le_bytes()))
                 .chain(
                     // light direction
-                    ((-v![-1.5f32, 1.2, 2.0]).normalized())
+                    ((-v![-1.0f32, 1.0, -1.0]).normalized())
                         .as_slice()
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
                 .chain(
-                    [(25.0f32 * (PI / 180.0f32)).cos()]
+                    [(90.0f32 * (PI / 180.0f32)).cos()]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
@@ -492,7 +488,10 @@ impl Wgpu {
             self.queue.write_buffer(&self.object_data.0, 0, &uniforms);
 
             render_pass.set_bind_group(0, &self.object_data.1, &[]);
-            render_pass.draw(0..self.vertex_count, 0..1);
+            render_pass
+                .set_index_buffer(self.cube_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_vertex_buffer(0, self.cube_vertex_buffer.slice(..));
+            render_pass.draw_indexed(0..self.cube_index_count, 0, 0..1);
         }
 
         self.queue.submit(Some(encoder.finish()));
