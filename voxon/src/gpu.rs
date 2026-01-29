@@ -1,6 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, sync::Arc};
 
-use graphic::{camera::Camera, transform::translate};
+use graphic::{camera::Camera, identity_matrix, transform::translate};
 use lina::{matrix::Matrix, v, vector::Vector};
 use quaternion::Quaternion;
 use wgpu::{
@@ -18,9 +18,7 @@ pub struct Wgpu {
     pub device: Device,
     pub queue: Queue,
     pub render_pipeline: RenderPipeline,
-    pub cube_vertex_buffer: Buffer,
-    pub cube_index_buffer: Buffer,
-    pub cube_index_count: u32,
+    pub entities: Vec<Entity>,
     pub object_data: (Buffer, BindGroup),
 }
 
@@ -32,6 +30,19 @@ pub struct Vertex {
 pub struct Mesh {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
+}
+
+pub struct Entity {
+    // Mesh data
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    index_format: wgpu::IndexFormat,
+    index_count: usize,
+    // Transformation data
+    #[allow(dead_code)]
+    world_matrix: Matrix<f32, 4, 4>,
+    #[allow(dead_code)]
+    normal_matrix: Matrix<f32, 3, 3>,
 }
 
 // The cube center is at (0, 0, 0) and has a dimensions
@@ -162,6 +173,19 @@ impl Wgpu {
         });
         queue.write_buffer(&cube_index_buffer, 0, &cube_index_data);
 
+        let entities = {
+            [Entity {
+                vertex_buffer: cube_vertex_buffer,
+                index_buffer: cube_index_buffer,
+                index_format: wgpu::IndexFormat::Uint32,
+                index_count: cube_mesh.indices.len(),
+                world_matrix: identity_matrix(),
+                normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
+            }]
+            .into_iter()
+            .collect::<Vec<Entity>>()
+        };
+
         // Bind group layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("bind_group"),
@@ -276,9 +300,7 @@ impl Wgpu {
             device,
             queue,
             render_pipeline,
-            cube_vertex_buffer,
-            cube_index_buffer,
-            cube_index_count: cube_mesh.indices.len() as u32,
+            entities,
             object_data,
         }
     }
@@ -289,6 +311,67 @@ impl Wgpu {
         delta_t: std::time::Duration,
         cube_delta_t: &mut std::time::Duration,
     ) {
+        // World simulation.
+        // It will not be part of the render pipeline later on.
+        // Only temporarily for now.
+
+        // For now the cube transformations are hacked in here.
+        let cube_full_rotation_time = std::time::Duration::from_secs(10);
+        *cube_delta_t = cube_delta_t.saturating_add(delta_t);
+        if *cube_delta_t > cube_full_rotation_time {
+            *cube_delta_t = cube_delta_t.saturating_sub(cube_full_rotation_time);
+        }
+
+        // for quick rotation checks
+        #[allow(unused_variables)]
+        let rotate_y: Matrix<f32, 4, 4> = Quaternion::<f32>::new_unit(
+            2.0 * PI
+                * (cube_delta_t.as_millis() as f32 / cube_full_rotation_time.as_millis() as f32),
+            v![0.0, 1.0, 0.0],
+        )
+        .into();
+
+        // center the cube at the origo
+        #[allow(unused_variables)]
+        let translate = translate(-1.0, -1.0, -1.0);
+        let cube_world_matrix = rotate_y;
+
+        let cube_normal_matrix = {
+            let mut matrix = Matrix::<f32, 3, 3>::new();
+
+            matrix[(0, 0)] = cube_world_matrix[(0, 0)];
+            matrix[(0, 1)] = cube_world_matrix[(0, 1)];
+            matrix[(0, 2)] = cube_world_matrix[(0, 2)];
+
+            matrix[(1, 0)] = cube_world_matrix[(1, 0)];
+            matrix[(1, 1)] = cube_world_matrix[(1, 1)];
+            matrix[(1, 2)] = cube_world_matrix[(1, 2)];
+
+            matrix[(2, 0)] = cube_world_matrix[(2, 0)];
+            matrix[(2, 1)] = cube_world_matrix[(2, 1)];
+            matrix[(2, 2)] = cube_world_matrix[(2, 2)];
+
+            // Adjoint is better as it always exists
+            // , unlike the inverse. The only difference
+            // is that the inverse is the adjoint divided by
+            // the determinant.
+            // So there is a scaling issue, but normals have
+            // be renormalized later anyways.
+            // Normal matrix would need to be transposed,
+            // but WGPU already expects matrices in row major form
+            // and we work with column major form.
+            // So by omitting transposition on our normal matrix in
+            // column major form, we provide WGPU with the transposed
+            // in row major form.
+            matrix.adjoint()
+        };
+        // a little quick heck for now, just to illustrate refactoring goals
+        // but it isn't used yet
+        self.entities[0].world_matrix = cube_world_matrix;
+        self.entities[0].normal_matrix = cube_normal_matrix;
+
+        // RENDER
+
         // Create render texture
         let frame = self
             .surface
@@ -354,84 +437,31 @@ impl Wgpu {
                 -20000.0,
             );
 
-            // Handle error with checked add?
-            // Makes little sense
-            let cube_full_rotation_time = std::time::Duration::from_secs(10);
-            *cube_delta_t = cube_delta_t.saturating_add(delta_t);
-            if *cube_delta_t > cube_full_rotation_time {
-                *cube_delta_t = cube_delta_t.saturating_sub(cube_full_rotation_time);
-            }
-
-            // for quick rotation checks
-            #[allow(unused_variables)]
-            let rotate_y: Matrix<f32, 4, 4> = Quaternion::<f32>::new_unit(
-                2.0 * PI
-                    * (cube_delta_t.as_millis() as f32
-                        / cube_full_rotation_time.as_millis() as f32),
-                v![0.0, 1.0, 0.0],
-            )
-            .into();
-
-            // center the cube at the origo
-            #[allow(unused_variables)]
-            let translate = translate(-0.5, -0.5, -0.5);
-
-            let world = /*graphic::identity_matrix();*/ rotate_y;
             //  graphic::transform::scale(10.0, 30.0, 2.0) *
             // * graphic::transform::rotate_x(PI / 4.0)
             //  translate;
             let view_projection_matrix = projection_matrix * view_matrix;
-            let world_view_projection_matrix = view_projection_matrix * world;
-
-            let normal_matrix = {
-                let mut matrix = Matrix::<f32, 3, 3>::new();
-
-                matrix[(0, 0)] = world[(0, 0)];
-                matrix[(0, 1)] = world[(0, 1)];
-                matrix[(0, 2)] = world[(0, 2)];
-
-                matrix[(1, 0)] = world[(1, 0)];
-                matrix[(1, 1)] = world[(1, 1)];
-                matrix[(1, 2)] = world[(1, 2)];
-
-                matrix[(2, 0)] = world[(2, 0)];
-                matrix[(2, 1)] = world[(2, 1)];
-                matrix[(2, 2)] = world[(2, 2)];
-
-                // Adjoint is better as it always exists
-                // , unlike the inverse. The only difference
-                // is that the inverse is the adjoint divided by
-                // the determinant.
-                // So there is a scaling issue, but normals have
-                // be renormalized later anyways.
-                // Normal matrix would need to be transposed,
-                // but WGPU already expects matrices in row major form
-                // and we work with column major form.
-                // So by omitting transposition on our normal matrix in
-                // column major form, we provide WGPU with the transposed
-                // in row major form.
-                matrix.adjoint()
-            };
+            let world_view_projection_matrix = view_projection_matrix * cube_world_matrix;
 
             // Serialize to the gpu
             // WGPU works with row major matrices
 
             let padded_flattened_normal_matrix = [
-                normal_matrix[(0, 0)],
-                normal_matrix[(0, 1)],
-                normal_matrix[(0, 2)],
+                cube_normal_matrix[(0, 0)],
+                cube_normal_matrix[(0, 1)],
+                cube_normal_matrix[(0, 2)],
                 0.0,
-                normal_matrix[(1, 0)],
-                normal_matrix[(1, 1)],
-                normal_matrix[(1, 2)],
+                cube_normal_matrix[(1, 0)],
+                cube_normal_matrix[(1, 1)],
+                cube_normal_matrix[(1, 2)],
                 0.0,
-                normal_matrix[(2, 0)],
-                normal_matrix[(2, 1)],
-                normal_matrix[(2, 2)],
+                cube_normal_matrix[(2, 0)],
+                cube_normal_matrix[(2, 1)],
+                cube_normal_matrix[(2, 2)],
                 0.0,
             ];
             let world_view_projection_matrix = world_view_projection_matrix.transpose();
-            let world = world.transpose();
+            let world = cube_world_matrix.transpose();
 
             let uniforms = padded_flattened_normal_matrix
                 .iter()
@@ -488,10 +518,12 @@ impl Wgpu {
             self.queue.write_buffer(&self.object_data.0, 0, &uniforms);
 
             render_pass.set_bind_group(0, &self.object_data.1, &[]);
-            render_pass
-                .set_index_buffer(self.cube_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.set_vertex_buffer(0, self.cube_vertex_buffer.slice(..));
-            render_pass.draw_indexed(0..self.cube_index_count, 0, 0..1);
+            render_pass.set_index_buffer(
+                self.entities[0].index_buffer.slice(..),
+                self.entities[0].index_format,
+            );
+            render_pass.set_vertex_buffer(0, self.entities[0].vertex_buffer.slice(..));
+            render_pass.draw_indexed(0..self.entities[0].index_count as u32, 0, 0..1);
         }
 
         self.queue.submit(Some(encoder.finish()));
