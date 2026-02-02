@@ -1,7 +1,7 @@
 use std::{borrow::Cow, f32::consts::PI, time::Duration};
 
 use graphic::{camera::Camera, identity_matrix, transform::translate};
-use lina::{m, matrix::Matrix, v, vector::Vector};
+use lina::{m, matrix::Matrix, v};
 
 use quaternion::Quaternion;
 use wgpu::{
@@ -12,15 +12,7 @@ use wgpu::{
 };
 use winit::dpi::PhysicalSize;
 
-pub struct Vertex {
-    position: Vector<f32, 4>,
-    normal: Vector<f32, 3>,
-}
-
-pub struct Mesh {
-    vertices: Vec<Vertex>,
-    indices: Vec<u32>,
-}
+use crate::mesh::{generate_cube, generate_plane};
 
 pub struct Entity {
     // Mesh data
@@ -32,88 +24,6 @@ pub struct Entity {
     uniform_offset: wgpu::DynamicOffset,
     world_matrix: Matrix<f32, 4, 4>,
     normal_matrix: Matrix<f32, 3, 3>,
-}
-
-// The cube center is at (0, 0, 0) and has a dimensions
-// of 2.
-// Return a pair of vertices and their indexes.
-fn generate_cube() -> Mesh {
-    // Vertex buffer
-    #[rustfmt::skip]
-    let vertex_positions: Vec<Vector<f32, 4>> = vec![
-        v![-1.0, -1.0, 1.0, 1.0], // 0
-        v![1.0, -1.0, 1.0, 1.0], // 1
-        v![1.0, 1.0, 1.0, 1.0], // 2
-        v![-1.0, 1.0, 1.0, 1.0], // 3
-        v![-1.0, -1.0, -1.0, 1.0], // 4
-        v![1.0, -1.0, -1.0, 1.0], // 5
-        v![1.0, 1.0, -1.0, 1.0], // 6
-        v![-1.0, 1.0, -1.0, 1.0], // 7
-    ];
-    // The normal will be the same for each vertex as it's position,
-    // normalized.
-    let vertices = vertex_positions
-        .iter()
-        .map(|position| Vertex {
-            position: *position,
-            normal: position.xyz().unwrap().normalized(),
-        })
-        .collect();
-
-    // Vertex indices
-    #[rustfmt::skip]
-    let indices: Vec<u32> = vec![
-        // front face
-        0, 1, 2,
-        2, 3, 0,
-        // back face
-        5, 4, 7,
-        7, 6, 5,
-        // top face
-        3, 2, 6,
-        6, 7, 3,
-        // bottom face
-        4, 5, 1,
-        1, 0, 4,
-        // right face
-        5, 6, 2,
-        2, 1, 5,
-        // left face
-        4, 0, 3,
-        3, 7, 4
-    ];
-
-    Mesh { vertices, indices }
-}
-
-// A 2x2 big plane centered a the origo,
-// laying on the XZ plane.
-fn generate_plane() -> Mesh {
-    // Vertex buffer
-    #[rustfmt::skip]
-    let vertex_positions: Vec<Vector<f32, 4>> = vec![
-        v![-1.0, 0.0, 1.0, 1.0], // 0
-        v![1.0, 0.0, 1.0, 1.0], // 1
-        v![1.0, 0.0, -1.0, 1.0], // 2
-        v![-1.0, 0.0, -1.0, 1.0], // 3
-    ];
-    // The normal will be the same for each vertex, up.
-    let vertices = vertex_positions
-        .iter()
-        .map(|position| Vertex {
-            position: *position,
-            normal: v![0.0, 1.0, 0.0],
-        })
-        .collect();
-
-    // Vertex indices
-    #[rustfmt::skip]
-    let indices: Vec<u32> = vec![
-        0, 1, 3,
-        3, 1, 2  
-    ];
-
-    Mesh { vertices, indices }
 }
 
 //
@@ -147,14 +57,14 @@ impl Scene {
         // CUBE
         let cube_mesh = generate_cube();
         let cube_vertex_data = cube_mesh
-            .vertices
+            .vertices()
             .iter()
             .flat_map(|entry| {
                 entry
-                    .position
+                    .position()
                     .as_slice()
                     .iter()
-                    .chain(entry.normal.as_slice().iter().chain([&0.0]))
+                    .chain(entry.normal().as_slice().iter().chain([&0.0]))
                     .flat_map(|value| value.to_le_bytes())
             })
             .collect::<Vec<u8>>();
@@ -168,7 +78,7 @@ impl Scene {
         queue.write_buffer(&cube_vertex_buffer, 0, &cube_vertex_data);
 
         let cube_index_data = cube_mesh
-            .indices
+            .indices()
             .iter()
             .flat_map(|index| index.to_le_bytes())
             .collect::<Vec<_>>();
@@ -183,14 +93,14 @@ impl Scene {
         // PLANE
         let plane_mesh = generate_plane();
         let plane_vertex_data = plane_mesh
-            .vertices
+            .vertices()
             .iter()
             .flat_map(|entry| {
                 entry
-                    .position
+                    .position()
                     .as_slice()
                     .iter()
-                    .chain(entry.normal.as_slice().iter().chain([&0.0]))
+                    .chain(entry.normal().as_slice().iter().chain([&0.0]))
                     .flat_map(|value| value.to_le_bytes())
             })
             .collect::<Vec<u8>>();
@@ -204,7 +114,7 @@ impl Scene {
         queue.write_buffer(&plane_vertex_buffer, 0, &plane_vertex_data);
 
         let plane_index_data = plane_mesh
-            .indices
+            .indices()
             .iter()
             .flat_map(|index| index.to_le_bytes())
             .collect::<Vec<_>>();
@@ -229,7 +139,7 @@ impl Scene {
                     vertex_buffer: cube_vertex_buffer,
                     index_buffer: cube_index_buffer,
                     index_format: wgpu::IndexFormat::Uint32,
-                    index_count: cube_mesh.indices.len(),
+                    index_count: cube_mesh.indices().len(),
                     world_matrix: identity_matrix(),
                     normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
                     uniform_offset: 0,
@@ -238,7 +148,7 @@ impl Scene {
                     vertex_buffer: plane_vertex_buffer,
                     index_buffer: plane_index_buffer,
                     index_format: wgpu::IndexFormat::Uint32,
-                    index_count: plane_mesh.indices.len(),
+                    index_count: plane_mesh.indices().len(),
                     world_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
                         * graphic::transform::scale(3.0, 1.0, 3.0),
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],

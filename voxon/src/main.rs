@@ -10,6 +10,7 @@ use winit::{
 
 mod gpu;
 mod inner_app;
+mod mesh;
 mod scene;
 
 struct App {
