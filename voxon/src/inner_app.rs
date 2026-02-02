@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use graphic::camera::Camera;
 use winit::window::Window;
@@ -10,9 +10,6 @@ pub(super) struct InnerApp {
     pub gpu: Wgpu,
     pub camera: Camera,
     pub prev_render_time: std::time::Instant,
-    // A dirty hack for managing the Cube's rotation
-    // state.
-    pub delta_t_for_cube: std::time::Duration,
 }
 
 impl InnerApp {
@@ -33,7 +30,6 @@ impl InnerApp {
             gpu,
             camera,
             prev_render_time: std::time::Instant::now(),
-            delta_t_for_cube: Duration::default(),
         }
     }
 }
