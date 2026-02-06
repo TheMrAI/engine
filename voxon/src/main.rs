@@ -10,6 +10,8 @@ use winit::{
 
 mod gpu;
 mod inner_app;
+mod mesh;
+mod scene;
 
 struct App {
     app: Option<InnerApp>,
@@ -130,8 +132,7 @@ impl ApplicationHandler for App {
                         app.camera.move_on_up_vector(-speed);
                     }
 
-                    app.gpu
-                        .render(&app.camera, delta_t, &mut app.delta_t_for_cube);
+                    app.gpu.render(&app.camera, delta_t);
                     // for continuos rendering
                     app.window.request_redraw();
 
