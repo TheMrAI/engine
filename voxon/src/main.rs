@@ -197,12 +197,13 @@ impl ApplicationHandler for App {
                 }
             }
             DeviceEvent::MouseMotion { delta } => {
-                if self.focused && self.navigating {
-                    if let Some(app) = self.app.as_mut() {
-                        // Negate all inputs, inverting the movements
-                        app.camera.pitch(-delta.1 as f32 / 50.0);
-                        app.camera.yaw(-delta.0 as f32 / 50.0);
-                    }
+                if self.focused
+                    && self.navigating
+                    && let Some(app) = self.app.as_mut()
+                {
+                    // Negate all inputs, inverting the movements
+                    app.camera.pitch(-delta.1 as f32 / 50.0);
+                    app.camera.yaw(-delta.0 as f32 / 50.0);
                 }
             }
             DeviceEvent::MouseWheel { delta } => {

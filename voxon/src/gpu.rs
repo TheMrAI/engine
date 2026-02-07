@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use graphic::camera::Camera;
-use wgpu::{Adapter, Device, Queue, Surface};
+use wgpu::{Adapter, Device, ExperimentalFeatures, Queue, Surface};
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::scene::Scene;
@@ -39,6 +39,7 @@ impl Wgpu {
                     .using_resolution(adapter.limits()),
                 memory_hints: wgpu::MemoryHints::Performance,
                 trace: wgpu::Trace::Off,
+                experimental_features: ExperimentalFeatures::disabled(),
             })
             .await
             .expect("Failed to create device");
