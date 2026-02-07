@@ -1,5 +1,5 @@
 use inner_app::InnerApp;
-use winit::event::{ElementState, MouseScrollDelta};
+use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use winit::keyboard::PhysicalKey;
@@ -169,6 +169,26 @@ impl ApplicationHandler for App {
                     app.gpu.surface.configure(&app.gpu.device, &config);
                 }
             }
+            WindowEvent::MouseInput {
+                device_id: _,
+                state,
+                button,
+            } => {
+                if self.focused && matches!(button, MouseButton::Right) {
+                    match state {
+                        ElementState::Pressed => self.navigating = true,
+                        ElementState::Released => {
+                            self.navigating = false;
+                            // If 'navigation' is stopped
+                            // we simply clear all keys. Resetting the state.
+                            // Otherwise the user could release the 'navigation' key while
+                            // navigating, then release all key, and keep moving in the
+                            // last read direction.
+                            self.key_state.clear();
+                        }
+                    }
+                }
+            }
             _ => (),
         }
     }
@@ -221,22 +241,6 @@ impl ApplicationHandler for App {
                             self.speed = self.speed.clamp(0.1, 30.0);
                         }
                         MouseScrollDelta::PixelDelta(_) => {}
-                    }
-                }
-            }
-            DeviceEvent::Button { button, state } => {
-                if self.focused && button == 1 {
-                    match state {
-                        ElementState::Pressed => self.navigating = true,
-                        ElementState::Released => {
-                            self.navigating = false;
-                            // If 'navigation' is stopped
-                            // we simply clear all keys. Resetting the state.
-                            // Otherwise the user could release the 'navigation' key while
-                            // navigating, then release all key, and keep moving in the
-                            // last read direction.
-                            self.key_state.clear();
-                        }
                     }
                 }
             }
