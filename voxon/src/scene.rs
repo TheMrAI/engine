@@ -244,7 +244,7 @@ impl Scene {
                 &global_uniform_bind_group_layout,
                 &entity_uniform_bind_group_layout,
             ],
-            push_constant_ranges: &[],
+            immediate_size: 0,
         });
 
         let swapchain_capabilities = surface.get_capabilities(adapter);
@@ -299,7 +299,7 @@ impl Scene {
                 bias: DepthBiasState::default(),
             }),
             multisample: wgpu::MultisampleState::default(),
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -449,6 +449,7 @@ impl Scene {
                 label: Some("render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &frame_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -465,6 +466,7 @@ impl Scene {
                 }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             render_pass.set_pipeline(&self.render_pipeline);
 

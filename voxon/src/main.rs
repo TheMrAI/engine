@@ -1,5 +1,5 @@
 use inner_app::InnerApp;
-use winit::event::{ElementState, MouseScrollDelta};
+use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 use winit::keyboard::PhysicalKey;
@@ -169,43 +169,48 @@ impl ApplicationHandler for App {
                     app.gpu.surface.configure(&app.gpu.device, &config);
                 }
             }
-            _ => (),
-        }
-    }
-
-    fn device_event(
-        &mut self,
-        _event_loop: &winit::event_loop::ActiveEventLoop,
-        _device_id: winit::event::DeviceId,
-        event: DeviceEvent,
-    ) {
-        #[allow(clippy::single_match)]
-        match event {
-            DeviceEvent::Key(key_event) => {
+            WindowEvent::KeyboardInput {
+                device_id: _,
+                event,
+                is_synthetic: _,
+            } => {
                 // camera navigation controls for the engine
-                if self.focused && self.navigating {
-                    match key_event.physical_key {
-                        PhysicalKey::Code(key_code) => {
-                            let is_pressed = key_event.state == ElementState::Pressed;
-                            self.key_state
-                                .entry(key_code)
-                                .and_modify(|entry| *entry = is_pressed)
-                                .or_insert(is_pressed);
+                if self.focused
+                    && self.navigating
+                    && let PhysicalKey::Code(key_code) = event.physical_key
+                {
+                    let is_pressed = event.state == ElementState::Pressed;
+                    self.key_state
+                        .entry(key_code)
+                        .and_modify(|entry| *entry = is_pressed)
+                        .or_insert(is_pressed);
+                }
+            }
+            WindowEvent::MouseInput {
+                device_id: _,
+                state,
+                button,
+            } => {
+                if self.focused && matches!(button, MouseButton::Right) {
+                    match state {
+                        ElementState::Pressed => self.navigating = true,
+                        ElementState::Released => {
+                            self.navigating = false;
+                            // If 'navigation' is stopped
+                            // we simply clear all keys. Resetting the state.
+                            // Otherwise the user could release the 'navigation' key while
+                            // navigating, then release all key, and keep moving in the
+                            // last read direction.
+                            self.key_state.clear();
                         }
-                        _ => {}
                     }
                 }
             }
-            DeviceEvent::MouseMotion { delta } => {
-                if self.focused && self.navigating {
-                    if let Some(app) = self.app.as_mut() {
-                        // Negate all inputs, inverting the movements
-                        app.camera.pitch(-delta.1 as f32 / 50.0);
-                        app.camera.yaw(-delta.0 as f32 / 50.0);
-                    }
-                }
-            }
-            DeviceEvent::MouseWheel { delta } => {
+            WindowEvent::MouseWheel {
+                device_id: _,
+                delta,
+                phase: _, // touchpad ignored
+            } => {
                 if self.focused && self.navigating {
                     match delta {
                         MouseScrollDelta::LineDelta(_dx, dy) => {
@@ -223,20 +228,26 @@ impl ApplicationHandler for App {
                     }
                 }
             }
-            DeviceEvent::Button { button, state } => {
-                if self.focused && button == 1 {
-                    match state {
-                        ElementState::Pressed => self.navigating = true,
-                        ElementState::Released => {
-                            self.navigating = false;
-                            // If 'navigation' is stopped
-                            // we simply clear all keys. Resetting the state.
-                            // Otherwise the user could release the 'navigation' key while
-                            // navigating, then release all key, and keep moving in the
-                            // last read direction.
-                            self.key_state.clear();
-                        }
-                    }
+            _ => (),
+        }
+    }
+
+    fn device_event(
+        &mut self,
+        _event_loop: &winit::event_loop::ActiveEventLoop,
+        _device_id: winit::event::DeviceId,
+        event: DeviceEvent,
+    ) {
+        #[allow(clippy::single_match)]
+        match event {
+            DeviceEvent::MouseMotion { delta } => {
+                if self.focused
+                    && self.navigating
+                    && let Some(app) = self.app.as_mut()
+                {
+                    // Negate all inputs, inverting the movements
+                    app.camera.pitch(-delta.1 as f32 / 50.0);
+                    app.camera.yaw(-delta.0 as f32 / 50.0);
                 }
             }
             _ => (), // the rest we don't care
