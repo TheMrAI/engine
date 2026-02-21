@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = [ "graphic", "lina", "voxon"]
+members = ["frametime", "graphic", "lina", "voxon"]
