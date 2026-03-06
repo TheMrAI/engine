@@ -43,10 +43,10 @@ fn vs_main(vertex: Vertex) -> VSOutput {
 
     // Compute the vertex position in device coordinates
     vsOut.position = global.view_projection * entity.world * vertex.position;
-    
+
     // Orient the normals in world space
     vsOut.normal = entity.normal * vertex.normal;
-    
+
     // Compute surface_to_light vector in world space
     let surface_world_position = (entity.world * vertex.position).xyz;
     vsOut.surface_to_light = global.light_position - surface_world_position;
@@ -66,10 +66,10 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
     let normal = normalize(vsOut.normal);
 
     let surface_to_light_direction = normalize(vsOut.surface_to_light);
-    
+
     let surface_to_view_direction = normalize(vsOut.surface_to_view);
     let half_vector = normalize(surface_to_light_direction + surface_to_view_direction);
-    
+
     var light = 0.0;
     var specular = 0.0;
 
@@ -77,7 +77,7 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
     if (dot_from_direction > global.limit) {
         light = dot(normal, surface_to_light_direction);
 
-        specular = dot(normal, half_vector);   
+        specular = dot(normal, half_vector);
         specular = select(0.0, pow(specular, global.shininess), specular > 0.0);
     }
 
