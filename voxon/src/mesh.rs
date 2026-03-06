@@ -32,27 +32,61 @@ impl Mesh {
 
 /// The cube center is at (0, 0, 0) and has a dimensions
 /// of 2.
-/// Return a pair of vertices and their indexes.
 pub fn generate_cube() -> Mesh {
     // Vertex buffer
     #[rustfmt::skip]
     let vertex_positions: Vec<Vector<f32, 4>> = vec![
-        v![-1.0, -1.0, 1.0, 1.0], // 0
-        v![1.0, -1.0, 1.0, 1.0], // 1
-        v![1.0, 1.0, 1.0, 1.0], // 2
-        v![-1.0, 1.0, 1.0, 1.0], // 3
-        v![-1.0, -1.0, -1.0, 1.0], // 4
-        v![1.0, -1.0, -1.0, 1.0], // 5
-        v![1.0, 1.0, -1.0, 1.0], // 6
-        v![-1.0, 1.0, -1.0, 1.0], // 7
+        // front
+        v![-1.0, -1.0, 1.0, 1.0],
+        v![1.0, -1.0, 1.0, 1.0],
+        v![1.0, 1.0, 1.0, 1.0],
+        v![-1.0, 1.0, 1.0, 1.0],
+        // right
+        v![1.0, -1.0, 1.0, 1.0],
+        v![1.0, -1.0, -1.0, 1.0],
+        v![1.0, 1.0, -1.0, 1.0],
+        v![1.0, 1.0, 1.0, 1.0],
+        // back
+        v![1.0, -1.0, -1.0, 1.0],
+        v![-1.0, -1.0, -1.0, 1.0],
+        v![-1.0, 1.0, -1.0, 1.0],
+        v![1.0, 1.0, -1.0, 1.0],
+        // left
+        v![-1.0, -1.0, -1.0, 1.0],
+        v![-1.0, -1.0, 1.0, 1.0],
+        v![-1.0, 1.0, 1.0, 1.0],
+        v![-1.0, 1.0, -1.0, 1.0],
+        // top
+        v![-1.0, 1.0, -1.0, 1.0],
+        v![-1.0, 1.0, 1.0, 1.0],
+        v![1.0, 1.0, 1.0, 1.0],
+        v![1.0, 1.0, -1.0, 1.0],
+        // bottom
+        v![-1.0, -1.0, -1.0, 1.0],
+        v![1.0, -1.0, -1.0, 1.0],
+        v![1.0, -1.0, 1.0, 1.0],
+        v![-1.0, -1.0, 1.0, 1.0],
     ];
-    // The normal will be the same for each vertex as it's position,
-    // normalized.
+    let normals: Vec<Vector<f32, 3>> = vec![
+        // front
+        v![0.0, 0.0, 1.0],
+        // right
+        v![1.0, 0.0, 0.0],
+        // back
+        v![0.0, 0.0, -1.0],
+        // left
+        v![-1.0, 0.0, 0.0],
+        // top
+        v![0.0, 1.0, 0.0],
+        // bottom
+        v![0.0, -1.0, 0.0],
+    ];
     let vertices = vertex_positions
         .iter()
-        .map(|position| Vertex {
+        .enumerate()
+        .map(|(i, position)| Vertex {
             position: *position,
-            normal: position.xyz().unwrap().normalized(),
+            normal: normals[i / 4],
         })
         .collect();
 
@@ -62,21 +96,21 @@ pub fn generate_cube() -> Mesh {
         // front face
         0, 1, 2,
         2, 3, 0,
-        // back face
-        5, 4, 7,
-        7, 6, 5,
-        // top face
-        3, 2, 6,
-        6, 7, 3,
-        // bottom face
-        4, 5, 1,
-        1, 0, 4,
         // right face
-        5, 6, 2,
-        2, 1, 5,
+        4, 5, 6,
+        6, 7, 4,
+        // back face
+        8, 9, 10,
+        10, 11, 8,
         // left face
-        4, 0, 3,
-        3, 7, 4
+        12, 13, 14,
+        14, 15, 12,
+        // top face
+        16, 17, 18,
+        18, 19, 16,
+        // bottom face
+        20, 21, 22,
+        22, 23, 20,
     ];
 
     Mesh { vertices, indices }
@@ -106,7 +140,7 @@ pub fn generate_plane() -> Mesh {
     #[rustfmt::skip]
     let indices: Vec<u32> = vec![
         0, 1, 3,
-        3, 1, 2  
+        3, 1, 2
     ];
 
     Mesh { vertices, indices }
