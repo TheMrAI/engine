@@ -1,6 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, time::Duration};
 
-use graphic::{camera::Camera, identity_matrix, transform::translate};
+use graphic::{camera::Camera, identity_matrix};
 use lina::{m, matrix::Matrix, v};
 
 use quaternion::Quaternion;
