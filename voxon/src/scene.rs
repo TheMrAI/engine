@@ -1,6 +1,6 @@
 use std::{borrow::Cow, f32::consts::PI, time::Duration};
 
-use graphic::{camera::Camera, identity_matrix, transform::translate};
+use graphic::{camera::Camera, identity_matrix};
 use lina::{m, matrix::Matrix, v};
 
 use quaternion::Quaternion;
@@ -334,14 +334,11 @@ impl Scene {
         )
         .into();
 
-        // center the cube at the origo
-        #[allow(unused_variables)]
-        let translate = translate(-1.0, -1.0, -1.0);
-        let cube_world_matrix = rotate_y;
+        let cube_world_matrix = graphic::identity_matrix();
 
         let cube_normal_matrix = {
             let mut matrix = Matrix::<f32, 3, 3>::new();
-
+            // may be padded incorrectly!!! check
             matrix[(0, 0)] = cube_world_matrix[(0, 0)];
             matrix[(0, 1)] = cube_world_matrix[(0, 1)];
             matrix[(0, 2)] = cube_world_matrix[(0, 2)];
