@@ -17,6 +17,14 @@ var<uniform> global: Globals;
 @binding(0)
 var<uniform> entity: Entity;
 
+@group(2)
+@binding(0)
+var texture_sampler: sampler;
+
+@group(2)
+@binding(1)
+var texture: texture_2d<f32>;
+
 struct Vertex {
     // The position of the vertex.
     @location(0) position: vec4f,
@@ -41,6 +49,8 @@ fn vs_main(vertex: Vertex) -> VSOutput {
 
     // Orient the normals in world space
     vsOut.normal = entity.normal * vertex.normal;
+    // Pass uv.
+    vsOut.uv = vertex.uv * 50.0;
 
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]
@@ -53,5 +63,5 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
     // have to be renormalized if necessary.
     let normal = normalize(vsOut.normal);
 
-    return vec4f(0.2, 0.2, 0.2, 1.0);
+    return textureSample(texture, texture_sampler, vsOut.uv);
 }

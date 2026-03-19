@@ -5,10 +5,11 @@ use lina::{m, matrix::Matrix, v};
 
 use quaternion::Quaternion;
 use wgpu::{
-    Adapter, BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, Buffer,
-    BufferBinding, BufferUsages, DepthBiasState, DepthStencilState, Device, Face, Operations,
-    Queue, RenderPassDepthStencilAttachment, RenderPipeline, StencilState, Surface,
-    TextureDescriptor, TextureUsages, VertexAttribute, VertexBufferLayout, util::align_to,
+    Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState, DepthStencilState,
+    Device, Extent3d, Face, Operations, Queue, RenderPassDepthStencilAttachment, RenderPipeline,
+    StencilState, Surface, TexelCopyBufferLayout, TextureDescriptor, TextureUsages,
+    VertexAttribute, VertexBufferLayout, util::align_to,
 };
 use winit::dpi::PhysicalSize;
 
@@ -44,6 +45,7 @@ pub struct Scene {
     entities: Vec<Entity>,
     global_uniforms: (Buffer, BindGroup),
     entity_uniforms: (Buffer, BindGroup),
+    texture_uniforms: BindGroup,
 }
 
 impl Scene {
@@ -161,6 +163,88 @@ impl Scene {
             .collect::<Vec<Entity>>()
         };
 
+        let green = vec![0u8, 255, 0, 255];
+        let blue = vec![0, 0, 255, 255];
+        let texture_data = vec![green.clone(), blue.clone(), blue, green]
+            .into_iter()
+            .flat_map(|val| val.into_iter())
+            .collect::<Vec<u8>>();
+        let texture_extent = Extent3d {
+            width: 2,
+            height: 2,
+            depth_or_array_layers: 1,
+        };
+        let texture = device.create_texture(&TextureDescriptor {
+            label: Some("hand_texture"),
+            size: texture_extent,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            mip_level_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            sample_count: 1,
+            view_formats: &[],
+            dimension: wgpu::TextureDimension::D2,
+        });
+        let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
+        queue.write_texture(
+            texture.as_image_copy(),
+            &texture_data,
+            TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(2 * 4),
+                rows_per_image: None,
+            },
+            texture_extent,
+        );
+
+        let sampler = device.create_sampler(&wgpu::wgt::SamplerDescriptor {
+            label: Some("texture_sampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("texture_sampler_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+        let texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("texture_bind_group"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                },
+            ],
+        });
+        let texture_uniforms = texture_bind_group;
+
         // Bind group layout
         let global_uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -182,7 +266,7 @@ impl Scene {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
                 #[allow(clippy::identity_op)] // for clearer explanation
-                size: (16 + 3) * 4 + 4, // (view projection matrix + view position + shininess + light direction + limit) * float size + padding
+                size: (16 + 3) * 4 + 4, // (view projection matrix + view position) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -200,7 +284,6 @@ impl Scene {
                 }),
             }],
         });
-
         let global_uniforms = (global_uniform_buffer, global_uniform_bind_group);
 
         let entity_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -245,6 +328,7 @@ impl Scene {
             bind_group_layouts: &[
                 &global_uniform_bind_group_layout,
                 &entity_uniform_bind_group_layout,
+                &texture_bind_group_layout,
             ],
             immediate_size: 0,
         });
@@ -317,6 +401,7 @@ impl Scene {
             entities,
             global_uniforms,
             entity_uniforms,
+            texture_uniforms,
         }
     }
 
@@ -510,6 +595,7 @@ impl Scene {
 
             queue.write_buffer(&self.global_uniforms.0, 0, &global_uniforms);
             render_pass.set_bind_group(0, &self.global_uniforms.1, &[]);
+            render_pass.set_bind_group(2, &self.texture_uniforms, &[]);
 
             // entities
             for entity in &self.entities {
