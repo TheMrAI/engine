@@ -21,6 +21,7 @@ struct Vertex {
     // The position of the vertex.
     @location(0) position: vec4f,
     @location(1) normal: vec3f,
+    @location(2) uv: vec2f,
 };
 
 struct VSOutput {
@@ -28,6 +29,7 @@ struct VSOutput {
     @builtin(position) position: vec4f,
     // Will be interpolated and have to renormalized.
     @location(0) normal: vec3f,
+    @location(1) uv: vec2f,
 };
 
 @vertex

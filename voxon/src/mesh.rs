@@ -3,6 +3,7 @@ use lina::{v, vector::Vector};
 pub struct Vertex {
     position: Vector<f32, 4>,
     normal: Vector<f32, 3>,
+    uv: Vector<f32, 2>,
 }
 
 impl Vertex {
@@ -12,6 +13,10 @@ impl Vertex {
 
     pub fn normal(&self) -> &Vector<f32, 3> {
         &self.normal
+    }
+
+    pub fn uv(&self) -> &Vector<f32, 2> {
+        &self.uv
     }
 }
 
@@ -87,6 +92,7 @@ pub fn generate_cube() -> Mesh {
         .map(|(i, position)| Vertex {
             position: *position,
             normal: normals[i / 4],
+            uv: Vector::default(),
         })
         .collect();
 
@@ -127,12 +133,18 @@ pub fn generate_plane() -> Mesh {
         v![1.0, 0.0, -1.0, 1.0], // 2
         v![-1.0, 0.0, -1.0, 1.0], // 3
     ];
+    let uv_coordinates: Vec<Vector<f32, 2>> = vertex_positions
+        .iter()
+        .map(|pos| (v![pos[0], pos[2]] + v![1.0, 1.0]) / 2.0)
+        .collect();
     // The normal will be the same for each vertex, up.
     let vertices = vertex_positions
         .iter()
-        .map(|position| Vertex {
+        .zip(uv_coordinates.iter())
+        .map(|(position, uv_coord)| Vertex {
             position: *position,
             normal: v![0.0, 1.0, 0.0],
+            uv: *uv_coord,
         })
         .collect();
 

@@ -65,6 +65,7 @@ impl Scene {
                     .as_slice()
                     .iter()
                     .chain(entry.normal().as_slice().iter().chain([&0.0]))
+                    .chain(entry.uv().as_slice().iter())
                     .flat_map(|value| value.to_le_bytes())
             })
             .collect::<Vec<u8>>();
@@ -101,6 +102,7 @@ impl Scene {
                     .as_slice()
                     .iter()
                     .chain(entry.normal().as_slice().iter().chain([&0.0]))
+                    .chain(entry.uv().as_slice().iter())
                     .flat_map(|value| value.to_le_bytes())
             })
             .collect::<Vec<u8>>();
@@ -257,7 +259,7 @@ impl Scene {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 buffers: &[VertexBufferLayout {
-                    array_stride: (4 + 3 + 1) * 4, // (4 floats for position + 3 floats for normal + 1 padding) * f32 byte count
+                    array_stride: (4 + 3 + 1 + 2) * 4, // (4 floats for position + 3 floats for normal + 1 padding + 2 UV) * f32 byte count
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[
                         // position
@@ -271,6 +273,12 @@ impl Scene {
                             format: wgpu::VertexFormat::Float32x3,
                             offset: 16,
                             shader_location: 1,
+                        },
+                        // uv
+                        VertexAttribute {
+                            format: wgpu::VertexFormat::Float32x2,
+                            offset: 32,
+                            shader_location: 2,
                         },
                     ],
                 }],
