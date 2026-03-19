@@ -150,7 +150,7 @@ impl Scene {
                     index_format: wgpu::IndexFormat::Uint32,
                     index_count: plane_mesh.indices().len(),
                     world_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
-                        * graphic::transform::scale(3.0, 1.0, 3.0),
+                        * graphic::transform::scale(50.0, 1.0, 50.0),
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
                 },
@@ -487,7 +487,6 @@ impl Scene {
             let view_projection_matrix = view_projection_matrix.transpose();
 
             // UPDATE Uniforms
-
             let global_uniforms = view_projection_matrix
                 .as_slices()
                 .iter()
