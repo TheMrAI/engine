@@ -180,7 +180,7 @@ impl Scene {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
                 #[allow(clippy::identity_op)] // for clearer explanation
-                size: (16 + 4 + 4 + 3 + 1 + 3 + 1) * 4, // (view projection matrix + light color + light position + view position + shininess + light direction + limit) * float size + padding
+                size: (16 + 3) * 4 + 4, // (view projection matrix + view position + shininess + light direction + limit) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -484,7 +484,6 @@ impl Scene {
 
             // Serialize to the gpu
             // WGPU works with row major matrices
-
             let view_projection_matrix = view_projection_matrix.transpose();
 
             // UPDATE Uniforms
@@ -495,35 +494,8 @@ impl Scene {
                 .flatten()
                 .flat_map(|entry| entry.to_le_bytes())
                 .chain(
-                    // light color
-                    [0.2f32, 1.0, 0.2, 1.0]
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
-                    // light position
-                    // last value is padding
-                    [-10.0f32, 10.0, 10.0, 0.0]
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
                     // view position
                     [camera.eye()[0], camera.eye()[1], camera.eye()[2]]
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                // shininess
-                .chain([100.0f32].iter().flat_map(|entry| entry.to_le_bytes()))
-                .chain(
-                    // light direction
-                    ((v![1.0f32, -1.0, -1.0]).normalized())
-                        .as_slice()
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
-                    [(10.0f32 * (PI / 180.0f32)).cos()]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
