@@ -1,4 +1,9 @@
-use std::{borrow::Cow, f32::consts::PI, time::Duration};
+use std::{
+    borrow::Cow,
+    f32::consts::PI,
+    io::{self},
+    time::Duration,
+};
 
 use graphic::{camera::Camera, identity_matrix};
 use lina::{m, matrix::Matrix, v};
@@ -163,21 +168,22 @@ impl Scene {
             .collect::<Vec<Entity>>()
         };
 
-        let green = vec![0u8, 255, 0, 255];
-        let blue = vec![0, 0, 255, 255];
-        let texture_data = vec![green.clone(), blue.clone(), blue, green]
-            .into_iter()
-            .flat_map(|val| val.into_iter())
-            .collect::<Vec<u8>>();
+        let image_data = include_bytes!("texture_01.png");
+        let png_decoder = png::Decoder::new(io::Cursor::new(image_data));
+        let mut reader = png_decoder.read_info().unwrap();
+        let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+        let frame_info = reader.next_frame(&mut buf).unwrap();
+        let bytes = &buf[..frame_info.buffer_size()];
+
         let texture_extent = Extent3d {
-            width: 2,
-            height: 2,
+            width: frame_info.width,
+            height: frame_info.height,
             depth_or_array_layers: 1,
         };
         let texture = device.create_texture(&TextureDescriptor {
             label: Some("hand_texture"),
             size: texture_extent,
-            format: wgpu::TextureFormat::Rgba8Unorm,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             mip_level_count: 1,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             sample_count: 1,
@@ -187,10 +193,10 @@ impl Scene {
         let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
         queue.write_texture(
             texture.as_image_copy(),
-            &texture_data,
+            bytes,
             TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(2 * 4),
+                bytes_per_row: Some(frame_info.width * 4),
                 rows_per_image: None,
             },
             texture_extent,
@@ -201,9 +207,9 @@ impl Scene {
             address_mode_u: wgpu::AddressMode::Repeat,
             address_mode_v: wgpu::AddressMode::Repeat,
             address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
 
