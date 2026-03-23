@@ -72,6 +72,40 @@ pub fn generate_cube() -> Mesh {
         v![1.0, -1.0, 1.0, 1.0],
         v![-1.0, -1.0, 1.0, 1.0],
     ];
+    let third = 1.0 / 3.0;
+    let uv_coords: Vec<Vector<f32, 2>> = vec![
+        // front - +Z
+        v![0.0, 0.5],
+        v![third, 0.5],
+        v![third, 0.0],
+        v![0.0, 0.0],
+        // right - +X
+        v![third, 0.5],
+        v![2.0 * third, 0.5],
+        v![2.0 * third, 0.0],
+        v![third, 0.0],
+        // back - -Z
+        v![2.0 * third, 0.5],
+        v![1.0, 0.5],
+        v![1.0, 0.0],
+        v![2.0 * third, 0.0],
+        // left - -X
+        v![0.0, 1.0],
+        v![third, 1.0],
+        v![third, 0.5],
+        v![0.0, 0.5],
+        // top - +Y
+        v![2.0 * third, 1.0],
+        v![2.0 * third, 0.5],
+        v![third, 0.5],
+        v![third, 1.0],
+        // bottom - -Y
+        v![2.0 * third, 1.0],
+        v![1.0, 1.0],
+        v![1.0, 0.5],
+        v![2.0 * third, 0.5],
+    ];
+
     let normals: Vec<Vector<f32, 3>> = vec![
         // front
         v![0.0, 0.0, 1.0],
@@ -92,7 +126,7 @@ pub fn generate_cube() -> Mesh {
         .map(|(i, position)| Vertex {
             position: *position,
             normal: normals[i / 4],
-            uv: Vector::default(),
+            uv: uv_coords[i],
         })
         .collect();
 

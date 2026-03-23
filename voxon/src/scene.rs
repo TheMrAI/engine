@@ -31,6 +31,7 @@ pub struct Entity {
     uniform_offset: wgpu::DynamicOffset,
     world_matrix: Matrix<f32, 4, 4>,
     normal_matrix: Matrix<f32, 3, 3>,
+    texture_scale: f32,
 }
 
 //
@@ -51,7 +52,7 @@ pub struct Scene {
     entities: Vec<Entity>,
     global_uniforms: (Buffer, BindGroup),
     entity_uniforms: (Buffer, BindGroup),
-    texture_uniforms: BindGroup,
+    texture_bind_groups: Vec<BindGroup>,
 }
 
 impl Scene {
@@ -136,7 +137,7 @@ impl Scene {
         });
         queue.write_buffer(&plane_index_buffer, 0, &plane_index_data);
 
-        let entity_uniform_size = (16 + 16) * 4;
+        let entity_uniform_size = (16 + 16 + 1) * 4;
         let entity_uniform_alignment = {
             let alignment =
                 device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
@@ -153,6 +154,7 @@ impl Scene {
                     world_matrix: identity_matrix(),
                     normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
                     uniform_offset: 0,
+                    texture_scale: 1.0,
                 },
                 Entity {
                     vertex_buffer: plane_vertex_buffer,
@@ -163,54 +165,15 @@ impl Scene {
                         * graphic::transform::scale(50.0, 1.0, 50.0),
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
+                    texture_scale: 50.0,
                 },
             ]
             .into_iter()
             .collect::<Vec<Entity>>()
         };
 
-        let image_data = include_bytes!("texture_01.png");
-        let png_decoder = png::Decoder::new(io::Cursor::new(image_data));
-        let mut reader = png_decoder.read_info().unwrap();
-        let mut buf = vec![0; reader.output_buffer_size().unwrap()];
-        let frame_info = reader.next_frame(&mut buf).unwrap();
-        let bytes = &buf[..frame_info.buffer_size()];
-
-        let texture_extent = Extent3d {
-            width: frame_info.width,
-            height: frame_info.height,
-            depth_or_array_layers: 1,
-        };
-        let texture = device.create_texture(&TextureDescriptor {
-            label: Some("hand_texture"),
-            size: texture_extent,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            mip_level_count: std::cmp::max(frame_info.width.ilog2(), frame_info.height.ilog2()),
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            sample_count: 1,
-            view_formats: &[],
-            dimension: wgpu::TextureDimension::D2,
-        });
-
-        let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
-        queue.write_texture(
-            texture.as_image_copy(),
-            bytes,
-            TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(frame_info.width * 4),
-                rows_per_image: None,
-            },
-            texture_extent,
-        );
-
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("mimpap_encoder"),
-        });
-        generate_mipmap(device, &mut encoder, &texture);
-        queue.submit(Some(encoder.finish()));
+        let cube_texture_view = load_texture_cube(device, queue);
+        let plane_texture_view = load_texture_plane(device, queue);
 
         let sampler = device.create_sampler(&wgpu::wgt::SamplerDescriptor {
             label: Some("texture_sampler"),
@@ -245,7 +208,8 @@ impl Scene {
                     },
                 ],
             });
-        let texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
+
+        let cube_texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: Some("texture_bind_group"),
             layout: &texture_bind_group_layout,
             entries: &[
@@ -255,11 +219,25 @@ impl Scene {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                    resource: wgpu::BindingResource::TextureView(&cube_texture_view),
                 },
             ],
         });
-        let texture_uniforms = texture_bind_group;
+        let plane_texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("texture_bind_group"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&plane_texture_view),
+                },
+            ],
+        });
+        let texture_bind_groups = vec![cube_texture_bind_group, plane_texture_bind_group];
 
         // Bind group layout
         let global_uniform_bind_group_layout =
@@ -417,7 +395,7 @@ impl Scene {
             entities,
             global_uniforms,
             entity_uniforms,
-            texture_uniforms,
+            texture_bind_groups,
         }
     }
 
@@ -537,6 +515,11 @@ impl Scene {
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
+                .chain(
+                    [entity.texture_scale]
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
                 .collect::<Vec<u8>>();
 
             queue.write_buffer(
@@ -611,11 +594,11 @@ impl Scene {
 
             queue.write_buffer(&self.global_uniforms.0, 0, &global_uniforms);
             render_pass.set_bind_group(0, &self.global_uniforms.1, &[]);
-            render_pass.set_bind_group(2, &self.texture_uniforms, &[]);
 
             // entities
-            for entity in &self.entities {
+            for (i, entity) in self.entities.iter().enumerate() {
                 render_pass.set_bind_group(1, &self.entity_uniforms.1, &[entity.uniform_offset]);
+                render_pass.set_bind_group(2, &self.texture_bind_groups[i], &[]);
                 render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
                 render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
                 render_pass.draw_indexed(0..entity.index_count as u32, 0, 0..1);
@@ -625,6 +608,100 @@ impl Scene {
         queue.submit(Some(encoder.finish()));
         frame.present();
     }
+}
+
+pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
+    let image_data = include_bytes!("texture_01.png");
+    let png_decoder = png::Decoder::new(io::Cursor::new(image_data));
+    let mut reader = png_decoder.read_info().unwrap();
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+    let frame_info = reader.next_frame(&mut buf).unwrap();
+    let bytes = &buf[..frame_info.buffer_size()];
+
+    let texture_extent = Extent3d {
+        width: frame_info.width,
+        height: frame_info.height,
+        depth_or_array_layers: 1,
+    };
+    let texture = device.create_texture(&TextureDescriptor {
+        label: Some("hand_texture"),
+        size: texture_extent,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        mip_level_count: std::cmp::max(frame_info.width.ilog2(), frame_info.height.ilog2()),
+        usage: TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT,
+        sample_count: 1,
+        view_formats: &[],
+        dimension: wgpu::TextureDimension::D2,
+    });
+
+    let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
+    queue.write_texture(
+        texture.as_image_copy(),
+        bytes,
+        TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(frame_info.width * 4),
+            rows_per_image: None,
+        },
+        texture_extent,
+    );
+
+    let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+        label: Some("mimpap_encoder"),
+    });
+    generate_mipmap(device, &mut encoder, &texture);
+    queue.submit(Some(encoder.finish()));
+
+    texture_view
+}
+
+pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
+    let image_data = include_bytes!("cube_atlas.png");
+    let png_decoder = png::Decoder::new(io::Cursor::new(image_data));
+    let mut reader = png_decoder.read_info().unwrap();
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+    let frame_info = reader.next_frame(&mut buf).unwrap();
+    let bytes = &buf[..frame_info.buffer_size()];
+
+    let texture_extent = Extent3d {
+        width: frame_info.width,
+        height: frame_info.height,
+        depth_or_array_layers: 1,
+    };
+    let texture = device.create_texture(&TextureDescriptor {
+        label: Some("hand_texture"),
+        size: texture_extent,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        mip_level_count: std::cmp::max(frame_info.width.ilog2(), frame_info.height.ilog2()),
+        usage: TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT,
+        sample_count: 1,
+        view_formats: &[],
+        dimension: wgpu::TextureDimension::D2,
+    });
+
+    let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
+    queue.write_texture(
+        texture.as_image_copy(),
+        bytes,
+        TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(frame_info.width * 4),
+            rows_per_image: None,
+        },
+        texture_extent,
+    );
+
+    let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+        label: Some("mimpap_encoder"),
+    });
+    generate_mipmap(device, &mut encoder, &texture);
+    queue.submit(Some(encoder.finish()));
+
+    texture_view
 }
 
 // Generate mipmaps on the GPU.

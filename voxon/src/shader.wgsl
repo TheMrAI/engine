@@ -7,6 +7,7 @@ struct Globals {
 struct Entity {
     world: mat4x4f,
     normal: mat3x3f,
+    texture_scale: f32,
 }
 
 @group(0)
@@ -50,7 +51,7 @@ fn vs_main(vertex: Vertex) -> VSOutput {
     // Orient the normals in world space
     vsOut.normal = entity.normal * vertex.normal;
     // Pass uv.
-    vsOut.uv = vertex.uv * 50.0;
+    vsOut.uv = vertex.uv * entity.texture_scale;
 
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]
