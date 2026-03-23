@@ -12,9 +12,10 @@ use quaternion::Quaternion;
 use wgpu::{
     Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState, DepthStencilState,
-    Device, Extent3d, Face, Operations, Queue, RenderPassDepthStencilAttachment, RenderPipeline,
-    StencilState, Surface, TexelCopyBufferLayout, TextureDescriptor, TextureUsages,
-    VertexAttribute, VertexBufferLayout, util::align_to,
+    Device, Extent3d, Face, FragmentState, MultisampleState, Operations, PrimitiveState, Queue,
+    RenderPassDepthStencilAttachment, RenderPipeline, RenderPipelineDescriptor, StencilState,
+    Surface, TexelCopyBufferLayout, TextureDescriptor, TextureUsages, VertexAttribute,
+    VertexBufferLayout, VertexState, include_wgsl, util::align_to, wgt::CommandEncoderDescriptor,
 };
 use winit::dpi::PhysicalSize;
 
@@ -184,12 +185,15 @@ impl Scene {
             label: Some("hand_texture"),
             size: texture_extent,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            mip_level_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            mip_level_count: std::cmp::max(frame_info.width.ilog2(), frame_info.height.ilog2()),
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
             sample_count: 1,
             view_formats: &[],
             dimension: wgpu::TextureDimension::D2,
         });
+
         let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
         queue.write_texture(
             texture.as_image_copy(),
@@ -201,6 +205,12 @@ impl Scene {
             },
             texture_extent,
         );
+
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("mimpap_encoder"),
+        });
+        generate_mipmap(device, &mut encoder, &texture);
+        queue.submit(Some(encoder.finish()));
 
         let sampler = device.create_sampler(&wgpu::wgt::SamplerDescriptor {
             label: Some("texture_sampler"),
@@ -614,5 +624,111 @@ impl Scene {
 
         queue.submit(Some(encoder.finish()));
         frame.present();
+    }
+}
+
+// Generate mipmaps on the GPU.
+//
+// The base texture must be uploaded before calling this function.
+// The number of mip-maps will always be 'max(log2(base_texture_width), log2(base_texture_height))',
+// ensure that the base texture was created such, that it expects exactly the above mipmap level count.
+pub fn generate_mipmap(
+    device: &wgpu::Device,
+    encoder: &mut wgpu::CommandEncoder,
+    texture: &wgpu::Texture,
+) {
+    let mip_count = std::cmp::max(texture.width().ilog2(), texture.height().ilog2());
+    let mipmap_shader = device.create_shader_module(include_wgsl!("mipmap.wgsl"));
+
+    let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+        label: Some("mipmap_pipeline"),
+        layout: None,
+        vertex: VertexState {
+            module: &mipmap_shader,
+            entry_point: Some("vs_main"),
+            compilation_options: Default::default(),
+            buffers: &[],
+        },
+        fragment: Some(FragmentState {
+            module: &mipmap_shader,
+            entry_point: Some("fs_main"),
+            compilation_options: Default::default(),
+            targets: &[Some(texture.format().into())],
+        }),
+        primitive: PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: MultisampleState::default(),
+        multiview_mask: None,
+        cache: None,
+    });
+
+    let bind_group_layout = pipeline.get_bind_group_layout(0);
+
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("mipmapper"),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+        ..Default::default()
+    });
+
+    let views = (0..mip_count)
+        .map(|mip_level| {
+            texture.create_view(&wgpu::TextureViewDescriptor {
+                label: Some("mip_level"),
+                format: None,
+                dimension: None,
+                usage: Some(TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT),
+                aspect: wgpu::TextureAspect::All,
+                base_mip_level: mip_level,
+                mip_level_count: Some(1),
+                base_array_layer: 0,
+                array_layer_count: None,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    for mip_level in 1..mip_count as usize {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("mipmap_bind_group"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&views[mip_level - 1]),
+                },
+            ],
+        });
+
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("mipmap_render_pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &views[mip_level],
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        render_pass.set_pipeline(&pipeline);
+        render_pass.set_bind_group(0, &bind_group, &[]);
+        render_pass.draw(0..3, 0..1);
     }
 }
