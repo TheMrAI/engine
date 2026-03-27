@@ -618,16 +618,43 @@ pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::T
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let bytes = &buf[..frame_info.buffer_size()];
 
-    let texture_extent = Extent3d {
+    let dimensions = Extent3d {
         width: frame_info.width,
         height: frame_info.height,
         depth_or_array_layers: 1,
     };
+
+    let texture = upload_texture(device, queue, dimensions, bytes, true);
+
+    texture.create_view(&wgpu::wgt::TextureViewDescriptor::default())
+}
+
+// Upload a 2D texture to the GPU and generate mipmaps if requested.
+//
+// It does not support textures using multiple layers, like cubemaps.
+// The texture buffer has to have the RGBA values using the sRGB color
+// space.
+pub fn upload_texture(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    dimensions: Extent3d,
+    texture_buffers: &[u8],
+    generate_mips: bool,
+) -> wgpu::Texture {
+    let mip_level_count = {
+        if generate_mips {
+            std::cmp::max(dimensions.width.ilog2(), dimensions.height.ilog2())
+        } else {
+            1
+        }
+    };
+
+    // Create the top level texture.
     let texture = device.create_texture(&TextureDescriptor {
         label: Some("hand_texture"),
-        size: texture_extent,
+        size: dimensions,
         format: wgpu::TextureFormat::Rgba8UnormSrgb,
-        mip_level_count: std::cmp::max(frame_info.width.ilog2(), frame_info.height.ilog2()),
+        mip_level_count,
         usage: TextureUsages::TEXTURE_BINDING
             | TextureUsages::COPY_DST
             | TextureUsages::RENDER_ATTACHMENT,
@@ -636,25 +663,30 @@ pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::T
         dimension: wgpu::TextureDimension::D2,
     });
 
-    let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
+    let single_texture_extent = wgpu::Extent3d {
+        depth_or_array_layers: 1,
+        ..dimensions
+    };
     queue.write_texture(
         texture.as_image_copy(),
-        bytes,
+        texture_buffers,
         TexelCopyBufferLayout {
             offset: 0,
-            bytes_per_row: Some(frame_info.width * 4),
+            bytes_per_row: Some(dimensions.width * 4),
             rows_per_image: None,
         },
-        texture_extent,
+        single_texture_extent,
     );
 
-    let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-        label: Some("mimpap_encoder"),
-    });
-    generate_mipmap(device, &mut encoder, &texture);
-    queue.submit(Some(encoder.finish()));
+    if generate_mips {
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("mimpap_encoder"),
+        });
+        generate_mipmap(device, &mut encoder, &texture);
+        queue.submit(Some(encoder.finish()));
+    }
 
-    texture_view
+    texture
 }
 
 pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
@@ -665,43 +697,15 @@ pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Te
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let bytes = &buf[..frame_info.buffer_size()];
 
-    let texture_extent = Extent3d {
+    let dimensions = Extent3d {
         width: frame_info.width,
         height: frame_info.height,
         depth_or_array_layers: 1,
     };
-    let texture = device.create_texture(&TextureDescriptor {
-        label: Some("hand_texture"),
-        size: texture_extent,
-        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-        mip_level_count: std::cmp::max(frame_info.width.ilog2(), frame_info.height.ilog2()),
-        usage: TextureUsages::TEXTURE_BINDING
-            | TextureUsages::COPY_DST
-            | TextureUsages::RENDER_ATTACHMENT,
-        sample_count: 1,
-        view_formats: &[],
-        dimension: wgpu::TextureDimension::D2,
-    });
 
-    let texture_view = texture.create_view(&wgpu::wgt::TextureViewDescriptor::default());
-    queue.write_texture(
-        texture.as_image_copy(),
-        bytes,
-        TexelCopyBufferLayout {
-            offset: 0,
-            bytes_per_row: Some(frame_info.width * 4),
-            rows_per_image: None,
-        },
-        texture_extent,
-    );
+    let texture = upload_texture(device, queue, dimensions, bytes, true);
 
-    let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
-        label: Some("mimpap_encoder"),
-    });
-    generate_mipmap(device, &mut encoder, &texture);
-    queue.submit(Some(encoder.finish()));
-
-    texture_view
+    texture.create_view(&wgpu::wgt::TextureViewDescriptor::default())
 }
 
 // Generate mipmaps on the GPU.
