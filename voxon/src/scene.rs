@@ -611,7 +611,7 @@ impl Scene {
 }
 
 pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    let image_data = include_bytes!("texture_01.png");
+    let image_data = include_bytes!("../resources/textures/texture_01.png");
     let png_decoder = png::Decoder::new(io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
@@ -658,7 +658,7 @@ pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::T
 }
 
 pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    let image_data = include_bytes!("cube_atlas.png");
+    let image_data = include_bytes!("../resources/textures/cube_atlas.png");
     let png_decoder = png::Decoder::new(io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
