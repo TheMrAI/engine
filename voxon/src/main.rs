@@ -12,6 +12,7 @@ mod gpu;
 mod inner_app;
 mod mesh;
 mod scene;
+mod texture;
 
 struct App {
     app: Option<InnerApp>,
