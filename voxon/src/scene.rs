@@ -3,7 +3,10 @@ use std::{borrow::Cow, f32::consts::PI, time::Duration};
 use graphic::{camera::Camera, identity_matrix};
 use lina::{m, matrix::Matrix, v};
 
-use crate::texture::{load_texture_cube, load_texture_plane};
+use crate::{
+    cube_map::CubeMap,
+    texture::{load_texture_cube, load_texture_plane},
+};
 use quaternion::Quaternion;
 use wgpu::{
     Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
@@ -48,6 +51,7 @@ pub struct Scene {
     global_uniforms: (Buffer, BindGroup),
     entity_uniforms: (Buffer, BindGroup),
     texture_bind_groups: Vec<BindGroup>,
+    cube_map: CubeMap,
 }
 
 impl Scene {
@@ -384,6 +388,8 @@ impl Scene {
             cache: None,
         });
 
+        let cube_map = CubeMap::new(device, queue, swapchain_format.into());
+
         Self {
             cube_delta_t: Duration::default(),
             render_pipeline,
@@ -391,6 +397,7 @@ impl Scene {
             global_uniforms,
             entity_uniforms,
             texture_bind_groups,
+            cube_map,
         }
     }
 
@@ -591,13 +598,17 @@ impl Scene {
             render_pass.set_bind_group(0, &self.global_uniforms.1, &[]);
 
             // entities
-            for (i, entity) in self.entities.iter().enumerate() {
-                render_pass.set_bind_group(1, &self.entity_uniforms.1, &[entity.uniform_offset]);
-                render_pass.set_bind_group(2, &self.texture_bind_groups[i], &[]);
-                render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
-                render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
-                render_pass.draw_indexed(0..entity.index_count as u32, 0, 0..1);
-            }
+            // for (i, entity) in self.entities.iter().enumerate() {
+            //     render_pass.set_bind_group(1, &self.entity_uniforms.1, &[entity.uniform_offset]);
+            //     render_pass.set_bind_group(2, &self.texture_bind_groups[i], &[]);
+            //     render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
+            //     render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
+            //     render_pass.draw_indexed(0..entity.index_count as u32, 0, 0..1);
+            // }
+
+            // Test the cubemap
+            self.cube_map
+                .render(&mut render_pass, queue, view_projection_matrix);
         }
 
         queue.submit(Some(encoder.finish()));
