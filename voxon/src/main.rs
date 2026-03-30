@@ -13,6 +13,7 @@ mod gpu;
 mod inner_app;
 mod mesh;
 mod scene;
+mod skybox;
 mod texture;
 
 struct App {
