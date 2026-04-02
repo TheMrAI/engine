@@ -569,8 +569,8 @@ impl Scene {
             let projection_matrix = graphic::transform::perspective_proj_sym_h_fov(
                 PI / 2.0,
                 aspect_ratio,
-                -1.0,
-                -20000.0,
+                -0.05,
+                -40000.0,
             );
 
             let view_projection_matrix = projection_matrix * view_matrix;
