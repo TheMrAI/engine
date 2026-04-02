@@ -8,10 +8,13 @@ use winit::{
     event::{DeviceEvent, WindowEvent},
 };
 
+mod cube_map;
 mod gpu;
 mod inner_app;
 mod mesh;
 mod scene;
+mod skybox;
+mod texture;
 
 struct App {
     app: Option<InnerApp>,

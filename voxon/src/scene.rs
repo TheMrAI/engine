@@ -3,12 +3,17 @@ use std::{borrow::Cow, f32::consts::PI, time::Duration};
 use graphic::{camera::Camera, identity_matrix};
 use lina::{m, matrix::Matrix, v};
 
+use crate::{
+    skybox::Skybox,
+    texture::{load_texture_cube, load_texture_plane},
+};
 use quaternion::Quaternion;
 use wgpu::{
-    Adapter, BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry, Buffer,
-    BufferBinding, BufferUsages, DepthBiasState, DepthStencilState, Device, Face, Operations,
-    Queue, RenderPassDepthStencilAttachment, RenderPipeline, StencilState, Surface,
-    TextureDescriptor, TextureUsages, VertexAttribute, VertexBufferLayout, util::align_to,
+    Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, Buffer, BufferBinding, BufferUsages, DepthBiasState, DepthStencilState,
+    Device, Face, Operations, Queue, RenderPassDepthStencilAttachment, RenderPipeline,
+    StencilState, Surface, TextureDescriptor, TextureUsages, VertexAttribute, VertexBufferLayout,
+    util::align_to,
 };
 use winit::dpi::PhysicalSize;
 
@@ -24,6 +29,7 @@ pub struct Entity {
     uniform_offset: wgpu::DynamicOffset,
     world_matrix: Matrix<f32, 4, 4>,
     normal_matrix: Matrix<f32, 3, 3>,
+    texture_scale: f32,
 }
 
 //
@@ -44,6 +50,8 @@ pub struct Scene {
     entities: Vec<Entity>,
     global_uniforms: (Buffer, BindGroup),
     entity_uniforms: (Buffer, BindGroup),
+    texture_bind_groups: Vec<BindGroup>,
+    skybox: Skybox,
 }
 
 impl Scene {
@@ -65,6 +73,7 @@ impl Scene {
                     .as_slice()
                     .iter()
                     .chain(entry.normal().as_slice().iter().chain([&0.0]))
+                    .chain(entry.uv().as_slice().iter())
                     .flat_map(|value| value.to_le_bytes())
             })
             .collect::<Vec<u8>>();
@@ -101,6 +110,7 @@ impl Scene {
                     .as_slice()
                     .iter()
                     .chain(entry.normal().as_slice().iter().chain([&0.0]))
+                    .chain(entry.uv().as_slice().iter())
                     .flat_map(|value| value.to_le_bytes())
             })
             .collect::<Vec<u8>>();
@@ -126,7 +136,7 @@ impl Scene {
         });
         queue.write_buffer(&plane_index_buffer, 0, &plane_index_data);
 
-        let entity_uniform_size = (16 + 16) * 4;
+        let entity_uniform_size = (16 + 16 + 1) * 4;
         let entity_uniform_alignment = {
             let alignment =
                 device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
@@ -143,6 +153,7 @@ impl Scene {
                     world_matrix: identity_matrix(),
                     normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
                     uniform_offset: 0,
+                    texture_scale: 1.0,
                 },
                 Entity {
                     vertex_buffer: plane_vertex_buffer,
@@ -150,14 +161,82 @@ impl Scene {
                     index_format: wgpu::IndexFormat::Uint32,
                     index_count: plane_mesh.indices().len(),
                     world_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
-                        * graphic::transform::scale(3.0, 1.0, 3.0),
+                        * graphic::transform::scale(50.0, 1.0, 50.0),
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
+                    texture_scale: 50.0,
                 },
             ]
             .into_iter()
             .collect::<Vec<Entity>>()
         };
+
+        let cube_texture_view = load_texture_cube(device, queue);
+        let plane_texture_view = load_texture_plane(device, queue);
+
+        let sampler = device.create_sampler(&wgpu::wgt::SamplerDescriptor {
+            label: Some("texture_sampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("texture_sampler_layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        let cube_texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("texture_bind_group"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&cube_texture_view),
+                },
+            ],
+        });
+        let plane_texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("texture_bind_group"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&plane_texture_view),
+                },
+            ],
+        });
+        let texture_bind_groups = vec![cube_texture_bind_group, plane_texture_bind_group];
 
         // Bind group layout
         let global_uniform_bind_group_layout =
@@ -180,7 +259,7 @@ impl Scene {
                 label: Some("uniforms"),
                 // uniforms have to be padded to a multiple of 8
                 #[allow(clippy::identity_op)] // for clearer explanation
-                size: (16 + 4 + 4 + 3 + 1 + 3 + 1) * 4, // (view projection matrix + light color + light position + view position + shininess + light direction + limit) * float size + padding
+                size: (16 + 3) * 4 + 4, // (view projection matrix + view position) * float size + padding
                 usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
@@ -198,7 +277,6 @@ impl Scene {
                 }),
             }],
         });
-
         let global_uniforms = (global_uniform_buffer, global_uniform_bind_group);
 
         let entity_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -243,6 +321,7 @@ impl Scene {
             bind_group_layouts: &[
                 &global_uniform_bind_group_layout,
                 &entity_uniform_bind_group_layout,
+                &texture_bind_group_layout,
             ],
             immediate_size: 0,
         });
@@ -257,7 +336,7 @@ impl Scene {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 buffers: &[VertexBufferLayout {
-                    array_stride: (4 + 3 + 1) * 4, // (4 floats for position + 3 floats for normal + 1 padding) * f32 byte count
+                    array_stride: (4 + 3 + 1 + 2) * 4, // (4 floats for position + 3 floats for normal + 1 padding + 2 UV) * f32 byte count
                     step_mode: wgpu::VertexStepMode::Vertex,
                     attributes: &[
                         // position
@@ -271,6 +350,12 @@ impl Scene {
                             format: wgpu::VertexFormat::Float32x3,
                             offset: 16,
                             shader_location: 1,
+                        },
+                        // uv
+                        VertexAttribute {
+                            format: wgpu::VertexFormat::Float32x2,
+                            offset: 32,
+                            shader_location: 2,
                         },
                     ],
                 }],
@@ -303,12 +388,16 @@ impl Scene {
             cache: None,
         });
 
+        let skybox = Skybox::new(device, queue, swapchain_format.into());
+
         Self {
             cube_delta_t: Duration::default(),
             render_pipeline,
             entities,
             global_uniforms,
             entity_uniforms,
+            texture_bind_groups,
+            skybox,
         }
     }
 
@@ -338,7 +427,6 @@ impl Scene {
 
         let cube_normal_matrix = {
             let mut matrix = Matrix::<f32, 3, 3>::new();
-            // may be padded incorrectly!!! check
             matrix[(0, 0)] = cube_world_matrix[(0, 0)];
             matrix[(0, 1)] = cube_world_matrix[(0, 1)];
             matrix[(0, 2)] = cube_world_matrix[(0, 2)];
@@ -428,6 +516,11 @@ impl Scene {
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
+                .chain(
+                    [entity.texture_scale]
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
                 .collect::<Vec<u8>>();
 
             queue.write_buffer(
@@ -476,54 +569,25 @@ impl Scene {
             let projection_matrix = graphic::transform::perspective_proj_sym_h_fov(
                 PI / 2.0,
                 aspect_ratio,
-                -1.0,
-                -20000.0,
+                -0.05,
+                -40000.0,
             );
 
             let view_projection_matrix = projection_matrix * view_matrix;
 
             // Serialize to the gpu
             // WGPU works with row major matrices
-
             let view_projection_matrix = view_projection_matrix.transpose();
 
             // UPDATE Uniforms
-
             let global_uniforms = view_projection_matrix
                 .as_slices()
                 .iter()
                 .flatten()
                 .flat_map(|entry| entry.to_le_bytes())
                 .chain(
-                    // light color
-                    [0.2f32, 1.0, 0.2, 1.0]
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
-                    // light position
-                    // last value is padding
-                    [-10.0f32, 10.0, 10.0, 0.0]
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
                     // view position
                     [camera.eye()[0], camera.eye()[1], camera.eye()[2]]
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                // shininess
-                .chain([100.0f32].iter().flat_map(|entry| entry.to_le_bytes()))
-                .chain(
-                    // light direction
-                    ((v![1.0f32, -1.0, -1.0]).normalized())
-                        .as_slice()
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
-                    [(10.0f32 * (PI / 180.0f32)).cos()]
                         .iter()
                         .flat_map(|entry| entry.to_le_bytes()),
                 )
@@ -533,12 +597,32 @@ impl Scene {
             render_pass.set_bind_group(0, &self.global_uniforms.1, &[]);
 
             // entities
-            for entity in &self.entities {
+            for (i, entity) in self.entities.iter().enumerate() {
                 render_pass.set_bind_group(1, &self.entity_uniforms.1, &[entity.uniform_offset]);
+                render_pass.set_bind_group(2, &self.texture_bind_groups[i], &[]);
                 render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
                 render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
                 render_pass.draw_indexed(0..entity.index_count as u32, 0, 0..1);
             }
+
+            // Render skybox
+            // It does not matter if it is rendered first or last, beacause
+            // the skybox is at Z value 1.0 in NDC.
+            // No other draw call, should write if the depth value equals 1.0.
+            let translation_free_view_matrix = {
+                let mut tmp = view_matrix;
+                tmp[(0, 3)] = 0.0;
+                tmp[(1, 3)] = 0.0;
+                tmp[(2, 3)] = 0.0;
+                tmp
+            };
+            let translation_free_view_projection_matrix =
+                projection_matrix * translation_free_view_matrix;
+            self.skybox.render(
+                &mut render_pass,
+                queue,
+                &translation_free_view_projection_matrix,
+            );
         }
 
         queue.submit(Some(encoder.finish()));

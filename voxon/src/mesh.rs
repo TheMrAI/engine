@@ -3,6 +3,7 @@ use lina::{v, vector::Vector};
 pub struct Vertex {
     position: Vector<f32, 4>,
     normal: Vector<f32, 3>,
+    uv: Vector<f32, 2>,
 }
 
 impl Vertex {
@@ -12,6 +13,10 @@ impl Vertex {
 
     pub fn normal(&self) -> &Vector<f32, 3> {
         &self.normal
+    }
+
+    pub fn uv(&self) -> &Vector<f32, 2> {
+        &self.uv
     }
 }
 
@@ -67,6 +72,40 @@ pub fn generate_cube() -> Mesh {
         v![1.0, -1.0, 1.0, 1.0],
         v![-1.0, -1.0, 1.0, 1.0],
     ];
+    let third = 1.0 / 3.0;
+    let uv_coords: Vec<Vector<f32, 2>> = vec![
+        // front - +Z
+        v![0.0, 0.5],
+        v![third, 0.5],
+        v![third, 0.0],
+        v![0.0, 0.0],
+        // right - +X
+        v![third, 0.5],
+        v![2.0 * third, 0.5],
+        v![2.0 * third, 0.0],
+        v![third, 0.0],
+        // back - -Z
+        v![2.0 * third, 0.5],
+        v![1.0, 0.5],
+        v![1.0, 0.0],
+        v![2.0 * third, 0.0],
+        // left - -X
+        v![0.0, 1.0],
+        v![third, 1.0],
+        v![third, 0.5],
+        v![0.0, 0.5],
+        // top - +Y
+        v![2.0 * third, 1.0],
+        v![2.0 * third, 0.5],
+        v![third, 0.5],
+        v![third, 1.0],
+        // bottom - -Y
+        v![2.0 * third, 1.0],
+        v![1.0, 1.0],
+        v![1.0, 0.5],
+        v![2.0 * third, 0.5],
+    ];
+
     let normals: Vec<Vector<f32, 3>> = vec![
         // front
         v![0.0, 0.0, 1.0],
@@ -87,6 +126,7 @@ pub fn generate_cube() -> Mesh {
         .map(|(i, position)| Vertex {
             position: *position,
             normal: normals[i / 4],
+            uv: uv_coords[i],
         })
         .collect();
 
@@ -127,12 +167,18 @@ pub fn generate_plane() -> Mesh {
         v![1.0, 0.0, -1.0, 1.0], // 2
         v![-1.0, 0.0, -1.0, 1.0], // 3
     ];
+    let uv_coordinates: Vec<Vector<f32, 2>> = vertex_positions
+        .iter()
+        .map(|pos| (v![pos[0], pos[2]] + v![1.0, 1.0]) / 2.0)
+        .collect();
     // The normal will be the same for each vertex, up.
     let vertices = vertex_positions
         .iter()
-        .map(|position| Vertex {
+        .zip(uv_coordinates.iter())
+        .map(|(position, uv_coord)| Vertex {
             position: *position,
             normal: v![0.0, 1.0, 0.0],
+            uv: *uv_coord,
         })
         .collect();
 
