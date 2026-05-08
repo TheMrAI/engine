@@ -15,6 +15,7 @@ mod mesh;
 mod scene;
 mod skybox;
 mod texture;
+mod textured_draw;
 
 struct App {
     app: Option<InnerApp>,
