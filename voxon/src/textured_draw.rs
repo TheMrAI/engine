@@ -18,7 +18,7 @@ use wgpu::{
     VertexAttribute, VertexBufferLayout, util::align_to,
 };
 
-pub struct Entity {
+struct Entity {
     // Mesh data
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -130,62 +130,6 @@ impl TexturedEntities {
         });
         queue.write_buffer(&plane_index_buffer, 0, &plane_index_data);
 
-        // SUZANNE
-        let suzanne_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
-        let suzanne =
-            format::wavefront::Obj::parse(suzanne_data.lines().map(String::from), "Suzanne");
-
-        let suzanne_vertex_data = suzanne
-            .faces()
-            .iter()
-            .flat_map(|face| {
-                let vertices = suzanne.vertices();
-                let normals = suzanne.normals();
-                let uvs = suzanne.uv_coords();
-
-                face.iter().flat_map(|vertex| {
-                    let face_vertices = &vertices[vertex.vertex_index() - 1];
-                    // there may not be uv coordinates for a mesh
-                    let face_uvs = match vertex.uv_index() {
-                        Some(index) => &uvs[index - 1],
-                        None => &[0.0, 0.0, 0.0],
-                    };
-                    // it is possible that a mesh doesn't contain normals either
-                    // may have to handle it
-                    let face_normals = &normals[vertex.normal_index().unwrap() - 1];
-
-                    face_vertices
-                        .as_slice()
-                        .iter()
-                        .chain(face_normals.as_slice().iter().chain([&0.0]))
-                        .chain(face_uvs.as_slice()[0..2].iter())
-                        .flat_map(|value| value.to_le_bytes())
-                })
-            })
-            .collect::<Vec<u8>>();
-
-        // crudely convert the data into a vertex buffer by duplicating every single
-        // vertex
-        let suzanne_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_vertex_buffer"),
-            size: suzanne_vertex_data.len() as u64,
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&suzanne_vertex_buffer, 0, &suzanne_vertex_data);
-
-        let suzanne_index_data = (0..suzanne.faces().len() as u32 * 3)
-            .flat_map(|index| index.to_le_bytes())
-            .collect::<Vec<_>>();
-
-        let suzanne_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_index_buffer"),
-            size: suzanne_index_data.len() as u64,
-            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&suzanne_index_buffer, 0, &suzanne_index_data);
-
         let entity_uniform_size = (16 + 16 + 1) * 4;
         let entity_uniform_alignment = {
             let alignment =
@@ -202,7 +146,7 @@ impl TexturedEntities {
                     index_format: wgpu::IndexFormat::Uint32,
                     index_count: cube_mesh.indices().len(),
                     world_matrix: identity_matrix(),
-                    normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 0,
                     texture_scale: 1.0,
                 },
@@ -217,17 +161,6 @@ impl TexturedEntities {
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
                     texture_scale: 50.0,
-                },
-                // Suzanne
-                Entity {
-                    vertex_buffer: suzanne_vertex_buffer,
-                    index_buffer: suzanne_index_buffer,
-                    index_format: wgpu::IndexFormat::Uint32,
-                    index_count: suzanne.faces().len() * 3,
-                    world_matrix: graphic::transform::translate(0.0, 3.0, 0.0),
-                    normal_matrix: Matrix::<f32, 3, 3>::from_value(0.0),
-                    uniform_offset: entity_uniform_alignment as u32 * 2,
-                    texture_scale: 1.0,
                 },
             ]
             .into_iter()
@@ -299,11 +232,7 @@ impl TexturedEntities {
                 },
             ],
         });
-        let texture_bind_groups = vec![
-            cube_texture_bind_group,
-            plane_texture_bind_group.clone(),
-            plane_texture_bind_group,
-        ];
+        let texture_bind_groups = vec![cube_texture_bind_group, plane_texture_bind_group];
 
         // Bind group layout
         let global_uniform_bind_group_layout =

@@ -12,6 +12,7 @@ mod cube_map;
 mod gpu;
 mod inner_app;
 mod mesh;
+mod normal_debug;
 mod scene;
 mod skybox;
 mod texture;

@@ -1,7 +1,7 @@
 use graphic::camera::Camera;
 use std::{f32::consts::PI, time::Duration};
 
-use crate::{skybox::Skybox, textured_draw::TexturedEntities};
+use crate::{normal_debug::NormalDebug, skybox::Skybox, textured_draw::TexturedEntities};
 use wgpu::{
     Adapter, Device, Operations, Queue, RenderPassDepthStencilAttachment, Surface,
     TextureDescriptor, TextureUsages,
@@ -20,6 +20,7 @@ use winit::dpi::PhysicalSize;
 // Mostly to keep things simple.
 pub struct Scene {
     textured_entities: TexturedEntities,
+    normal_debug: NormalDebug,
     skybox: Skybox,
 }
 
@@ -29,10 +30,12 @@ impl Scene {
         let swapchain_format = swapchain_capabilities.formats[0];
 
         let textured_entities = TexturedEntities::new(device, queue, swapchain_format.into());
+        let normal_debug = NormalDebug::new(device, queue, swapchain_format.into());
         let skybox = Skybox::new(device, queue, swapchain_format.into());
 
         Self {
             textured_entities,
+            normal_debug,
             skybox,
         }
     }
@@ -118,6 +121,15 @@ impl Scene {
             // Render textured objects
             self.textured_entities
                 .render(&mut render_pass, queue, camera, &view_projection_matrix);
+
+            // Render normal debug shaded objects
+            self.normal_debug.render(
+                &mut render_pass,
+                queue,
+                camera,
+                &view_matrix,
+                &view_projection_matrix,
+            );
 
             // Render skybox
             // It does not matter if it is rendered first or last, beacause
