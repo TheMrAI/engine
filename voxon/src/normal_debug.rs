@@ -267,6 +267,68 @@ impl NormalDebug {
         });
         queue.write_buffer(&utah_smooth_7k_index_buffer, 0, &utah_smooth_7k_index_data);
 
+        // Stanford dragon flat 17k
+        let stanford_dragon_flat_17k_data =
+            include_str!("../resources/meshes/stanford_dragon_flat_17k.obj");
+        let stanford_dragon_flat_17k = format::wavefront::Obj::parse(
+            stanford_dragon_flat_17k_data.lines().map(String::from),
+            "Stanford_dragon_flat_17k",
+        );
+
+        let stanford_dragon_flat_17k_vertex_data = stanford_dragon_flat_17k
+            .faces()
+            .iter()
+            .flat_map(|face| {
+                let vertices = stanford_dragon_flat_17k.vertices();
+                let normals = stanford_dragon_flat_17k.normals();
+
+                face.iter().flat_map(|vertex| {
+                    let face_vertex = &vertices[vertex.vertex_index() - 1];
+                    // it is possible that a mesh doesn't contain normals either
+                    // may have to handle it
+                    let face_normals = &normals[vertex.normal_index().unwrap() - 1];
+
+                    face_vertex
+                        .as_slice()
+                        .iter()
+                        .chain(face_normals.as_slice().iter().chain([&0.0]))
+                        .flat_map(|value| value.to_le_bytes())
+                })
+            })
+            .collect::<Vec<u8>>();
+
+        // crudely convert the data into a vertex buffer by duplicating every single
+        // vertex
+        let stanford_dragon_flat_17k_vertex_buffer =
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("stanford_dragon_f17k_vertex_buffer"),
+                size: stanford_dragon_flat_17k_vertex_data.len() as u64,
+                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        queue.write_buffer(
+            &stanford_dragon_flat_17k_vertex_buffer,
+            0,
+            &stanford_dragon_flat_17k_vertex_data,
+        );
+
+        let stanford_dragon_flat_17k_index_data =
+            (0..stanford_dragon_flat_17k.faces().len() as u32 * 3)
+                .flat_map(|index| index.to_le_bytes())
+                .collect::<Vec<_>>();
+
+        let stanford_dragon_flat_17k_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("stanford_dragon_f17k_index_buffer"),
+            size: stanford_dragon_flat_17k_index_data.len() as u64,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(
+            &stanford_dragon_flat_17k_index_buffer,
+            0,
+            &stanford_dragon_flat_17k_index_data,
+        );
+
         // (world matrix + normal matrix) * float size, no padding needed
         let entity_uniform_size = (16 + 16) * 4;
         let entity_uniform_alignment = {
@@ -324,6 +386,18 @@ impl NormalDebug {
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 3 * entity_uniform_alignment as u32,
+                },
+                // Stanford dragon flat 17k
+                Entity {
+                    vertex_buffer: stanford_dragon_flat_17k_vertex_buffer,
+                    index_buffer: stanford_dragon_flat_17k_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: stanford_dragon_flat_17k.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
+                        * graphic::transform::scale(18.0, 18.0, 18.0),
+                    // this does nothing, as it has to be updated all the time anyways
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                    uniform_offset: 4 * entity_uniform_alignment as u32,
                 },
             ]
             .into_iter()
