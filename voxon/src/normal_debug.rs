@@ -44,18 +44,18 @@ impl NormalDebug {
         });
 
         // SUZANNE flat 975
-        let suzanne_flat975_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
-        let suzanne_flat975 = format::wavefront::Obj::parse(
-            suzanne_flat975_data.lines().map(String::from),
+        let suzanne_flat_967_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
+        let suzanne_flat_967 = format::wavefront::Obj::parse(
+            suzanne_flat_967_data.lines().map(String::from),
             "Suzanne_flat_967",
         );
 
-        let suzanne_flat975_vertex_data = suzanne_flat975
+        let suzanne_flat_967_vertex_data = suzanne_flat_967
             .faces()
             .iter()
             .flat_map(|face| {
-                let vertices = suzanne_flat975.vertices();
-                let normals = suzanne_flat975.normals();
+                let vertices = suzanne_flat_967.vertices();
+                let normals = suzanne_flat_967.normals();
 
                 face.iter().flat_map(|vertex| {
                     let face_vertex = &vertices[vertex.vertex_index() - 1];
@@ -74,47 +74,47 @@ impl NormalDebug {
 
         // crudely convert the data into a vertex buffer by duplicating every single
         // vertex
-        let suzanne_flat975_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_f975_vertex_buffer"),
-            size: suzanne_flat975_vertex_data.len() as u64,
+        let suzanne_flat_967_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("suzanne_f967_vertex_buffer"),
+            size: suzanne_flat_967_vertex_data.len() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         queue.write_buffer(
-            &suzanne_flat975_vertex_buffer,
+            &suzanne_flat_967_vertex_buffer,
             0,
-            &suzanne_flat975_vertex_data,
+            &suzanne_flat_967_vertex_data,
         );
 
-        let suzanne_flat975_index_data = (0..suzanne_flat975.faces().len() as u32 * 3)
+        let suzanne_flat_967_index_data = (0..suzanne_flat_967.faces().len() as u32 * 3)
             .flat_map(|index| index.to_le_bytes())
             .collect::<Vec<_>>();
 
-        let suzanne_flat975_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_f975_index_buffer"),
-            size: suzanne_flat975_index_data.len() as u64,
+        let suzanne_flat_967_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("suzanne_f967_index_buffer"),
+            size: suzanne_flat_967_index_data.len() as u64,
             usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         queue.write_buffer(
-            &suzanne_flat975_index_buffer,
+            &suzanne_flat_967_index_buffer,
             0,
-            &suzanne_flat975_index_data,
+            &suzanne_flat_967_index_data,
         );
 
         // SUZANNE smooth 975
-        let suzanne_smooth975_data = include_str!("../resources/meshes/suzanne_smooth_967.obj");
-        let suzanne_smooth975 = format::wavefront::Obj::parse(
-            suzanne_smooth975_data.lines().map(String::from),
+        let suzanne_smooth_967_data = include_str!("../resources/meshes/suzanne_smooth_967.obj");
+        let suzanne_smooth_967 = format::wavefront::Obj::parse(
+            suzanne_smooth_967_data.lines().map(String::from),
             "Suzanne_smooth_967",
         );
 
-        let suzanne_smooth975_vertex_data = suzanne_smooth975
+        let suzanne_smooth_967_vertex_data = suzanne_smooth_967
             .faces()
             .iter()
             .flat_map(|face| {
-                let vertices = suzanne_smooth975.vertices();
-                let normals = suzanne_smooth975.normals();
+                let vertices = suzanne_smooth_967.vertices();
+                let normals = suzanne_smooth_967.normals();
 
                 face.iter().flat_map(|vertex| {
                     let face_vertex = &vertices[vertex.vertex_index() - 1];
@@ -133,32 +133,32 @@ impl NormalDebug {
 
         // crudely convert the data into a vertex buffer by duplicating every single
         // vertex
-        let suzanne_smooth975_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_s975_vertex_buffer"),
-            size: suzanne_smooth975_vertex_data.len() as u64,
+        let suzanne_smooth_967_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("suzanne_s967_vertex_buffer"),
+            size: suzanne_smooth_967_vertex_data.len() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         queue.write_buffer(
-            &suzanne_smooth975_vertex_buffer,
+            &suzanne_smooth_967_vertex_buffer,
             0,
-            &suzanne_smooth975_vertex_data,
+            &suzanne_smooth_967_vertex_data,
         );
 
-        let suzanne_smooth975_index_data = (0..suzanne_smooth975.faces().len() as u32 * 3)
+        let suzanne_smooth_967_index_data = (0..suzanne_smooth_967.faces().len() as u32 * 3)
             .flat_map(|index| index.to_le_bytes())
             .collect::<Vec<_>>();
 
-        let suzanne_smooth975_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_s975_index_buffer"),
-            size: suzanne_smooth975_index_data.len() as u64,
+        let suzanne_smooth_967_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("suzanne_s967_index_buffer"),
+            size: suzanne_smooth_967_index_data.len() as u64,
             usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         queue.write_buffer(
-            &suzanne_smooth975_index_buffer,
+            &suzanne_smooth_967_index_buffer,
             0,
-            &suzanne_smooth975_index_data,
+            &suzanne_smooth_967_index_data,
         );
 
         // Utah teapot flat 7k
@@ -279,22 +279,24 @@ impl NormalDebug {
             [
                 // Suzanne flat 967
                 Entity {
-                    vertex_buffer: suzanne_flat975_vertex_buffer,
-                    index_buffer: suzanne_flat975_index_buffer,
+                    vertex_buffer: suzanne_flat_967_vertex_buffer,
+                    index_buffer: suzanne_flat_967_index_buffer,
                     index_format: wgpu::IndexFormat::Uint32,
-                    index_count: suzanne_flat975.faces().len() * 3,
-                    world_matrix: graphic::transform::translate(0.0, 0.0, -5.0),
+                    index_count: suzanne_flat_967.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
+                        * graphic::transform::scale(2.0, 2.0, 2.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 0,
                 },
                 // Suzanne smooth 967
                 Entity {
-                    vertex_buffer: suzanne_smooth975_vertex_buffer,
-                    index_buffer: suzanne_smooth975_index_buffer,
+                    vertex_buffer: suzanne_smooth_967_vertex_buffer,
+                    index_buffer: suzanne_smooth_967_index_buffer,
                     index_format: wgpu::IndexFormat::Uint32,
-                    index_count: suzanne_smooth975.faces().len() * 3,
-                    world_matrix: graphic::transform::translate(5.0, 0.0, -5.0),
+                    index_count: suzanne_smooth_967.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
+                        * graphic::transform::scale(2.0, 2.0, 2.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
