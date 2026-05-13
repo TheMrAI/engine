@@ -43,7 +43,7 @@ impl NormalDebug {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("normal_debug.wgsl"))),
         });
 
-        // SUZANNE flat 975
+        // SUZANNE flat 967
         let suzanne_flat_967_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
         let suzanne_flat_967 = format::wavefront::Obj::parse(
             suzanne_flat_967_data.lines().map(String::from),
@@ -102,7 +102,72 @@ impl NormalDebug {
             &suzanne_flat_967_index_data,
         );
 
-        // SUZANNE smooth 975
+        // SUZANNE flat 967 messed up normals
+        let suzanne_flat_967_messed_up_normals_data =
+            include_str!("../resources/meshes/suzanne_flat_967_messed_up_normals.obj");
+        let suzanne_flat_967_messed_up_normals = format::wavefront::Obj::parse(
+            suzanne_flat_967_messed_up_normals_data
+                .lines()
+                .map(String::from),
+            "Suzanne_flat_967_messed_up_normals",
+        );
+
+        let suzanne_flat_967_messed_up_normals_vertex_data = suzanne_flat_967_messed_up_normals
+            .faces()
+            .iter()
+            .flat_map(|face| {
+                let vertices = suzanne_flat_967_messed_up_normals.vertices();
+                let normals = suzanne_flat_967_messed_up_normals.normals();
+
+                face.iter().flat_map(|vertex| {
+                    let face_vertex = &vertices[vertex.vertex_index() - 1];
+                    // it is possible that a mesh doesn't contain normals either
+                    // may have to handle it
+                    let face_normals = &normals[vertex.normal_index().unwrap() - 1];
+
+                    face_vertex
+                        .as_slice()
+                        .iter()
+                        .chain(face_normals.as_slice().iter().chain([&0.0]))
+                        .flat_map(|value| value.to_le_bytes())
+                })
+            })
+            .collect::<Vec<u8>>();
+
+        // crudely convert the data into a vertex buffer by duplicating every single
+        // vertex
+        let suzanne_flat_967_messed_up_normals_vertex_buffer =
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("suzanne_f967_messed_normals_vertex_buffer"),
+                size: suzanne_flat_967_messed_up_normals_vertex_data.len() as u64,
+                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        queue.write_buffer(
+            &suzanne_flat_967_messed_up_normals_vertex_buffer,
+            0,
+            &suzanne_flat_967_messed_up_normals_vertex_data,
+        );
+
+        let suzanne_flat_967_messed_up_normals_index_data =
+            (0..suzanne_flat_967_messed_up_normals.faces().len() as u32 * 3)
+                .flat_map(|index| index.to_le_bytes())
+                .collect::<Vec<_>>();
+
+        let suzanne_flat_967_messed_up_normals_index_buffer =
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("suzanne_f967_messed_normals_index_buffer"),
+                size: suzanne_flat_967_messed_up_normals_index_data.len() as u64,
+                usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        queue.write_buffer(
+            &suzanne_flat_967_messed_up_normals_index_buffer,
+            0,
+            &suzanne_flat_967_messed_up_normals_index_data,
+        );
+
+        // SUZANNE smooth 967
         let suzanne_smooth_967_data = include_str!("../resources/meshes/suzanne_smooth_967.obj");
         let suzanne_smooth_967 = format::wavefront::Obj::parse(
             suzanne_smooth_967_data.lines().map(String::from),
@@ -159,6 +224,71 @@ impl NormalDebug {
             &suzanne_smooth_967_index_buffer,
             0,
             &suzanne_smooth_967_index_data,
+        );
+
+        // SUZANNE smooth 967 messed up normals
+        let suzanne_smooth_967_messed_up_normals_data =
+            include_str!("../resources/meshes/suzanne_smooth_967_messed_up_normals.obj");
+        let suzanne_smooth_967_messed_up_normals = format::wavefront::Obj::parse(
+            suzanne_smooth_967_messed_up_normals_data
+                .lines()
+                .map(String::from),
+            "Suzanne_smooth_967_messed_up_normals",
+        );
+
+        let suzanne_smooth_967_messed_up_normals_vertex_data = suzanne_smooth_967_messed_up_normals
+            .faces()
+            .iter()
+            .flat_map(|face| {
+                let vertices = suzanne_smooth_967_messed_up_normals.vertices();
+                let normals = suzanne_smooth_967_messed_up_normals.normals();
+
+                face.iter().flat_map(|vertex| {
+                    let face_vertex = &vertices[vertex.vertex_index() - 1];
+                    // it is possible that a mesh doesn't contain normals either
+                    // may have to handle it
+                    let face_normals = &normals[vertex.normal_index().unwrap() - 1];
+
+                    face_vertex
+                        .as_slice()
+                        .iter()
+                        .chain(face_normals.as_slice().iter().chain([&0.0]))
+                        .flat_map(|value| value.to_le_bytes())
+                })
+            })
+            .collect::<Vec<u8>>();
+
+        // crudely convert the data into a vertex buffer by duplicating every single
+        // vertex
+        let suzanne_smooth_967_messed_up_normals_vertex_buffer =
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("suzanne_s967_messed_up_normals_vertex_buffer"),
+                size: suzanne_smooth_967_messed_up_normals_vertex_data.len() as u64,
+                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        queue.write_buffer(
+            &suzanne_smooth_967_messed_up_normals_vertex_buffer,
+            0,
+            &suzanne_smooth_967_messed_up_normals_vertex_data,
+        );
+
+        let suzanne_smooth_967_messed_up_normals_index_data = (0
+            ..suzanne_smooth_967_messed_up_normals.faces().len() as u32 * 3)
+            .flat_map(|index| index.to_le_bytes())
+            .collect::<Vec<_>>();
+
+        let suzanne_smooth_967_messed_up_normals_index_buffer =
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("suzanne_s967_messed_up_normals_index_buffer"),
+                size: suzanne_smooth_967_messed_up_normals_index_data.len() as u64,
+                usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        queue.write_buffer(
+            &suzanne_smooth_967_messed_up_normals_index_buffer,
+            0,
+            &suzanne_smooth_967_messed_up_normals_index_data,
         );
 
         // Utah teapot flat 7k
@@ -548,6 +678,30 @@ impl NormalDebug {
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
                 },
+                // Suzanne flat 967 messed up normals
+                Entity {
+                    vertex_buffer: suzanne_flat_967_messed_up_normals_vertex_buffer,
+                    index_buffer: suzanne_flat_967_messed_up_normals_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: suzanne_flat_967_messed_up_normals.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
+                        * graphic::transform::scale(1.0, 1.0, 1.0),
+                    // this does nothing, as it has to be updated all the time anyways
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                    uniform_offset: 2 * entity_uniform_alignment as u32,
+                },
+                // Suzanne smooth 967 messed up normals
+                Entity {
+                    vertex_buffer: suzanne_smooth_967_messed_up_normals_vertex_buffer,
+                    index_buffer: suzanne_smooth_967_messed_up_normals_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: suzanne_smooth_967_messed_up_normals.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
+                        * graphic::transform::scale(1.0, 1.0, 1.0),
+                    // this does nothing, as it has to be updated all the time anyways
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                    uniform_offset: 3 * entity_uniform_alignment as u32,
+                },
                 // Utah teapot flat 7k
                 Entity {
                     vertex_buffer: utah_flat_7k_vertex_buffer,
@@ -558,7 +712,7 @@ impl NormalDebug {
                         * graphic::transform::scale(0.5, 0.5, 0.5),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 2 * entity_uniform_alignment as u32,
+                    uniform_offset: 4 * entity_uniform_alignment as u32,
                 },
                 // Utah teapot smooth 7k
                 Entity {
@@ -570,7 +724,7 @@ impl NormalDebug {
                         * graphic::transform::scale(0.5, 0.5, 0.5),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 3 * entity_uniform_alignment as u32,
+                    uniform_offset: 5 * entity_uniform_alignment as u32,
                 },
                 // Utah teapot smooth 116k
                 Entity {
@@ -582,7 +736,7 @@ impl NormalDebug {
                         * graphic::transform::scale(0.5, 0.5, 0.5),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 4 * entity_uniform_alignment as u32,
+                    uniform_offset: 6 * entity_uniform_alignment as u32,
                 },
                 // Stanford dragon flat 17k
                 Entity {
@@ -594,7 +748,7 @@ impl NormalDebug {
                         * graphic::transform::scale(18.0, 18.0, 18.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 5 * entity_uniform_alignment as u32,
+                    uniform_offset: 7 * entity_uniform_alignment as u32,
                 },
                 // Stanford dragon smooth 17k
                 Entity {
@@ -606,7 +760,7 @@ impl NormalDebug {
                         * graphic::transform::scale(18.0, 18.0, 18.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 6 * entity_uniform_alignment as u32,
+                    uniform_offset: 8 * entity_uniform_alignment as u32,
                 },
                 // Stanford dragon smooth 700k
                 Entity {
@@ -618,7 +772,7 @@ impl NormalDebug {
                         * graphic::transform::scale(18.0, 18.0, 18.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 7 * entity_uniform_alignment as u32,
+                    uniform_offset: 9 * entity_uniform_alignment as u32,
                 },
             ]
             .into_iter()
