@@ -75,7 +75,7 @@ impl NormalDebug {
         // crudely convert the data into a vertex buffer by duplicating every single
         // vertex
         let suzanne_flat975_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_vertex_buffer"),
+            label: Some("suzanne_f975_vertex_buffer"),
             size: suzanne_flat975_vertex_data.len() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -91,7 +91,7 @@ impl NormalDebug {
             .collect::<Vec<_>>();
 
         let suzanne_flat975_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_index_buffer"),
+            label: Some("suzanne_f975_index_buffer"),
             size: suzanne_flat975_index_data.len() as u64,
             usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -134,7 +134,7 @@ impl NormalDebug {
         // crudely convert the data into a vertex buffer by duplicating every single
         // vertex
         let suzanne_smooth975_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_vertex_buffer"),
+            label: Some("suzanne_s975_vertex_buffer"),
             size: suzanne_smooth975_vertex_data.len() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -150,7 +150,7 @@ impl NormalDebug {
             .collect::<Vec<_>>();
 
         let suzanne_smooth975_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("suzanne_index_buffer"),
+            label: Some("suzanne_s975_index_buffer"),
             size: suzanne_smooth975_index_data.len() as u64,
             usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -160,6 +160,55 @@ impl NormalDebug {
             0,
             &suzanne_smooth975_index_data,
         );
+
+        // Utah teapot flat 7k
+        let utah_flat_7k_data = include_str!("../resources/meshes/utah_teapot_flat_7k.obj");
+        let utah_flat_7k =
+            format::wavefront::Obj::parse(utah_flat_7k_data.lines().map(String::from), "Suzanne");
+
+        let utah_flat_7k_vertex_data = utah_flat_7k
+            .faces()
+            .iter()
+            .flat_map(|face| {
+                let vertices = utah_flat_7k.vertices();
+                let normals = utah_flat_7k.normals();
+
+                face.iter().flat_map(|vertex| {
+                    let face_vertex = &vertices[vertex.vertex_index() - 1];
+                    // it is possible that a mesh doesn't contain normals either
+                    // may have to handle it
+                    let face_normals = &normals[vertex.normal_index().unwrap() - 1];
+
+                    face_vertex
+                        .as_slice()
+                        .iter()
+                        .chain(face_normals.as_slice().iter().chain([&0.0]))
+                        .flat_map(|value| value.to_le_bytes())
+                })
+            })
+            .collect::<Vec<u8>>();
+
+        // crudely convert the data into a vertex buffer by duplicating every single
+        // vertex
+        let utah_flat_7k_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("utah_f7k_vertex_buffer"),
+            size: utah_flat_7k_vertex_data.len() as u64,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&utah_flat_7k_vertex_buffer, 0, &utah_flat_7k_vertex_data);
+
+        let utah_flat_7k_index_data = (0..utah_flat_7k.faces().len() as u32 * 3)
+            .flat_map(|index| index.to_le_bytes())
+            .collect::<Vec<_>>();
+
+        let utah_flat_7k_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("utah_f7k_index_buffer"),
+            size: utah_flat_7k_index_data.len() as u64,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(&utah_flat_7k_index_buffer, 0, &utah_flat_7k_index_data);
 
         // (world matrix + normal matrix) * float size, no padding needed
         let entity_uniform_size = (16 + 16) * 4;
@@ -192,6 +241,18 @@ impl NormalDebug {
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
+                },
+                // Utah teapot flat 7k
+                Entity {
+                    vertex_buffer: utah_flat_7k_vertex_buffer,
+                    index_buffer: utah_flat_7k_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: utah_flat_7k.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
+                        * graphic::transform::scale(0.5, 0.5, 0.5),
+                    // this does nothing, as it has to be updated all the time anyways
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                    uniform_offset: 2 * entity_uniform_alignment as u32,
                 },
             ]
             .into_iter()
