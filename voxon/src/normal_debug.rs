@@ -102,6 +102,65 @@ impl NormalDebug {
             &suzanne_flat975_index_data,
         );
 
+        // SUZANNE smooth 975
+        let suzanne_smooth975_data = include_str!("../resources/meshes/suzanne_smooth_967.obj");
+        let suzanne_smooth975 = format::wavefront::Obj::parse(
+            suzanne_smooth975_data.lines().map(String::from),
+            "Suzanne",
+        );
+
+        let suzanne_smooth975_vertex_data = suzanne_smooth975
+            .faces()
+            .iter()
+            .flat_map(|face| {
+                let vertices = suzanne_smooth975.vertices();
+                let normals = suzanne_smooth975.normals();
+
+                face.iter().flat_map(|vertex| {
+                    let face_vertex = &vertices[vertex.vertex_index() - 1];
+                    // it is possible that a mesh doesn't contain normals either
+                    // may have to handle it
+                    let face_normals = &normals[vertex.normal_index().unwrap() - 1];
+
+                    face_vertex
+                        .as_slice()
+                        .iter()
+                        .chain(face_normals.as_slice().iter().chain([&0.0]))
+                        .flat_map(|value| value.to_le_bytes())
+                })
+            })
+            .collect::<Vec<u8>>();
+
+        // crudely convert the data into a vertex buffer by duplicating every single
+        // vertex
+        let suzanne_smooth975_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("suzanne_vertex_buffer"),
+            size: suzanne_smooth975_vertex_data.len() as u64,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(
+            &suzanne_smooth975_vertex_buffer,
+            0,
+            &suzanne_smooth975_vertex_data,
+        );
+
+        let suzanne_smooth975_index_data = (0..suzanne_smooth975.faces().len() as u32 * 3)
+            .flat_map(|index| index.to_le_bytes())
+            .collect::<Vec<_>>();
+
+        let suzanne_smooth975_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("suzanne_index_buffer"),
+            size: suzanne_smooth975_index_data.len() as u64,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(
+            &suzanne_smooth975_index_buffer,
+            0,
+            &suzanne_smooth975_index_data,
+        );
+
         // (world matrix + normal matrix) * float size, no padding needed
         let entity_uniform_size = (16 + 16) * 4;
         let entity_uniform_alignment = {
@@ -112,7 +171,7 @@ impl NormalDebug {
 
         let entities = {
             [
-                // Suzanne flat
+                // Suzanne flat 967
                 Entity {
                     vertex_buffer: suzanne_flat975_vertex_buffer,
                     index_buffer: suzanne_flat975_index_buffer,
@@ -122,6 +181,17 @@ impl NormalDebug {
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 0,
+                },
+                // Suzanne smooth 967
+                Entity {
+                    vertex_buffer: suzanne_smooth975_vertex_buffer,
+                    index_buffer: suzanne_smooth975_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: suzanne_smooth975.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(5.0, 0.0, -5.0),
+                    // this does nothing, as it has to be updated all the time anyways
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                    uniform_offset: entity_uniform_alignment as u32,
                 },
             ]
             .into_iter()
@@ -380,7 +450,7 @@ impl NormalDebug {
         render_pass.set_bind_group(0, &self.global_uniforms.1, &[]);
 
         // entities
-        for (_i, entity) in self.entities.iter().enumerate() {
+        for entity in self.entities.iter() {
             render_pass.set_bind_group(1, &self.entity_uniforms.1, &[entity.uniform_offset]);
             render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
             render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
