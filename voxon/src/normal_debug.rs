@@ -1,5 +1,5 @@
 use graphic::camera::Camera;
-use lina::matrix::Matrix;
+use lina::matrix::{Matrix, m};
 
 use std::borrow::Cow;
 use wgpu::BindGroup;
@@ -102,35 +102,6 @@ impl NormalDebug {
 
         let suzanne_world_matrix = graphic::transform::translate(0.0, 0.0, -5.0);
 
-        let suzanne_normal_matrix = {
-            let mut matrix = Matrix::<f32, 3, 3>::new();
-            matrix[(0, 0)] = suzanne_world_matrix[(0, 0)];
-            matrix[(0, 1)] = suzanne_world_matrix[(0, 1)];
-            matrix[(0, 2)] = suzanne_world_matrix[(0, 2)];
-
-            matrix[(1, 0)] = suzanne_world_matrix[(1, 0)];
-            matrix[(1, 1)] = suzanne_world_matrix[(1, 1)];
-            matrix[(1, 2)] = suzanne_world_matrix[(1, 2)];
-
-            matrix[(2, 0)] = suzanne_world_matrix[(2, 0)];
-            matrix[(2, 1)] = suzanne_world_matrix[(2, 1)];
-            matrix[(2, 2)] = suzanne_world_matrix[(2, 2)];
-
-            // Adjoint is better as it always exists
-            // , unlike the inverse. The only difference
-            // is that the inverse is the adjoint divided by
-            // the determinant.
-            // So there is a scaling issue, but normals have
-            // be renormalized later anyways.
-            // Normal matrix would need to be transposed,
-            // but WGPU already expects matrices in row major form
-            // and we work with column major form.
-            // So by omitting transposition on our normal matrix in
-            // column major form, we provide WGPU with the transposed
-            // in row major form.
-            matrix.adjoint()
-        };
-
         let entities = {
             [
                 // Suzanne
@@ -140,7 +111,8 @@ impl NormalDebug {
                     index_format: wgpu::IndexFormat::Uint32,
                     index_count: suzanne.faces().len() * 3,
                     world_matrix: suzanne_world_matrix,
-                    normal_matrix: suzanne_normal_matrix,
+                    // this does nothing, as it has to be updated all the time anyways
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 0,
                 },
             ]
@@ -225,44 +197,6 @@ impl NormalDebug {
         });
         let entity_uniforms = (entity_uniform_buffer, entity_bind_group);
 
-        for entity in &entities {
-            let padded_flattened_normal_matrix = [
-                entity.normal_matrix[(0, 0)],
-                entity.normal_matrix[(0, 1)],
-                entity.normal_matrix[(0, 2)],
-                0.0,
-                entity.normal_matrix[(1, 0)],
-                entity.normal_matrix[(1, 1)],
-                entity.normal_matrix[(1, 2)],
-                0.0,
-                entity.normal_matrix[(2, 0)],
-                entity.normal_matrix[(2, 1)],
-                entity.normal_matrix[(2, 2)],
-                0.0,
-            ];
-
-            let gpu_entity_bytes = entity
-                .world_matrix
-                .transpose()
-                .as_slices()
-                .iter()
-                .flatten()
-                .flat_map(|entry| entry.to_le_bytes())
-                .chain(
-                    padded_flattened_normal_matrix
-                        .as_slice()
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .collect::<Vec<u8>>();
-
-            queue.write_buffer(
-                &entity_uniforms.0,
-                entity.uniform_offset as wgpu::BufferAddress,
-                &gpu_entity_bytes,
-            );
-        }
-
         // Pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout"),
@@ -342,6 +276,76 @@ impl NormalDebug {
         view_matrix: &Matrix<f32, 4, 4>,
         view_projection_matrix: &Matrix<f32, 4, 4>,
     ) {
+        // Update entity uniforms
+        for entity in &self.entities {
+            let normal_matrix = {
+                let view_model_matrix = *view_matrix * entity.world_matrix;
+
+                let mut matrix = Matrix::<f32, 3, 3>::new();
+                matrix[(0, 0)] = view_model_matrix[(0, 0)];
+                matrix[(0, 1)] = view_model_matrix[(0, 1)];
+                matrix[(0, 2)] = view_model_matrix[(0, 2)];
+
+                matrix[(1, 0)] = view_model_matrix[(1, 0)];
+                matrix[(1, 1)] = view_model_matrix[(1, 1)];
+                matrix[(1, 2)] = view_model_matrix[(1, 2)];
+
+                matrix[(2, 0)] = view_model_matrix[(2, 0)];
+                matrix[(2, 1)] = view_model_matrix[(2, 1)];
+                matrix[(2, 2)] = view_model_matrix[(2, 2)];
+
+                // Adjoint is better as it always exists
+                // , unlike the inverse. The only difference
+                // is that the inverse is the adjoint divided by
+                // the determinant.
+                // So there is a scaling issue, but normals have
+                // be renormalized later anyways.
+                // Normal matrix would need to be transposed,
+                // but WGPU already expects matrices in row major form
+                // and we work with column major form.
+                // So by omitting transposition on our normal matrix in
+                // column major form, we provide WGPU with the transposed
+                // in row major form.
+                matrix.adjoint()
+            };
+
+            let padded_flattened_normal_matrix = [
+                normal_matrix[(0, 0)],
+                normal_matrix[(0, 1)],
+                normal_matrix[(0, 2)],
+                0.0,
+                normal_matrix[(1, 0)],
+                normal_matrix[(1, 1)],
+                normal_matrix[(1, 2)],
+                0.0,
+                normal_matrix[(2, 0)],
+                normal_matrix[(2, 1)],
+                normal_matrix[(2, 2)],
+                0.0,
+            ];
+
+            let gpu_entity_bytes = entity
+                .world_matrix
+                .transpose()
+                .as_slices()
+                .iter()
+                .flatten()
+                .flat_map(|entry| entry.to_le_bytes())
+                .chain(
+                    padded_flattened_normal_matrix
+                        .as_slice()
+                        .iter()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .collect::<Vec<u8>>();
+
+            queue.write_buffer(
+                &self.entity_uniforms.0,
+                entity.uniform_offset as wgpu::BufferAddress,
+                &gpu_entity_bytes,
+            );
+        }
+
         // Serialize to the gpu
         // WGPU works with row major matrices
         let view_matrix = view_matrix.transpose();
