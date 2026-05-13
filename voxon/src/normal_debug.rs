@@ -267,6 +267,65 @@ impl NormalDebug {
         });
         queue.write_buffer(&utah_smooth_7k_index_buffer, 0, &utah_smooth_7k_index_data);
 
+        // Utah teapot smooth 116k
+        let utah_smooth_116k_data = include_str!("../resources/meshes/utah_teapot_smooth_116k.obj");
+        let utah_smooth_116k = format::wavefront::Obj::parse(
+            utah_smooth_116k_data.lines().map(String::from),
+            "Utah_smooth_116k",
+        );
+
+        let utah_smooth_116k_vertex_data = utah_smooth_116k
+            .faces()
+            .iter()
+            .flat_map(|face| {
+                let vertices = utah_smooth_116k.vertices();
+                let normals = utah_smooth_116k.normals();
+
+                face.iter().flat_map(|vertex| {
+                    let face_vertex = &vertices[vertex.vertex_index() - 1];
+                    // it is possible that a mesh doesn't contain normals either
+                    // may have to handle it
+                    let face_normals = &normals[vertex.normal_index().unwrap() - 1];
+
+                    face_vertex
+                        .as_slice()
+                        .iter()
+                        .chain(face_normals.as_slice().iter().chain([&0.0]))
+                        .flat_map(|value| value.to_le_bytes())
+                })
+            })
+            .collect::<Vec<u8>>();
+
+        // crudely convert the data into a vertex buffer by duplicating every single
+        // vertex
+        let utah_smooth_116k_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("utah_s116k_vertex_buffer"),
+            size: utah_smooth_116k_vertex_data.len() as u64,
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(
+            &utah_smooth_116k_vertex_buffer,
+            0,
+            &utah_smooth_116k_vertex_data,
+        );
+
+        let utah_smooth_116k_index_data = (0..utah_smooth_116k.faces().len() as u32 * 3)
+            .flat_map(|index| index.to_le_bytes())
+            .collect::<Vec<_>>();
+
+        let utah_smooth_116k_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("utah_s116k_index_buffer"),
+            size: utah_smooth_116k_index_data.len() as u64,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        queue.write_buffer(
+            &utah_smooth_116k_index_buffer,
+            0,
+            &utah_smooth_116k_index_data,
+        );
+
         // Stanford dragon flat 17k
         let stanford_dragon_flat_17k_data =
             include_str!("../resources/meshes/stanford_dragon_flat_17k.obj");
@@ -450,6 +509,18 @@ impl NormalDebug {
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 3 * entity_uniform_alignment as u32,
                 },
+                // Utah teapot smooth 116k
+                Entity {
+                    vertex_buffer: utah_smooth_116k_vertex_buffer,
+                    index_buffer: utah_smooth_116k_index_buffer,
+                    index_format: wgpu::IndexFormat::Uint32,
+                    index_count: utah_smooth_116k.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
+                        * graphic::transform::scale(0.5, 0.5, 0.5),
+                    // this does nothing, as it has to be updated all the time anyways
+                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                    uniform_offset: 4 * entity_uniform_alignment as u32,
+                },
                 // Stanford dragon flat 17k
                 Entity {
                     vertex_buffer: stanford_dragon_flat_17k_vertex_buffer,
@@ -460,7 +531,7 @@ impl NormalDebug {
                         * graphic::transform::scale(18.0, 18.0, 18.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 4 * entity_uniform_alignment as u32,
+                    uniform_offset: 5 * entity_uniform_alignment as u32,
                 },
                 // Stanford dragon smooth 17k
                 Entity {
@@ -472,7 +543,7 @@ impl NormalDebug {
                         * graphic::transform::scale(18.0, 18.0, 18.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 5 * entity_uniform_alignment as u32,
+                    uniform_offset: 6 * entity_uniform_alignment as u32,
                 },
             ]
             .into_iter()
