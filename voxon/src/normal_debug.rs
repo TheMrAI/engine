@@ -43,17 +43,19 @@ impl NormalDebug {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("normal_debug.wgsl"))),
         });
 
-        // SUZANNE
-        let suzanne_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
-        let suzanne =
-            format::wavefront::Obj::parse(suzanne_data.lines().map(String::from), "Suzanne");
+        // SUZANNE flat 975
+        let suzanne_flat975_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
+        let suzanne_flat975 = format::wavefront::Obj::parse(
+            suzanne_flat975_data.lines().map(String::from),
+            "Suzanne",
+        );
 
-        let suzanne_vertex_data = suzanne
+        let suzanne_flat975_vertex_data = suzanne_flat975
             .faces()
             .iter()
             .flat_map(|face| {
-                let vertices = suzanne.vertices();
-                let normals = suzanne.normals();
+                let vertices = suzanne_flat975.vertices();
+                let normals = suzanne_flat975.normals();
 
                 face.iter().flat_map(|vertex| {
                     let face_vertex = &vertices[vertex.vertex_index() - 1];
@@ -72,25 +74,33 @@ impl NormalDebug {
 
         // crudely convert the data into a vertex buffer by duplicating every single
         // vertex
-        let suzanne_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let suzanne_flat975_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("suzanne_vertex_buffer"),
-            size: suzanne_vertex_data.len() as u64,
+            size: suzanne_flat975_vertex_data.len() as u64,
             usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        queue.write_buffer(&suzanne_vertex_buffer, 0, &suzanne_vertex_data);
+        queue.write_buffer(
+            &suzanne_flat975_vertex_buffer,
+            0,
+            &suzanne_flat975_vertex_data,
+        );
 
-        let suzanne_index_data = (0..suzanne.faces().len() as u32 * 3)
+        let suzanne_flat975_index_data = (0..suzanne_flat975.faces().len() as u32 * 3)
             .flat_map(|index| index.to_le_bytes())
             .collect::<Vec<_>>();
 
-        let suzanne_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        let suzanne_flat975_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("suzanne_index_buffer"),
-            size: suzanne_index_data.len() as u64,
+            size: suzanne_flat975_index_data.len() as u64,
             usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        queue.write_buffer(&suzanne_index_buffer, 0, &suzanne_index_data);
+        queue.write_buffer(
+            &suzanne_flat975_index_buffer,
+            0,
+            &suzanne_flat975_index_data,
+        );
 
         // (world matrix + normal matrix) * float size, no padding needed
         let entity_uniform_size = (16 + 16) * 4;
@@ -100,17 +110,15 @@ impl NormalDebug {
             align_to(entity_uniform_size, alignment)
         };
 
-        let suzanne_world_matrix = graphic::transform::translate(0.0, 0.0, -5.0);
-
         let entities = {
             [
-                // Suzanne
+                // Suzanne flat
                 Entity {
-                    vertex_buffer: suzanne_vertex_buffer,
-                    index_buffer: suzanne_index_buffer,
+                    vertex_buffer: suzanne_flat975_vertex_buffer,
+                    index_buffer: suzanne_flat975_index_buffer,
                     index_format: wgpu::IndexFormat::Uint32,
-                    index_count: suzanne.faces().len() * 3,
-                    world_matrix: suzanne_world_matrix,
+                    index_count: suzanne_flat975.faces().len() * 3,
+                    world_matrix: graphic::transform::translate(0.0, 0.0, -5.0),
                     // this does nothing, as it has to be updated all the time anyways
                     normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 0,
