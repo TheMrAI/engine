@@ -56,6 +56,7 @@ fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
     let light_direction = vsOut.light_direction;
 
     let similarity = (dot(-light_direction, normal) + 1.0) / 2.0;
+    let albedo = mix(vec3f(0.0, 1.0, 0.0), vec3f(0.0, 0.0, 1.0), similarity);
 
-    return vec4(mix(vec3f(0.0, 1.0, 0.0), vec3f(0.0, 0.0, 1.0), similarity), 1.0);
+    return vec4(albedo, 1.0);
 }
