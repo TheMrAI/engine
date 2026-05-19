@@ -652,7 +652,7 @@ impl NormalDebug {
             align_to(entity_uniform_size, alignment)
         };
 
-        let entities = {
+        let mut entities = {
             [
                 // Suzanne flat 967
                 Entity {
@@ -778,6 +778,62 @@ impl NormalDebug {
             .into_iter()
             .collect::<Vec<Entity>>()
         };
+
+        // generate stanford dragons 700k
+        let mut x = -10.0;
+        while x <= 10.0 {
+            let mut z = -5.0;
+            while z >= -25.0 {
+                let mut y = 5.0;
+                while y <= 15.0 {
+                    let more_stanford_dragon_smooth_700k_vertex_buffer =
+                        device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("stanford_dragon_s700k_vertex_buffer"),
+                            size: stanford_dragon_smooth_700k_vertex_data.len() as u64,
+                            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                            mapped_at_creation: false,
+                        });
+                    queue.write_buffer(
+                        &more_stanford_dragon_smooth_700k_vertex_buffer,
+                        0,
+                        &stanford_dragon_smooth_700k_vertex_data,
+                    );
+
+                    let stanford_dragon_smooth_700k_index_data =
+                        (0..stanford_dragon_smooth_700k.faces().len() as u32 * 3)
+                            .flat_map(|index| index.to_le_bytes())
+                            .collect::<Vec<_>>();
+
+                    let more_stanford_dragon_smooth_700k_index_buffer =
+                        device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("stanford_dragon_s700k_index_buffer"),
+                            size: stanford_dragon_smooth_700k_index_data.len() as u64,
+                            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+                            mapped_at_creation: false,
+                        });
+                    queue.write_buffer(
+                        &more_stanford_dragon_smooth_700k_index_buffer,
+                        0,
+                        &stanford_dragon_smooth_700k_index_data,
+                    );
+
+                    entities.push(Entity {
+                        vertex_buffer: more_stanford_dragon_smooth_700k_vertex_buffer,
+                        index_buffer: more_stanford_dragon_smooth_700k_index_buffer,
+                        index_format: wgpu::IndexFormat::Uint32,
+                        index_count: stanford_dragon_smooth_700k.faces().len() * 3,
+                        world_matrix: graphic::transform::translate(x, y, z)
+                            * graphic::transform::scale(18.0, 18.0, 18.0),
+                        // this does nothing, as it has to be updated all the time anyways
+                        normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
+                        uniform_offset: entities.len() as u32 * entity_uniform_alignment as u32,
+                    });
+                    y += 5.0;
+                }
+                z -= 5.0;
+            }
+            x += 5.0;
+        }
 
         // Bind group layout
         let global_uniform_bind_group_layout =
