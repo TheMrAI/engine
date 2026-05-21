@@ -20,7 +20,6 @@ struct Entity {
     // Transformation data
     uniform_offset: wgpu::DynamicOffset,
     world_matrix: Matrix<f32, 4, 4>,
-    normal_matrix: Matrix<f32, 3, 3>,
 }
 
 pub struct NormalDebug {
@@ -662,8 +661,6 @@ impl NormalDebug {
                     index_count: suzanne_flat_967.faces().len() * 3,
                     world_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
                         * graphic::transform::scale(2.0, 2.0, 2.0),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 0,
                 },
                 // Suzanne smooth 967
@@ -674,8 +671,6 @@ impl NormalDebug {
                     index_count: suzanne_smooth_967.faces().len() * 3,
                     world_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
                         * graphic::transform::scale(2.0, 2.0, 2.0),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: entity_uniform_alignment as u32,
                 },
                 // Suzanne flat 967 messed up normals
@@ -686,8 +681,6 @@ impl NormalDebug {
                     index_count: suzanne_flat_967_messed_up_normals.faces().len() * 3,
                     world_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
                         * graphic::transform::scale(1.0, 1.0, 1.0),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 2 * entity_uniform_alignment as u32,
                 },
                 // Suzanne smooth 967 messed up normals
@@ -698,8 +691,6 @@ impl NormalDebug {
                     index_count: suzanne_smooth_967_messed_up_normals.faces().len() * 3,
                     world_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
                         * graphic::transform::scale(1.0, 1.0, 1.0),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 3 * entity_uniform_alignment as u32,
                 },
                 // Utah teapot flat 7k
@@ -710,8 +701,6 @@ impl NormalDebug {
                     index_count: utah_flat_7k.faces().len() * 3,
                     world_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
                         * graphic::transform::scale(0.5, 0.5, 0.5),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 4 * entity_uniform_alignment as u32,
                 },
                 // Utah teapot smooth 7k
@@ -722,8 +711,6 @@ impl NormalDebug {
                     index_count: utah_smooth_7k.faces().len() * 3,
                     world_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
                         * graphic::transform::scale(0.5, 0.5, 0.5),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 5 * entity_uniform_alignment as u32,
                 },
                 // Utah teapot smooth 116k
@@ -734,8 +721,6 @@ impl NormalDebug {
                     index_count: utah_smooth_116k.faces().len() * 3,
                     world_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
                         * graphic::transform::scale(0.5, 0.5, 0.5),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 6 * entity_uniform_alignment as u32,
                 },
                 // Stanford dragon flat 17k
@@ -746,8 +731,6 @@ impl NormalDebug {
                     index_count: stanford_dragon_flat_17k.faces().len() * 3,
                     world_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
                         * graphic::transform::scale(18.0, 18.0, 18.0),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 7 * entity_uniform_alignment as u32,
                 },
                 // Stanford dragon smooth 17k
@@ -758,8 +741,6 @@ impl NormalDebug {
                     index_count: stanford_dragon_smooth_17k.faces().len() * 3,
                     world_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
                         * graphic::transform::scale(18.0, 18.0, 18.0),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 8 * entity_uniform_alignment as u32,
                 },
                 // Stanford dragon smooth 700k
@@ -770,8 +751,6 @@ impl NormalDebug {
                     index_count: stanford_dragon_smooth_700k.faces().len() * 3,
                     world_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
                         * graphic::transform::scale(18.0, 18.0, 18.0),
-                    // this does nothing, as it has to be updated all the time anyways
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                     uniform_offset: 9 * entity_uniform_alignment as u32,
                 },
             ]
@@ -824,8 +803,6 @@ impl NormalDebug {
                         index_count: stanford_dragon_smooth_700k.faces().len() * 3,
                         world_matrix: graphic::transform::translate(x, y, z)
                             * graphic::transform::scale(18.0, 18.0, 18.0),
-                        // this does nothing, as it has to be updated all the time anyways
-                        normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
                         uniform_offset: entities.len() as u32 * entity_uniform_alignment as u32,
                     });
                     y += 5.0;
