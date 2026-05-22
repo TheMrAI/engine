@@ -13,6 +13,7 @@ mod gpu;
 mod inner_app;
 mod mesh;
 mod normal_debug;
+mod normal_debug_instanced;
 mod scene;
 mod skybox;
 mod texture;

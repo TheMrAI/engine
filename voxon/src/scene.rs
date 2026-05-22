@@ -1,7 +1,10 @@
 use graphic::camera::Camera;
 use std::{f32::consts::PI, time::Duration};
 
-use crate::{normal_debug::NormalDebug, skybox::Skybox, textured_draw::TexturedEntities};
+use crate::{
+    normal_debug::NormalDebug, normal_debug_instanced::InstancedNormalDebug, skybox::Skybox,
+    textured_draw::TexturedEntities,
+};
 use wgpu::{
     Adapter, Device, Operations, Queue, RenderPassDepthStencilAttachment, Surface,
     TextureDescriptor, TextureUsages,
@@ -21,6 +24,7 @@ use winit::dpi::PhysicalSize;
 pub struct Scene {
     textured_entities: TexturedEntities,
     normal_debug: NormalDebug,
+    normal_debug_instanced: InstancedNormalDebug,
     skybox: Skybox,
 }
 
@@ -31,11 +35,14 @@ impl Scene {
 
         let textured_entities = TexturedEntities::new(device, queue, swapchain_format.into());
         let normal_debug = NormalDebug::new(device, queue, swapchain_format.into());
+        let normal_debug_instanced =
+            InstancedNormalDebug::new(device, queue, swapchain_format.into());
         let skybox = Skybox::new(device, queue, swapchain_format.into());
 
         Self {
             textured_entities,
             normal_debug,
+            normal_debug_instanced,
             skybox,
         }
     }
@@ -124,6 +131,15 @@ impl Scene {
 
             // Render normal debug shaded objects
             self.normal_debug.render(
+                &mut render_pass,
+                queue,
+                camera,
+                &view_matrix,
+                &view_projection_matrix,
+            );
+
+            // Render instanced normal debug shaded dragons
+            self.normal_debug_instanced.render(
                 &mut render_pass,
                 queue,
                 camera,

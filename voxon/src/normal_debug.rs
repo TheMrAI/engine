@@ -1,5 +1,5 @@
 use graphic::camera::Camera;
-use lina::matrix::{Matrix, m};
+use lina::matrix::Matrix;
 
 use std::borrow::Cow;
 use wgpu::BindGroup;
@@ -23,6 +23,7 @@ struct Entity {
 }
 
 pub struct NormalDebug {
+    // Non-instanced entities
     // Prepared render pipeline and all the necessary info for rendering the scene
     render_pipeline: RenderPipeline,
     entities: Vec<Entity>,
@@ -651,7 +652,7 @@ impl NormalDebug {
             align_to(entity_uniform_size, alignment)
         };
 
-        let mut entities = {
+        let entities = {
             [
                 // Suzanne flat 967
                 Entity {
@@ -757,60 +758,6 @@ impl NormalDebug {
             .into_iter()
             .collect::<Vec<Entity>>()
         };
-
-        // generate stanford dragons 700k
-        let mut x = -10.0;
-        while x <= 10.0 {
-            let mut z = -5.0;
-            while z >= -25.0 {
-                let mut y = 5.0;
-                while y <= 15.0 {
-                    let more_stanford_dragon_smooth_700k_vertex_buffer =
-                        device.create_buffer(&wgpu::BufferDescriptor {
-                            label: Some("stanford_dragon_s700k_vertex_buffer"),
-                            size: stanford_dragon_smooth_700k_vertex_data.len() as u64,
-                            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-                            mapped_at_creation: false,
-                        });
-                    queue.write_buffer(
-                        &more_stanford_dragon_smooth_700k_vertex_buffer,
-                        0,
-                        &stanford_dragon_smooth_700k_vertex_data,
-                    );
-
-                    let stanford_dragon_smooth_700k_index_data =
-                        (0..stanford_dragon_smooth_700k.faces().len() as u32 * 3)
-                            .flat_map(|index| index.to_le_bytes())
-                            .collect::<Vec<_>>();
-
-                    let more_stanford_dragon_smooth_700k_index_buffer =
-                        device.create_buffer(&wgpu::BufferDescriptor {
-                            label: Some("stanford_dragon_s700k_index_buffer"),
-                            size: stanford_dragon_smooth_700k_index_data.len() as u64,
-                            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
-                            mapped_at_creation: false,
-                        });
-                    queue.write_buffer(
-                        &more_stanford_dragon_smooth_700k_index_buffer,
-                        0,
-                        &stanford_dragon_smooth_700k_index_data,
-                    );
-
-                    entities.push(Entity {
-                        vertex_buffer: more_stanford_dragon_smooth_700k_vertex_buffer,
-                        index_buffer: more_stanford_dragon_smooth_700k_index_buffer,
-                        index_format: wgpu::IndexFormat::Uint32,
-                        index_count: stanford_dragon_smooth_700k.faces().len() * 3,
-                        world_matrix: graphic::transform::translate(x, y, z)
-                            * graphic::transform::scale(18.0, 18.0, 18.0),
-                        uniform_offset: entities.len() as u32 * entity_uniform_alignment as u32,
-                    });
-                    y += 5.0;
-                }
-                z -= 5.0;
-            }
-            x += 5.0;
-        }
 
         // Bind group layout
         let global_uniform_bind_group_layout =
@@ -1040,19 +987,19 @@ impl NormalDebug {
 
         // Serialize to the gpu
         // WGPU works with row major matrices
-        let view_matrix = view_matrix.transpose();
-        let view_projection_matrix = view_projection_matrix.transpose();
+        let transposed_view_matrix = view_matrix.transpose();
+        let transposed_view_projection_matrix = view_projection_matrix.transpose();
 
         render_pass.set_pipeline(&self.render_pipeline);
 
         // UPDATE Uniforms
-        let global_uniforms = view_matrix
+        let global_uniforms = transposed_view_matrix
             .as_slices()
             .iter()
             .flatten()
             .flat_map(|entry| entry.to_le_bytes())
             .chain(
-                view_projection_matrix
+                transposed_view_projection_matrix
                     .as_slices()
                     .iter()
                     .flatten()
