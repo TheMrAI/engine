@@ -108,12 +108,6 @@ impl InstancedNormalDebug {
             while z >= -25.0 {
                 let mut y = 5.0;
                 while y <= 15.0 {
-                    // let mut x = -10.0;
-                    // while x <= 0.0 {
-                    //     let mut z = -5.0;
-                    //     while z >= -5.0 {
-                    //         let mut y = 5.0;
-                    //         while y <= 5.0 {
                     transforms.push(
                         graphic::transform::translate(x, y, z)
                             * graphic::transform::scale(18.0, 18.0, 18.0),
