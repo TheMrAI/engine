@@ -123,6 +123,26 @@ impl Scene {
                 -40000.0,
             );
 
+            // Render skybox
+            // It does not matter if it is rendered first or last, beacause
+            // the skybox is at Z value 1.0 in NDC.
+            // No other draw call, should write if the depth value equals 1.0.
+            let translation_free_view_matrix = {
+                let mut tmp = view_matrix;
+                tmp[(0, 3)] = 0.0;
+                tmp[(1, 3)] = 0.0;
+                tmp[(2, 3)] = 0.0;
+                tmp
+            };
+            let translation_free_view_projection_matrix =
+                projection_matrix * translation_free_view_matrix;
+            self.skybox.render(
+                &mut render_pass,
+                queue,
+                &translation_free_view_projection_matrix,
+            );
+
+            // Render the rest
             let view_projection_matrix = projection_matrix * view_matrix;
 
             // Render textured objects
@@ -145,25 +165,6 @@ impl Scene {
                 camera,
                 &view_matrix,
                 &view_projection_matrix,
-            );
-
-            // Render skybox
-            // It does not matter if it is rendered first or last, beacause
-            // the skybox is at Z value 1.0 in NDC.
-            // No other draw call, should write if the depth value equals 1.0.
-            let translation_free_view_matrix = {
-                let mut tmp = view_matrix;
-                tmp[(0, 3)] = 0.0;
-                tmp[(1, 3)] = 0.0;
-                tmp[(2, 3)] = 0.0;
-                tmp
-            };
-            let translation_free_view_projection_matrix =
-                projection_matrix * translation_free_view_matrix;
-            self.skybox.render(
-                &mut render_pass,
-                queue,
-                &translation_free_view_projection_matrix,
             );
         }
 
