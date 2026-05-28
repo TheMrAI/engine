@@ -157,7 +157,7 @@ impl InstancedNormalDebug {
         });
 
         // (world matrix + normal matrix) * float size, no padding needed
-        let transforms_size = (16 + 16) * 4;
+        let transforms_size = (16 + 12) * 4;
         let transforms_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("transform buffer"),
             size: transforms.len() as u64 * transforms_size,

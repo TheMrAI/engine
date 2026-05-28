@@ -645,7 +645,7 @@ impl NormalDebug {
         );
 
         // (world matrix + normal matrix) * float size, no padding needed
-        let entity_uniform_size = (16 + 16) * 4;
+        let entity_uniform_size = (16 + 12) * 4;
         let entity_uniform_alignment = {
             let alignment =
                 device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
