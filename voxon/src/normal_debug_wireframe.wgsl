@@ -7,6 +7,12 @@ struct Globals {
 struct Entity {
     world: mat4x4f,
     normal: mat3x3f,
+    vertex_index_offset: u32,
+}
+
+struct VertexData {
+    position: vec4f,
+    normal: vec3f,
 }
 
 @group(0)
@@ -17,11 +23,12 @@ var<uniform> global: Globals;
 @binding(1)
 var<uniform> entity: Entity;
 
-struct Vertex {
+@group(0)
+@binding(2)
+var<storage, read> vertex_data: array<VertexData>;
+
+struct VertexInput {
     @builtin(vertex_index) vertex_index: u32,
-    // The position of the vertex.
-    @location(0) position: vec4f,
-    @location(1) normal: vec3f,
 };
 
 struct VSOutput {
@@ -35,9 +42,10 @@ struct VSOutput {
 const world_light_direction = normalize(vec3(1.0, -1.0, -1.0));
 
 @vertex
-fn vs_main(vertex: Vertex) -> VSOutput {
+fn vs_main(vertex_input: VertexInput) -> VSOutput {
     var vsOut: VSOutput;
 
+    let vertex = vertex_data[entity.vertex_index_offset + vertex_input.vertex_index];
     // Compute the vertex position in device coordinates
     vsOut.position = global.view_projection * entity.world * vertex.position;
 
