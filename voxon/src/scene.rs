@@ -63,6 +63,7 @@ impl Scene {
         device: &Device,
         queue: &Queue,
         camera: &Camera,
+        wireframe: bool,
     ) {
         // Create render texture
         let frame = surface
@@ -153,23 +154,25 @@ impl Scene {
             self.textured_entities
                 .render(&mut render_pass, queue, camera, &view_projection_matrix);
 
-            // Render normal debug shaded objects
-            // self.normal_debug.render(
-            //     &mut render_pass,
-            //     queue,
-            //     camera,
-            //     &view_matrix,
-            //     &view_projection_matrix,
-            // );
-
-            // Render normal debug shaded objects in wireframe mode
-            self.normal_debug_wireframe.render(
-                &mut render_pass,
-                queue,
-                camera,
-                &view_matrix,
-                &view_projection_matrix,
-            );
+            if !wireframe {
+                // Render normal debug shaded objects
+                self.normal_debug.render(
+                    &mut render_pass,
+                    queue,
+                    camera,
+                    &view_matrix,
+                    &view_projection_matrix,
+                );
+            } else {
+                // Render normal debug shaded objects in wireframe mode
+                self.normal_debug_wireframe.render(
+                    &mut render_pass,
+                    queue,
+                    camera,
+                    &view_matrix,
+                    &view_projection_matrix,
+                );
+            }
 
             // Render instanced normal debug shaded dragons
             // self.normal_debug_instanced.render(
