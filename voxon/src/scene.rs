@@ -122,10 +122,11 @@ impl Scene {
 
             let aspect_ratio = inner_size.width as f32 / inner_size.height as f32;
             let projection_matrix = graphic::transform::perspective_proj_sym_h_fov(
-                PI / 2.0,
+                // PI / 2.0, 90 deg FOV
+                (PI / 180.0) * 75.0, // 75 degree FOV
                 aspect_ratio,
                 -0.05,
-                -40000.0,
+                -4000.0,
             );
 
             // Render skybox

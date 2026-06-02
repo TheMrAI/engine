@@ -12,6 +12,7 @@ use crate::transform::look_at;
 ///
 /// It supports a basic classic FPS like movement,
 /// by going forward, backwards, up/down and turning left/right.
+#[derive(Debug)]
 pub struct Camera {
     eye: Vector<f32, 3>,
     pitch: f32,
@@ -99,8 +100,8 @@ impl Camera {
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            eye: v![0.0, 0.0, 5.0],
-            pitch: 0.0,
+            eye: v![0.0, 7.0, 4.0],
+            pitch: -44.759995, // it should be -45, as in Godot, but then the two will be different
             roll: 0.0,
             yaw: 0.0,
         }
