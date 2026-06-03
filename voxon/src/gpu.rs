@@ -67,7 +67,7 @@ impl Wgpu {
         }
     }
 
-    pub fn render(&mut self, camera: &Camera, delta_t: std::time::Duration) {
+    pub fn render(&mut self, camera: &Camera, delta_t: std::time::Duration, wireframe: bool) {
         self.frametimes.add_frametime(delta_t.as_nanos());
         self.elapsed_time += delta_t;
 
@@ -84,6 +84,7 @@ impl Wgpu {
             &self.device,
             &self.queue,
             camera,
+            wireframe,
         );
     }
 }

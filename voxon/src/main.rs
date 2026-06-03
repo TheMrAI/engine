@@ -12,9 +12,13 @@ mod cube_map;
 mod gpu;
 mod inner_app;
 mod mesh;
+mod normal_debug;
+mod normal_debug_instanced;
+mod normal_debug_wireframe;
 mod scene;
 mod skybox;
 mod texture;
+mod textured_draw;
 
 struct App {
     app: Option<InnerApp>,
@@ -23,6 +27,7 @@ struct App {
     speed: f32, // speed in m/s
     // stores for each key if it is currently being pressed/held or not
     key_state: std::collections::BTreeMap<winit::keyboard::KeyCode, bool>,
+    wireframe: bool,
 }
 
 impl Default for App {
@@ -33,6 +38,7 @@ impl Default for App {
             navigating: false,
             speed: 1.0,
             key_state: Default::default(),
+            wireframe: false,
         }
     }
 }
@@ -103,6 +109,16 @@ impl ApplicationHandler for App {
                     .get(&winit::keyboard::KeyCode::KeyQ)
                     .cloned()
                     .unwrap_or(false);
+                let key_v = self
+                    .key_state
+                    .get(&winit::keyboard::KeyCode::KeyV)
+                    .cloned()
+                    .unwrap_or(false);
+                let key_c = self
+                    .key_state
+                    .get(&winit::keyboard::KeyCode::KeyC)
+                    .cloned()
+                    .unwrap_or(false);
 
                 // Draw.
                 if let Some(app) = self.app.as_mut() {
@@ -135,7 +151,14 @@ impl ApplicationHandler for App {
                         app.camera.move_on_up_vector(-speed);
                     }
 
-                    app.gpu.render(&app.camera, delta_t);
+                    if key_c {
+                        self.wireframe = false;
+                    }
+                    if key_v {
+                        self.wireframe = true;
+                    }
+
+                    app.gpu.render(&app.camera, delta_t, self.wireframe);
                     // for continuos rendering
                     app.window.request_redraw();
 
