@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use inner_app::InnerApp;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -271,9 +273,16 @@ impl ApplicationHandler for App {
                     && self.navigating
                     && let Some(app) = self.app.as_mut()
                 {
+                    // This is hot garbage, but for now it solves the stuttering rotation issue.
+                    const ANGULAR_SPEED: f32 = (PI / 180.0) * 1000.0;
+                    let current_time = std::time::Instant::now();
+                    let delta_t = current_time.duration_since(app.prev_render_time);
+
+                    let elapsed_s = delta_t.as_secs_f32();
                     // Negate all inputs, inverting the movements
-                    app.camera.pitch(-delta.1 as f32 / 50.0);
-                    app.camera.yaw(-delta.0 as f32 / 50.0);
+                    app.camera
+                        .pitch(-delta.1 as f32 * ANGULAR_SPEED * elapsed_s);
+                    app.camera.yaw(-delta.0 as f32 * ANGULAR_SPEED * elapsed_s);
                 }
             }
             _ => (), // the rest we don't care
