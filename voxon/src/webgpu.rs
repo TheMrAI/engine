@@ -6,6 +6,7 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::scene::Scene;
 
+#[derive(Debug)]
 pub struct Webgpu {
     pub inner_size: PhysicalSize<u32>,
     pub adapter: Adapter,

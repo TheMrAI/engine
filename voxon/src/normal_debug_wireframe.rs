@@ -10,6 +10,7 @@ use wgpu::{
     DepthStencilState, Face, StencilState, util::align_to,
 };
 
+#[derive(Debug)]
 struct Entity {
     // Mesh data
     // Now the order of the entities is used to define which offsets are to be used
@@ -22,6 +23,7 @@ struct Entity {
     world_matrix: Matrix<f32, 4, 4>,
 }
 
+#[derive(Debug)]
 pub struct NormalDebugWireframe {
     // Non-instanced entities
     // Prepared render pipeline and all the necessary info for rendering the scene

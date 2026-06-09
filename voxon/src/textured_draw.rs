@@ -18,6 +18,7 @@ use wgpu::{
     VertexAttribute, VertexBufferLayout, util::align_to,
 };
 
+#[derive(Debug)]
 struct Entity {
     // Mesh data
     vertex_buffer: wgpu::Buffer,
@@ -31,6 +32,7 @@ struct Entity {
     texture_scale: f32,
 }
 
+#[derive(Debug)]
 pub struct TexturedEntities {
     // Delta_t associated with the cube rotation
     // This is not used at all now. It should be removed, but

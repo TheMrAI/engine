@@ -10,6 +10,7 @@ use wgpu::{
     StencilState, VertexAttribute, VertexBufferLayout,
 };
 
+#[derive(Debug)]
 pub struct InstancedNormalDebug {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,

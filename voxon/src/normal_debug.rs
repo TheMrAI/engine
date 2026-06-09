@@ -11,6 +11,7 @@ use wgpu::{
     util::align_to,
 };
 
+#[derive(Debug)]
 struct Entity {
     // Mesh data
     vertex_buffer: wgpu::Buffer,
@@ -22,6 +23,7 @@ struct Entity {
     world_matrix: Matrix<f32, 4, 4>,
 }
 
+#[derive(Debug)]
 pub struct NormalDebug {
     // Non-instanced entities
     // Prepared render pipeline and all the necessary info for rendering the scene

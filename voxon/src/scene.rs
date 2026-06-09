@@ -21,6 +21,7 @@ use winit::dpi::PhysicalSize;
 // commands for the GPU. That should be the domain of a completely different class,
 // but for the time being it has been moved here as well.
 // Mostly to keep things simple.
+#[derive(Debug)]
 pub struct Scene {
     textured_entities: TexturedEntities,
     normal_debug: NormalDebug,
