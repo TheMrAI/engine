@@ -21,6 +21,7 @@ mod scene;
 mod skybox;
 mod texture;
 mod textured_draw;
+mod webgpu;
 
 struct App {
     app: Option<InnerApp>,

@@ -6,7 +6,7 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::scene::Scene;
 
-pub struct Wgpu {
+pub struct Webgpu {
     pub inner_size: PhysicalSize<u32>,
     pub adapter: Adapter,
     pub surface: Surface<'static>,
@@ -17,11 +17,12 @@ pub struct Wgpu {
     elapsed_time: std::time::Duration,
 }
 
-impl Wgpu {
+impl Webgpu {
     pub async fn new(window: Arc<Window>) -> Self {
         let instance = wgpu::Instance::default();
         let inner_size = window.inner_size();
         let surface = instance.create_surface(window).unwrap();
+
         // Request an adapter that can support our surface
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -55,7 +56,7 @@ impl Wgpu {
 
         let scene = Scene::new(&adapter, &surface, &device, &queue);
 
-        Wgpu {
+        Webgpu {
             inner_size,
             adapter,
             surface,
