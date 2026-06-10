@@ -1,15 +1,12 @@
 use std::sync::Arc;
-
-use graphic::camera::Camera;
 use winit::window::Window;
 
+use crate::game::Game;
 use crate::webgpu::Webgpu;
 
 pub(super) struct InnerApp {
     pub window: Arc<Window>,
-    pub gpu: Webgpu,
-    pub camera: Camera,
-    pub prev_render_time: std::time::Instant,
+    pub game: Game,
 }
 
 impl InnerApp {
@@ -21,15 +18,9 @@ impl InnerApp {
 
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
-        let gpu = pollster::block_on(Webgpu::new(Arc::clone(&window)));
+        let webgpu = pollster::block_on(Webgpu::new(Arc::clone(&window)));
+        let game = Game::new(webgpu);
 
-        let camera = Camera::default();
-
-        InnerApp {
-            window,
-            gpu,
-            camera,
-            prev_render_time: std::time::Instant::now(),
-        }
+        InnerApp { window, game }
     }
 }

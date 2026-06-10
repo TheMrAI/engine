@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use inner_app::InnerApp;
 use winit::event::{ElementState, MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -11,7 +9,7 @@ use winit::{
 };
 
 mod cube_map;
-mod gpu;
+mod game;
 mod inner_app;
 mod mesh;
 mod normal_debug;
@@ -23,27 +21,13 @@ mod texture;
 mod textured_draw;
 mod webgpu;
 
+#[derive(Default)]
 struct App {
     app: Option<InnerApp>,
     focused: bool,
     navigating: bool,
-    speed: f32, // speed in m/s
     // stores for each key if it is currently being pressed/held or not
     key_state: std::collections::BTreeMap<winit::keyboard::KeyCode, bool>,
-    wireframe: bool,
-}
-
-impl Default for App {
-    fn default() -> Self {
-        Self {
-            app: None,
-            focused: false,
-            navigating: false,
-            speed: 1.0,
-            key_state: Default::default(),
-            wireframe: false,
-        }
-    }
 }
 
 impl ApplicationHandler for App {
@@ -71,102 +55,14 @@ impl ApplicationHandler for App {
                 // this event rather than in AboutToWait, since rendering in here allows
                 // the program to gracefully handle redraws requested by the OS.
 
-                // Before redraw, apply all navigation changes.
-                let key_left_shift = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::ShiftLeft)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_right_shift = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::ShiftRight)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_w = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyW)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_s = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyS)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_d = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyD)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_a = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyA)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_e = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyE)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_q = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyQ)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_v = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyV)
-                    .cloned()
-                    .unwrap_or(false);
-                let key_c = self
-                    .key_state
-                    .get(&winit::keyboard::KeyCode::KeyC)
-                    .cloned()
-                    .unwrap_or(false);
-
-                // Draw.
+                // Cycle game loop.
+                // TODO: This is not an optimal setup. We should be the ones in control of the main
+                // thread.
                 if let Some(app) = self.app.as_mut() {
-                    let current_time = std::time::Instant::now();
-                    let delta_t = current_time.duration_since(app.prev_render_time);
-
-                    let elapsed_s = delta_t.as_secs_f32();
-                    let speed = if key_left_shift || key_right_shift {
-                        3.0 * self.speed * elapsed_s
-                    } else {
-                        1.0 * self.speed * elapsed_s
-                    };
-
-                    if key_w {
-                        app.camera.move_on_look_at_vector(speed);
-                    };
-                    if key_s {
-                        app.camera.move_on_look_at_vector(-speed);
-                    };
-                    if key_d {
-                        app.camera.move_on_right_vector(speed);
-                    };
-                    if key_a {
-                        app.camera.move_on_right_vector(-speed);
-                    };
-                    if key_e {
-                        app.camera.move_on_up_vector(speed);
-                    };
-                    if key_q {
-                        app.camera.move_on_up_vector(-speed);
-                    }
-
-                    if key_c {
-                        self.wireframe = false;
-                    }
-                    if key_v {
-                        self.wireframe = true;
-                    }
-
-                    app.gpu.render(&app.camera, delta_t, self.wireframe);
-                    // for continuos rendering
+                    // app.gpu.render(&app.camera, delta_t, self.wireframe);
+                    app.game.run_loop(&self.key_state);
+                    // for continuous rendering
                     app.window.request_redraw();
-
-                    // Dirty update time
-                    app.prev_render_time = current_time;
                 }
                 // else nothing to do yet
             }
@@ -183,20 +79,9 @@ impl ApplicationHandler for App {
             }
             WindowEvent::CursorEntered { device_id: _ } => {}
             WindowEvent::CursorLeft { device_id: _ } => {}
-            WindowEvent::Resized(inner_resolution) => {
+            WindowEvent::Resized(_) => {
+                // TODO if/when necessary
                 // Recreate the surface texture according to the new inner physical resolution.
-                if let Some(app) = self.app.as_mut() {
-                    let config = app
-                        .gpu
-                        .surface
-                        .get_default_config(
-                            &app.gpu.adapter,
-                            inner_resolution.height,
-                            inner_resolution.width,
-                        )
-                        .unwrap();
-                    app.gpu.surface.configure(&app.gpu.device, &config);
-                }
             }
             WindowEvent::KeyboardInput {
                 device_id: _,
@@ -243,15 +128,9 @@ impl ApplicationHandler for App {
                 if self.focused && self.navigating {
                     match delta {
                         MouseScrollDelta::LineDelta(_dx, dy) => {
-                            // To change the speed we use a logarithm function as
-                            // those types of inputs fell much more natural.
-                            // Shift it by 1 to the left so it reaches zero at zero,
-                            // then flatten the result by half.
-                            // This way within the range os 0.1 - 30 the user
-                            // gets finer control on the lower ends and coarser on the
-                            // higher ends.
-                            self.speed += dy * ((self.speed + 1.0).log2() / 2.0);
-                            self.speed = self.speed.clamp(0.1, 30.0);
+                            if let Some(app) = self.app.as_mut() {
+                                app.game.mouse_wheel(dy);
+                            }
                         }
                         MouseScrollDelta::PixelDelta(_) => {}
                     }
@@ -274,16 +153,7 @@ impl ApplicationHandler for App {
                     && self.navigating
                     && let Some(app) = self.app.as_mut()
                 {
-                    // This is hot garbage, but for now it solves the stuttering rotation issue.
-                    const ANGULAR_SPEED: f32 = (PI / 180.0) * 1000.0;
-                    let current_time = std::time::Instant::now();
-                    let delta_t = current_time.duration_since(app.prev_render_time);
-
-                    let elapsed_s = delta_t.as_secs_f32();
-                    // Negate all inputs, inverting the movements
-                    app.camera
-                        .pitch(-delta.1 as f32 * ANGULAR_SPEED * elapsed_s);
-                    app.camera.yaw(-delta.0 as f32 * ANGULAR_SPEED * elapsed_s);
+                    app.game.mouse_motion(delta);
                 }
             }
             _ => (), // the rest we don't care
