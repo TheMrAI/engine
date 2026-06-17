@@ -1,8 +1,10 @@
+use std::fs;
 use std::sync::Arc;
 use winit::window::Window;
 
 use crate::game::Game;
 use crate::webgpu::Webgpu;
+use project::Root;
 
 pub(super) struct InnerApp {
     pub window: Arc<Window>,
@@ -11,10 +13,18 @@ pub(super) struct InnerApp {
 
 impl InnerApp {
     pub fn new(event_loop: &winit::event_loop::ActiveEventLoop) -> Self {
+        let data =
+            fs::read_to_string("/home/mrai/Documents/tinker/engine/voxon/resources/project.toml")
+                .unwrap();
+        let project = toml::from_str::<Root>(&data).unwrap();
+
         let window_attributes = Window::default_attributes()
             .with_title("Voxon")
             .with_resizable(false)
-            .with_inner_size(winit::dpi::LogicalSize::new(1024.0, 768.0));
+            .with_inner_size(winit::dpi::LogicalSize::new(
+                project.display.width as f32,
+                project.display.height as f32,
+            ));
 
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 

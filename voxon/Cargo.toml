@@ -13,3 +13,5 @@ quaternion = { path = "../quaternion" }
 frametime = { path = "../frametime" }
 png = "0.18.1"
 format = { path = "../format" }
+toml = "1.1.2"
+project = { version = "0.1.0", path = "../project" }
