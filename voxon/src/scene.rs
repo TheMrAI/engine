@@ -1,5 +1,5 @@
 use graphic::camera::Camera;
-use std::{f32::consts::PI, time::Duration};
+use std::f32::consts::PI;
 
 use crate::{
     normal_debug::NormalDebug, normal_debug_instanced::InstancedNormalDebug,
@@ -26,7 +26,7 @@ pub struct Scene {
     textured_entities: TexturedEntities,
     normal_debug: NormalDebug,
     normal_debug_wireframe: NormalDebugWireframe,
-    normal_debug_instanced: InstancedNormalDebug,
+    _normal_debug_instanced: InstancedNormalDebug, // TODO remove after cleansing
     skybox: Skybox,
 }
 
@@ -47,14 +47,9 @@ impl Scene {
             textured_entities,
             normal_debug,
             normal_debug_wireframe,
-            normal_debug_instanced,
+            _normal_debug_instanced: normal_debug_instanced,
             skybox,
         }
-    }
-
-    pub fn simulate(&mut self, delta_t: Duration) {
-        // World simulation.
-        self.textured_entities.simulate(delta_t);
     }
 
     pub fn render(

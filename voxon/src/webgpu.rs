@@ -79,7 +79,6 @@ impl Webgpu {
             println!("{}", stats);
         }
 
-        self.scene.simulate(delta_t);
         self.scene.render(
             &self.inner_size,
             &self.surface,

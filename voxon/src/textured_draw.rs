@@ -2,13 +2,9 @@ use crate::mesh::{generate_cube, generate_plane};
 use graphic::camera::Camera;
 use graphic::identity_matrix;
 use lina::matrix::{Matrix, m};
-use lina::vector::v;
-use std::f32::consts::PI;
 
 use crate::texture::{load_texture_cube, load_texture_plane};
-use quaternion::Quaternion;
 use std::borrow::Cow;
-use std::time::Duration;
 use wgpu::BindGroup;
 use wgpu::Buffer;
 use wgpu::RenderPipeline;
@@ -34,10 +30,6 @@ struct Entity {
 
 #[derive(Debug)]
 pub struct TexturedEntities {
-    // Delta_t associated with the cube rotation
-    // This is not used at all now. It should be removed, but
-    // it is a good reminder that animations may need to be handled at one point.
-    cube_delta_t: std::time::Duration,
     // Prepared render pipeline and all the necessary info for rendering the scene
     render_pipeline: RenderPipeline,
     entities: Vec<Entity>,
@@ -427,72 +419,12 @@ impl TexturedEntities {
         });
 
         Self {
-            cube_delta_t: Duration::default(),
             render_pipeline,
             entities,
             global_uniforms,
             entity_uniforms,
             texture_bind_groups,
         }
-    }
-
-    // This has no effect, because we never update the initial buffers after the objects
-    // creation.
-    pub fn simulate(&mut self, delta_t: std::time::Duration) {
-        // It will not be part of the render pipeline later on.
-        // Only temporarily for now.
-
-        // For now the cube transformations are hacked in here.
-        let cube_full_rotation_time = std::time::Duration::from_secs(10);
-        self.cube_delta_t = self.cube_delta_t.saturating_add(delta_t);
-        if self.cube_delta_t > cube_full_rotation_time {
-            self.cube_delta_t = self.cube_delta_t.saturating_sub(cube_full_rotation_time);
-        }
-
-        // for quick rotation checks
-        #[allow(unused_variables)]
-        let rotate_y: Matrix<f32, 4, 4> = Quaternion::<f32>::new_unit(
-            2.0 * PI
-                * (self.cube_delta_t.as_millis() as f32
-                    / cube_full_rotation_time.as_millis() as f32),
-            v![0.0, 1.0, 0.0],
-        )
-        .into();
-
-        let cube_world_matrix = rotate_y * graphic::identity_matrix();
-
-        let cube_normal_matrix = {
-            let mut matrix = Matrix::<f32, 3, 3>::new();
-            matrix[(0, 0)] = cube_world_matrix[(0, 0)];
-            matrix[(0, 1)] = cube_world_matrix[(0, 1)];
-            matrix[(0, 2)] = cube_world_matrix[(0, 2)];
-
-            matrix[(1, 0)] = cube_world_matrix[(1, 0)];
-            matrix[(1, 1)] = cube_world_matrix[(1, 1)];
-            matrix[(1, 2)] = cube_world_matrix[(1, 2)];
-
-            matrix[(2, 0)] = cube_world_matrix[(2, 0)];
-            matrix[(2, 1)] = cube_world_matrix[(2, 1)];
-            matrix[(2, 2)] = cube_world_matrix[(2, 2)];
-
-            // Adjoint is better as it always exists
-            // , unlike the inverse. The only difference
-            // is that the inverse is the adjoint divided by
-            // the determinant.
-            // So there is a scaling issue, but normals have
-            // be renormalized later anyways.
-            // Normal matrix would need to be transposed,
-            // but WGPU already expects matrices in row major form
-            // and we work with column major form.
-            // So by omitting transposition on our normal matrix in
-            // column major form, we provide WGPU with the transposed
-            // in row major form.
-            matrix.adjoint()
-        };
-
-        let cube = &mut self.entities[0];
-        cube.world_matrix = cube_world_matrix;
-        cube.normal_matrix = cube_normal_matrix;
     }
 
     pub fn render(
