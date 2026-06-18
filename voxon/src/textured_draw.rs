@@ -54,8 +54,8 @@ impl TexturedEntities {
     ) -> Self {
         // Load the shaders
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
+            label: Some("textured_draw"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("textured_draw.wgsl"))),
         });
 
         // CUBE
