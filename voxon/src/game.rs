@@ -9,6 +9,8 @@ pub struct Game {
     prev_render_time: std::time::Instant,
     prev_mouse_motion_time: std::time::Instant,
     navigation_speed: f32, // speed in m/s
+    frametimes: frametime::Sampler<1024>,
+    elapsed_time: std::time::Duration,
 }
 
 impl Game {
@@ -20,6 +22,8 @@ impl Game {
             prev_render_time: std::time::Instant::now(),
             prev_mouse_motion_time: std::time::Instant::now(),
             navigation_speed: 1.0,
+            frametimes: frametime::Sampler::new(),
+            elapsed_time: std::time::Duration::default(),
         }
     }
 
@@ -135,6 +139,15 @@ impl Game {
     fn simulate(&mut self) {}
 
     fn render(&mut self, delta_t: std::time::Duration) {
+        self.frametimes.add_frametime(delta_t.as_nanos());
+        self.elapsed_time += delta_t;
+
+        if self.elapsed_time > std::time::Duration::from_secs(1) {
+            self.elapsed_time -= std::time::Duration::from_secs(1);
+            let stats = self.frametimes.stats();
+            println!("{}", stats);
+        }
+
         self.rendering_api
             .render(&self.camera, delta_t, self.wireframe);
     }

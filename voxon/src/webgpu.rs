@@ -14,8 +14,6 @@ pub struct Webgpu {
     pub device: Device,
     pub queue: Queue,
     pub scene: Scene,
-    frametimes: frametime::Sampler<1024>,
-    elapsed_time: std::time::Duration,
 }
 
 impl Webgpu {
@@ -64,21 +62,10 @@ impl Webgpu {
             device,
             queue,
             scene,
-            frametimes: frametime::Sampler::new(),
-            elapsed_time: std::time::Duration::default(),
         }
     }
 
     pub fn render(&mut self, camera: &Camera, delta_t: std::time::Duration, wireframe: bool) {
-        self.frametimes.add_frametime(delta_t.as_nanos());
-        self.elapsed_time += delta_t;
-
-        if self.elapsed_time > std::time::Duration::from_secs(1) {
-            self.elapsed_time -= std::time::Duration::from_secs(1);
-            let stats = self.frametimes.stats();
-            println!("{}", stats);
-        }
-
         self.scene.render(
             &self.inner_size,
             &self.surface,
