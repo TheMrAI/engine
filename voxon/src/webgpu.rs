@@ -65,7 +65,7 @@ impl Webgpu {
         }
     }
 
-    pub fn render(&mut self, camera: &Camera, delta_t: std::time::Duration, wireframe: bool) {
+    pub fn render(&mut self, camera: &Camera, wireframe: bool) {
         self.scene.render(
             &self.inner_size,
             &self.surface,

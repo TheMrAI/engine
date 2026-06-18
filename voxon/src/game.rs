@@ -148,8 +148,7 @@ impl Game {
             println!("{}", stats);
         }
 
-        self.rendering_api
-            .render(&self.camera, delta_t, self.wireframe);
+        self.rendering_api.render(&self.camera, self.wireframe);
     }
 
     // TODO: This should belong in the process_input functions.
