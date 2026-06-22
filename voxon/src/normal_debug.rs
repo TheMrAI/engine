@@ -9,8 +9,8 @@ use wgpu::{
 };
 
 #[derive(Debug)]
-struct Instance {
-    model_matrix: Matrix<f32, 4, 4>,
+pub struct Instance {
+    pub model_matrix: Matrix<f32, 4, 4>,
 }
 
 // An Entity represents a Mesh in and its LODs (in the future).
@@ -27,110 +27,18 @@ struct Entity {
     vertex_count: u32,
 }
 
-fn construct_entity(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    bind_group_layout: &wgpu::BindGroupLayout,
-    global_uniform_buffer: &wgpu::Buffer,
-    object: &format::wavefront::Obj,
-    instances: Vec<Instance>,
-) -> Entity {
-    let vertex_data = object
-        .faces()
-        .iter()
-        .flat_map(|face| {
-            let vertices = object.vertices();
-            let normals = object.normals();
-
-            face.iter().flat_map(|vertex| {
-                let face_vertex = &vertices[vertex.vertex_index() - 1];
-                // it is possible that a mesh doesn't contain normals either
-                // may have to handle it
-                let face_normal = &normals[vertex.normal_index().unwrap() - 1];
-
-                face_vertex
-                    .as_slice()
-                    .iter()
-                    .chain(face_normal.as_slice().iter().chain([&0.0]))
-                    .flat_map(|value| value.to_le_bytes())
-            })
-        })
-        .collect::<Vec<u8>>();
-    let vertex_count = (object.faces().len() * 3) as u32;
-
-    // Instance Storage buffer
-    // (model matrix + normal matrix) * float size
-    let instance_storage_size = (16 + 12) * 4;
-    let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("Instance storage buffer"),
-        size: instance_storage_size * instances.len() as u64,
-        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-
-    let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("vertex_buffer"),
-        size: vertex_data.len() as u64,
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    queue.write_buffer(&vertex_buffer, 0, &vertex_data);
-
-    // Create bind group
-    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("bind_group"),
-        layout: bind_group_layout,
-        entries: &[
-            BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(BufferBinding {
-                    buffer: global_uniform_buffer,
-                    offset: 0,
-                    size: None, // use whole buffer
-                }),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &instance_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &vertex_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            },
-        ],
-    });
-
-    Entity {
-        bind_group,
-        instance_buffer,
-        instances,
-        vertex_count,
-    }
-}
-
 #[derive(Debug)]
 pub struct NormalDebug {
     // Non-instanced entities
     // Prepared render pipeline and all the necessary info for rendering the scene
+    bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: RenderPipeline,
     global_uniform_buffer: wgpu::Buffer,
     entities: Vec<Entity>,
 }
 
 impl NormalDebug {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        color_target: wgpu::ColorTargetState,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, color_target: wgpu::ColorTargetState) -> Self {
         // Load the shaders
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("normal_debug"),
@@ -227,213 +135,71 @@ impl NormalDebug {
             cache: None,
         });
 
-        // Construct the entities and their respective bind_groups
-        let mut entities = Vec::<Entity>::new();
-
-        // SUZANNE flat 967
-        let suzanne_flat_967_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
-        let suzanne_flat_967 = format::wavefront::Obj::parse(
-            suzanne_flat_967_data.lines().map(String::from),
-            "Suzanne_flat_967",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &suzanne_flat_967,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
-                    * graphic::transform::scale(2.0, 2.0, 2.0),
-            }],
-        ));
-
-        // SUZANNE flat 967 messed up normals
-        let suzanne_flat_967_messed_up_normals_data =
-            include_str!("../resources/meshes/suzanne_flat_967_messed_up_normals.obj");
-        let suzanne_flat_967_messed_up_normals = format::wavefront::Obj::parse(
-            suzanne_flat_967_messed_up_normals_data
-                .lines()
-                .map(String::from),
-            "Suzanne_flat_967_messed_up_normals",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &suzanne_flat_967_messed_up_normals,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
-                    * graphic::transform::scale(1.0, 1.0, 1.0),
-            }],
-        ));
-
-        // SUZANNE smooth 967
-        let suzanne_smooth_967_data = include_str!("../resources/meshes/suzanne_smooth_967.obj");
-        let suzanne_smooth_967 = format::wavefront::Obj::parse(
-            suzanne_smooth_967_data.lines().map(String::from),
-            "Suzanne_smooth_967",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &suzanne_smooth_967,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
-                    * graphic::transform::scale(2.0, 2.0, 2.0),
-            }],
-        ));
-
-        // SUZANNE smooth 967 messed up normals
-        let suzanne_smooth_967_messed_up_normals_data =
-            include_str!("../resources/meshes/suzanne_smooth_967_messed_up_normals.obj");
-        let suzanne_smooth_967_messed_up_normals = format::wavefront::Obj::parse(
-            suzanne_smooth_967_messed_up_normals_data
-                .lines()
-                .map(String::from),
-            "Suzanne_smooth_967_messed_up_normals",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &suzanne_smooth_967_messed_up_normals,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
-                    * graphic::transform::scale(1.0, 1.0, 1.0),
-            }],
-        ));
-
-        // Utah teapot flat 7k
-        let utah_flat_7k_data = include_str!("../resources/meshes/utah_teapot_flat_7k.obj");
-        let utah_flat_7k = format::wavefront::Obj::parse(
-            utah_flat_7k_data.lines().map(String::from),
-            "Utah_flat_7k",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &utah_flat_7k,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        ));
-
-        // Utah teapot smooth 7k
-        let utah_smooth_7k_data = include_str!("../resources/meshes/utah_teapot_smooth_7k.obj");
-        let utah_smooth_7k = format::wavefront::Obj::parse(
-            utah_smooth_7k_data.lines().map(String::from),
-            "Utah_smooth_7k",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &utah_smooth_7k,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        ));
-
-        // Utah teapot smooth 116k
-        let utah_smooth_116k_data = include_str!("../resources/meshes/utah_teapot_smooth_116k.obj");
-        let utah_smooth_116k = format::wavefront::Obj::parse(
-            utah_smooth_116k_data.lines().map(String::from),
-            "Utah_smooth_116k",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &utah_smooth_116k,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        ));
-
-        // Stanford dragon flat 17k
-        let stanford_dragon_flat_17k_data =
-            include_str!("../resources/meshes/stanford_dragon_flat_17k.obj");
-        let stanford_dragon_flat_17k = format::wavefront::Obj::parse(
-            stanford_dragon_flat_17k_data.lines().map(String::from),
-            "Stanford_dragon_flat_17k",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &stanford_dragon_flat_17k,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        ));
-
-        // Stanford dragon smooth 17k
-        let stanford_dragon_smooth_17k_data =
-            include_str!("../resources/meshes/stanford_dragon_smooth_17k.obj");
-        let stanford_dragon_smooth_17k = format::wavefront::Obj::parse(
-            stanford_dragon_smooth_17k_data.lines().map(String::from),
-            "Stanford_dragon_smooth_17k",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &stanford_dragon_smooth_17k,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        ));
-
-        // Stanford dragon smooth 700k
-        let stanford_dragon_smooth_700k_data =
-            include_str!("../resources/meshes/stanford_dragon_smooth_700k.obj");
-        let stanford_dragon_smooth_700k = format::wavefront::Obj::parse(
-            stanford_dragon_smooth_700k_data.lines().map(String::from),
-            "Stanford_dragon_smooth_700k",
-        );
-
-        entities.push(construct_entity(
-            device,
-            queue,
-            &bind_group_layout,
-            &global_uniform_buffer,
-            &stanford_dragon_smooth_700k,
-            vec![Instance {
-                model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        ));
+        let entities = Vec::<Entity>::new();
 
         Self {
+            bind_group_layout,
             render_pipeline,
             global_uniform_buffer,
             entities,
         }
+    }
+
+    pub fn add_entity_instances(
+        &mut self,
+        device: &wgpu::Device,
+        vertex_buffer: &wgpu::Buffer,
+        vertex_count: u32,
+        instances: Vec<Instance>,
+    ) {
+        // Instance Storage buffer
+        // (model matrix + normal matrix) * float size
+        let instance_storage_size = (16 + 12) * 4;
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance storage buffer"),
+            size: instance_storage_size * instances.len() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Create bind group
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(BufferBinding {
+                        buffer: &self.global_uniform_buffer,
+                        offset: 0,
+                        size: None, // use whole buffer
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &instance_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: vertex_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+            ],
+        });
+
+        self.entities.push(Entity {
+            bind_group,
+            instance_buffer,
+            instances,
+            vertex_count,
+        })
     }
 
     pub fn render(
@@ -466,8 +232,8 @@ impl NormalDebug {
 
         // Update entity storage buffers
         for entity in &self.entities {
-            let mut instance_buffer =
-                vec![0; entity.instances.len() * entity.instance_buffer.size() as usize];
+            let instance_size = entity.instance_buffer.size() as usize / entity.instances.len();
+            let mut instance_buffer = vec![0; entity.instance_buffer.size() as usize];
 
             for (i, instance) in entity.instances.iter().enumerate() {
                 let normal_matrix = {
@@ -534,9 +300,7 @@ impl NormalDebug {
                 unsafe {
                     std::ptr::copy(
                         gpu_instance_bytes.as_ptr(),
-                        instance_buffer
-                            .as_mut_ptr()
-                            .add(entity.instance_buffer.size() as usize * i),
+                        instance_buffer.as_mut_ptr().add(instance_size * i),
                         gpu_instance_bytes.len(),
                     );
                 }

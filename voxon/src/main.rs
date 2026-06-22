@@ -13,7 +13,6 @@ mod game;
 mod inner_app;
 mod mesh;
 mod normal_debug;
-mod normal_debug_instanced;
 mod normal_debug_wireframe;
 mod scene;
 mod skybox;
