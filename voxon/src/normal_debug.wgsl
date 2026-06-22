@@ -4,10 +4,11 @@ struct Globals {
     view_projection_m: mat4x4f,
 };
 
-struct Entity {
+struct Instance {
     model_m: mat4x4f,
     normal_m: mat3x3f,
-    vertex_index_offset: u32,
+    // Here is where we could
+    // put LOD offsets.
 }
 
 struct VertexData {
@@ -21,13 +22,14 @@ var<uniform> global: Globals;
 
 @group(0)
 @binding(1)
-var<uniform> entity: Entity;
+var<storage, read> instances: array<Instance>;
 
 @group(0)
 @binding(2)
 var<storage, read> vertex_data: array<VertexData>;
 
 struct VertexInput {
+    @builtin(instance_index) instance_index: u32,
     @builtin(vertex_index) vertex_index: u32,
 };
 
@@ -45,13 +47,13 @@ const world_light_direction = normalize(vec3(1.0, -1.0, -1.0));
 fn vs_main(vertex_input: VertexInput) -> VSOutput {
     var vsOut: VSOutput;
 
-    var index = entity.vertex_index_offset + vertex_input.vertex_index;
-    var vertex = vertex_data[index];
+    var instance = instances[vertex_input.instance_index];
+    var vertex = vertex_data[vertex_input.vertex_index];
     // Compute the vertex position in Clip space
-    vsOut.position = global.view_projection_m * entity.model_m * vertex.position;
+    vsOut.position = global.view_projection_m * instance.model_m * vertex.position;
 
     // Orient the normals in world space
-    vsOut.normal = entity.normal_m * vertex.normal;
+    vsOut.normal = instance.normal_m * vertex.normal;
     vsOut.light_direction = normalize((global.view_m * vec4f(world_light_direction, 0.0)).xyz);
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]
