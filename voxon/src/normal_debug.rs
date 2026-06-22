@@ -3,10 +3,7 @@ use lina::matrix::Matrix;
 
 use std::borrow::Cow;
 use wgpu::RenderPipeline;
-use wgpu::{
-    BindGroupEntry, BufferBinding, BufferUsages, DepthBiasState, DepthStencilState, Face,
-    StencilState,
-};
+use wgpu::{BufferBinding, BufferUsages, DepthBiasState, DepthStencilState, Face, StencilState};
 
 #[derive(Debug)]
 pub struct Instance {
@@ -167,7 +164,7 @@ impl NormalDebug {
             label: Some("bind_group"),
             layout: &self.bind_group_layout,
             entries: &[
-                BindGroupEntry {
+                wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(BufferBinding {
                         buffer: &self.global_uniform_buffer,
@@ -214,6 +211,7 @@ impl NormalDebug {
         // WGPU works with row major matrices
         let transposed_view_matrix = view_matrix.transpose();
         let transposed_view_projection_matrix = view_projection_matrix.transpose();
+
         // Update Uniforms
         let global_uniforms = transposed_view_matrix
             .as_slices()

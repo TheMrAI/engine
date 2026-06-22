@@ -3,7 +3,7 @@ use std::{collections, f32::consts::PI};
 
 use crate::{
     normal_debug::{self, NormalDebug},
-    normal_debug_wireframe::NormalDebugWireframe,
+    normal_debug_wireframe::{self, NormalDebugWireframe},
     skybox::Skybox,
     textured_draw::TexturedEntities,
 };
@@ -199,13 +199,12 @@ impl Scene {
 
         let textured_entities = TexturedEntities::new(device, queue, swapchain_format.into());
         let mut normal_debug = NormalDebug::new(device, swapchain_format.into());
-        let normal_debug_wireframe =
-            NormalDebugWireframe::new(device, queue, swapchain_format.into());
+        let mut normal_debug_wireframe = NormalDebugWireframe::new(device, swapchain_format.into());
         let skybox = Skybox::new(device, queue, swapchain_format.into());
 
         let mesh_cache = populate_mesh_cache(device, queue);
 
-        // notify "normal_debug" about the instances it needs to draw
+        // Notify "normal_debug" about the instances it needs to draw
         // TODO little dirty with the hand managed IDs, but that is okay for feeling out
         // the pattern.
 
@@ -345,6 +344,126 @@ impl Scene {
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Notify "normal_debug_wireframe" about the instances it needs to draw
+        mesh_buffer = mesh_cache.get(&0u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+            }],
+        );
+
+        // SUZANNE flat 967 messed up normals
+        mesh_buffer = mesh_cache.get(&1u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+            }],
+        );
+
+        // SUZANNE smooth 967
+        mesh_buffer = mesh_cache.get(&2u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+            }],
+        );
+
+        // SUZANNE smooth 967 messed up normals
+        mesh_buffer = mesh_cache.get(&3u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+            }],
+        );
+
+        // Utah teapot flat 7k
+        mesh_buffer = mesh_cache.get(&4u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Utah teapot smooth 7k
+        mesh_buffer = mesh_cache.get(&5u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Utah teapot smooth 116k
+        mesh_buffer = mesh_cache.get(&6u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Stanford dragon flat 17k
+        mesh_buffer = mesh_cache.get(&7u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Stanford dragon smooth 17k
+        mesh_buffer = mesh_cache.get(&8u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Stanford dragon smooth 700k
+        mesh_buffer = mesh_cache.get(&9u32).unwrap();
+        normal_debug_wireframe.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
                 model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
                     * graphic::transform::scale(18.0, 18.0, 18.0),
             }],
