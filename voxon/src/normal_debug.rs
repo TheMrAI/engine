@@ -3,7 +3,7 @@ use lina::matrix::Matrix;
 
 use std::borrow::Cow;
 use wgpu::RenderPipeline;
-use wgpu::{BufferUsages, DepthBiasState, DepthStencilState, Face, StencilState};
+use wgpu::{DepthBiasState, DepthStencilState, Face, StencilState};
 
 #[derive(Debug)]
 pub struct Instance {
@@ -30,7 +30,6 @@ pub struct NormalDebug {
     // Prepared render pipeline and all the necessary info for rendering the scene
     bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: RenderPipeline,
-    global_uniform_buffer: wgpu::Buffer,
     entities: Vec<Entity>,
 }
 
@@ -40,16 +39,6 @@ impl NormalDebug {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("normal_debug"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("normal_debug.wgsl"))),
-        });
-
-        // Global Uniform buffer
-        let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("uniforms"),
-            // uniforms have to be padded to a multiple of 8
-            #[allow(clippy::identity_op)] // for clearer explanation
-            size: (16 + 16) * 4, // (view matrix, view projection matrix) * float size
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
         });
 
         // Bind group layout
@@ -137,7 +126,6 @@ impl NormalDebug {
         Self {
             bind_group_layout,
             render_pipeline,
-            global_uniform_buffer,
             entities,
         }
     }
@@ -145,6 +133,7 @@ impl NormalDebug {
     pub fn add_entity_instances(
         &mut self,
         device: &wgpu::Device,
+        global_uniform_buffer: &wgpu::Buffer,
         vertex_buffer: &wgpu::Buffer,
         vertex_count: u32,
         instances: Vec<Instance>,
@@ -167,7 +156,7 @@ impl NormalDebug {
                 wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &self.global_uniform_buffer,
+                        buffer: global_uniform_buffer,
                         offset: 0,
                         size: None, // use whole buffer
                     }),
@@ -205,29 +194,8 @@ impl NormalDebug {
         queue: &wgpu::Queue,
         _camera: &Camera,
         view_matrix: &Matrix<f32, 4, 4>,
-        view_projection_matrix: &Matrix<f32, 4, 4>,
+        _view_projection_matrix: &Matrix<f32, 4, 4>,
     ) {
-        // Serialize to the gpu
-        // WGPU works with row major matrices
-        let transposed_view_matrix = view_matrix.transpose();
-        let transposed_view_projection_matrix = view_projection_matrix.transpose();
-
-        // Update Uniforms
-        let global_uniforms = transposed_view_matrix
-            .as_slices()
-            .iter()
-            .flatten()
-            .flat_map(|entry| entry.to_le_bytes())
-            .chain(
-                transposed_view_projection_matrix
-                    .as_slices()
-                    .iter()
-                    .flatten()
-                    .flat_map(|entry| entry.to_le_bytes()),
-            )
-            .collect::<Vec<u8>>();
-        queue.write_buffer(&self.global_uniform_buffer, 0, &global_uniforms);
-
         // Update entity storage buffers
         for entity in &self.entities {
             let instance_size = entity.instance_buffer.size() as usize / entity.instances.len();

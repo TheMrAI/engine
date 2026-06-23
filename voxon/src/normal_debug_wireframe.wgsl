@@ -2,6 +2,7 @@
 struct Globals {
     view_m: mat4x4f,
     view_projection_m: mat4x4f,
+    view_world_position: vec3f,
 };
 
 struct Instance {

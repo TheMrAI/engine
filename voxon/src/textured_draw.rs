@@ -3,7 +3,7 @@ use lina::matrix::Matrix;
 
 use std::borrow::Cow;
 use wgpu::RenderPipeline;
-use wgpu::{BufferUsages, DepthBiasState, DepthStencilState, Face, StencilState};
+use wgpu::{DepthBiasState, DepthStencilState, Face, StencilState};
 
 #[derive(Debug)]
 pub struct Instance {
@@ -30,7 +30,6 @@ pub struct Textured {
     // Prepared render pipeline and all the necessary info for rendering the scene
     bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: RenderPipeline,
-    global_uniform_buffer: wgpu::Buffer,
     entities: Vec<Entity>,
     sampler: wgpu::Sampler,
 }
@@ -41,16 +40,6 @@ impl Textured {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("textured_draw"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("textured_draw.wgsl"))),
-        });
-
-        // Uniform buffer
-        let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("uniforms"),
-            // uniforms have to be padded to a multiple of 8
-            #[allow(clippy::identity_op)] // for clearer explanation
-            size: (16 + 3) * 4 + 4, // (view projection matrix + view position) * float size + padding
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
         });
 
         // Bind group layout
@@ -175,15 +164,16 @@ impl Textured {
         Self {
             bind_group_layout,
             render_pipeline,
-            global_uniform_buffer,
             entities,
             sampler,
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn add_entity_instances(
         &mut self,
         device: &wgpu::Device,
+        global_uniform_buffer: &wgpu::Buffer,
         vertex_buffer: &wgpu::Buffer,
         vertex_count: u32,
         instances: Vec<Instance>,
@@ -216,7 +206,7 @@ impl Textured {
                 wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &self.global_uniform_buffer,
+                        buffer: global_uniform_buffer,
                         offset: 0,
                         size: None, // use whole buffer
                     }),
@@ -272,28 +262,9 @@ impl Textured {
         &self,
         render_pass: &mut wgpu::RenderPass,
         queue: &wgpu::Queue,
-        camera: &Camera,
-        view_projection_matrix: &Matrix<f32, 4, 4>,
+        _camera: &Camera,
+        _view_projection_matrix: &Matrix<f32, 4, 4>,
     ) {
-        // Serialize to the gpu
-        // WGPU works with row major matrices
-        let view_projection_matrix = view_projection_matrix.transpose();
-
-        // UPDATE Uniforms
-        let global_uniforms = view_projection_matrix
-            .as_slices()
-            .iter()
-            .flatten()
-            .flat_map(|entry| entry.to_le_bytes())
-            .chain(
-                // view position
-                [camera.eye()[0], camera.eye()[1], camera.eye()[2]]
-                    .iter()
-                    .flat_map(|entry| entry.to_le_bytes()),
-            )
-            .collect::<Vec<u8>>();
-        queue.write_buffer(&self.global_uniform_buffer, 0, &global_uniforms);
-
         // Update entity storage buffers
         for entity in &self.entities {
             let instance_size = entity.instance_buffer.size() as usize / entity.instances.len();
