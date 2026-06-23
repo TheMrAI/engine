@@ -1,5 +1,6 @@
 use lina::{v, vector::Vector};
 
+#[derive(Debug, Copy, Clone)]
 pub struct Vertex {
     position: Vector<f32, 4>,
     normal: Vector<f32, 3>,

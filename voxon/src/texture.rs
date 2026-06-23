@@ -1,4 +1,4 @@
-pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
+pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
     let image_data = include_bytes!("../resources/textures/texture_01.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
@@ -12,12 +12,10 @@ pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::T
         depth_or_array_layers: 1,
     };
 
-    let texture = upload_texture(device, queue, dimensions, &[bytes], true);
-
-    texture.create_view(&wgpu::wgt::TextureViewDescriptor::default())
+    upload_texture(device, queue, dimensions, &[bytes], true)
 }
 
-pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
+pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
     let image_data = include_bytes!("../resources/textures/cube_atlas.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
@@ -31,9 +29,7 @@ pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Te
         depth_or_array_layers: 1,
     };
 
-    let texture = upload_texture(device, queue, dimensions, &[bytes], true);
-
-    texture.create_view(&wgpu::wgt::TextureViewDescriptor::default())
+    upload_texture(device, queue, dimensions, &[bytes], true)
 }
 
 pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
@@ -116,7 +112,7 @@ pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu
 // Upload a 2D texture to the GPU and generate mipmaps if requested.
 //
 // It does not support textures using multiple layers, like cubemaps.
-// The texture buffer has to have the RGBA values using the sRGB color
+// The texture buffer has to have the RGBA values using linear color
 // space.
 pub fn upload_texture(
     device: &wgpu::Device,

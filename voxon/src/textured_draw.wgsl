@@ -1,57 +1,71 @@
 
 struct Globals {
-    view_projection: mat4x4f,
+    view_projection_m: mat4x4f,
     view_world_position: vec3f,
 };
 
-struct Entity {
-    world: mat4x4f,
-    normal: mat3x3f,
+struct Instance {
+    model_m: mat4x4f,
+    normal_m: mat3x3f,
+}
+
+struct TextureInstance {
     texture_scale: f32,
+}
+
+struct VertexData {
+    position: vec4f,
+    normal: vec3f,
+    uv: vec2f,
 }
 
 @group(0)
 @binding(0)
 var<uniform> global: Globals;
 
-@group(1)
-@binding(0)
-var<uniform> entity: Entity;
+@group(0)
+@binding(1)
+var<storage, read> instances: array<Instance>;
 
-@group(2)
-@binding(0)
+@group(0)
+@binding(2)
+var<storage, read> vertex_data: array<VertexData>;
+
+@group(0)
+@binding(3)
+var<storage, read> texture_instances: array<TextureInstance>;
+
+@group(0)
+@binding(4)
 var texture_sampler: sampler;
 
-@group(2)
-@binding(1)
+@group(0)
+@binding(5)
 var texture: texture_2d<f32>;
 
-struct Vertex {
-    // The position of the vertex.
-    @location(0) position: vec4f,
-    @location(1) normal: vec3f,
-    @location(2) uv: vec2f,
+struct VertexInput {
+    @builtin(instance_index) instance_index: u32,
+    @builtin(vertex_index) vertex_index: u32,
 };
 
 struct VSOutput {
     // The pixel position on the screen.
     @builtin(position) position: vec4f,
-    // Will be interpolated and have to renormalized.
-    @location(0) normal: vec3f,
-    @location(1) uv: vec2f,
+    @location(0) uv: vec2f,
 };
 
 @vertex
-fn vs_main(vertex: Vertex) -> VSOutput {
+fn vs_main(vertex_input: VertexInput) -> VSOutput {
     var vsOut: VSOutput;
 
+    var instance = instances[vertex_input.instance_index];
+    var vertex = vertex_data[vertex_input.vertex_index];
     // Compute the vertex position in device coordinates
-    vsOut.position = global.view_projection * entity.world * vertex.position;
+    vsOut.position = global.view_projection_m * instance.model_m * vertex.position;
 
-    // Orient the normals in world space
-    vsOut.normal = entity.normal * vertex.normal;
     // Pass uv.
-    vsOut.uv = vertex.uv * entity.texture_scale;
+    var texture_instances = texture_instances[vertex_input.instance_index];
+    vsOut.uv = vertex.uv * texture_instances.texture_scale;
 
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]
@@ -60,9 +74,5 @@ fn vs_main(vertex: Vertex) -> VSOutput {
 
 @fragment
 fn fs_main(vsOut: VSOutput) -> @location(0) vec4<f32> {
-    // All inter-stage variables get interpolated, so they
-    // have to be renormalized if necessary.
-    let normal = normalize(vsOut.normal);
-
     return textureSample(texture, texture_sampler, vsOut.uv);
 }

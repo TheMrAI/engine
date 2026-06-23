@@ -5,7 +5,7 @@ use crate::{
     normal_debug::{self, NormalDebug},
     normal_debug_wireframe::{self, NormalDebugWireframe},
     skybox::Skybox,
-    textured_draw::TexturedEntities,
+    textured_draw::{self, TextureInstance},
 };
 use wgpu::{
     Adapter, Device, Operations, Queue, RenderPassDepthStencilAttachment, Surface,
@@ -129,6 +129,76 @@ fn populate_mesh_cache(
         upload_vertex_buffer(device, queue, &stanford_dragon_smooth_700k),
     );
 
+    // Plane entry
+    let plane_mesh = crate::mesh::generate_plane();
+    let plane_vertex_data = plane_mesh
+        .indices()
+        .iter()
+        .flat_map(|index| {
+            let vertex = &plane_mesh.vertices()[*index as usize];
+
+            vertex
+                .position()
+                .as_slice()
+                .iter()
+                .chain(vertex.normal().as_slice().iter().chain([&0.0]))
+                .chain(vertex.uv().as_slice().iter())
+                .chain([&0.0, &0.0])
+                .flat_map(|value| value.to_le_bytes())
+        })
+        .collect::<Vec<u8>>();
+    let vertex_count = plane_mesh.indices().len() as u32;
+
+    let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("vertex_buffer"),
+        size: plane_vertex_data.len() as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    queue.write_buffer(&vertex_buffer, 0, &plane_vertex_data);
+    mesh_cache.insert(
+        10,
+        MeshBuffer {
+            vertex_buffer,
+            vertex_count,
+        },
+    );
+
+    // Cube entry
+    let cube_mesh = crate::mesh::generate_cube();
+    let cube_vertex_data = cube_mesh
+        .indices()
+        .iter()
+        .flat_map(|index| {
+            let vertex = &cube_mesh.vertices()[*index as usize];
+
+            vertex
+                .position()
+                .as_slice()
+                .iter()
+                .chain(vertex.normal().as_slice().iter().chain([&0.0]))
+                .chain(vertex.uv().as_slice().iter())
+                .chain([&0.0, &0.0])
+                .flat_map(|value| value.to_le_bytes())
+        })
+        .collect::<Vec<u8>>();
+    let vertex_count = cube_mesh.indices().len() as u32;
+
+    let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("vertex_buffer"),
+        size: cube_vertex_data.len() as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    queue.write_buffer(&vertex_buffer, 0, &cube_vertex_data);
+    mesh_cache.insert(
+        11,
+        MeshBuffer {
+            vertex_buffer,
+            vertex_count,
+        },
+    );
+
     mesh_cache
 }
 
@@ -185,7 +255,7 @@ fn upload_vertex_buffer(
 // Mostly to keep things simple.
 #[derive(Debug)]
 pub struct Scene {
-    textured_entities: TexturedEntities,
+    textured: textured_draw::Textured,
     normal_debug: NormalDebug,
     normal_debug_wireframe: NormalDebugWireframe,
     skybox: Skybox,
@@ -197,12 +267,43 @@ impl Scene {
         let swapchain_capabilities = surface.get_capabilities(adapter);
         let swapchain_format = swapchain_capabilities.formats[0];
 
-        let textured_entities = TexturedEntities::new(device, queue, swapchain_format.into());
+        let mut textured = textured_draw::Textured::new(device, swapchain_format.into());
         let mut normal_debug = NormalDebug::new(device, swapchain_format.into());
         let mut normal_debug_wireframe = NormalDebugWireframe::new(device, swapchain_format.into());
         let skybox = Skybox::new(device, queue, swapchain_format.into());
 
         let mesh_cache = populate_mesh_cache(device, queue);
+
+        // Notify "textured" pipeline about the instances it needs to draw
+        // PLANE
+        let mut mesh_buffer = mesh_cache.get(&10u32).unwrap();
+        let plane_texture = crate::texture::load_texture_plane(device, queue);
+        textured.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![textured_draw::Instance {
+                model_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
+                    * graphic::transform::scale(50.0, 1.0, 50.0),
+            }],
+            vec![TextureInstance {
+                texture_scale: 50.0,
+            }],
+            plane_texture,
+        );
+
+        mesh_buffer = mesh_cache.get(&11u32).unwrap();
+        let cube_texture = crate::texture::load_texture_cube(device, queue);
+        textured.add_entity_instances(
+            device,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![textured_draw::Instance {
+                model_matrix: graphic::identity_matrix(),
+            }],
+            vec![TextureInstance { texture_scale: 1.0 }],
+            cube_texture,
+        );
 
         // Notify "normal_debug" about the instances it needs to draw
         // TODO little dirty with the hand managed IDs, but that is okay for feeling out
@@ -233,7 +334,7 @@ impl Scene {
             suzanne_flat_967_instances
         };
 
-        let mut mesh_buffer = mesh_cache.get(&0u32).unwrap();
+        mesh_buffer = mesh_cache.get(&0u32).unwrap();
         normal_debug.add_entity_instances(
             device,
             &mesh_buffer.vertex_buffer,
@@ -470,7 +571,7 @@ impl Scene {
         );
 
         Self {
-            textured_entities,
+            textured,
             normal_debug,
             normal_debug_wireframe,
             skybox,
@@ -574,7 +675,7 @@ impl Scene {
             let view_projection_matrix = projection_matrix * view_matrix;
 
             // Render textured objects
-            self.textured_entities
+            self.textured
                 .render(&mut render_pass, queue, camera, &view_projection_matrix);
 
             if !wireframe {

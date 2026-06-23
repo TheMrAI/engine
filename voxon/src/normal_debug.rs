@@ -3,7 +3,7 @@ use lina::matrix::Matrix;
 
 use std::borrow::Cow;
 use wgpu::RenderPipeline;
-use wgpu::{BufferBinding, BufferUsages, DepthBiasState, DepthStencilState, Face, StencilState};
+use wgpu::{BufferUsages, DepthBiasState, DepthStencilState, Face, StencilState};
 
 #[derive(Debug)]
 pub struct Instance {
@@ -166,7 +166,7 @@ impl NormalDebug {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(BufferBinding {
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &self.global_uniform_buffer,
                         offset: 0,
                         size: None, // use whole buffer

@@ -1,248 +1,47 @@
-use crate::mesh::{generate_cube, generate_plane};
 use graphic::camera::Camera;
-use graphic::identity_matrix;
-use lina::matrix::{Matrix, m};
+use lina::matrix::Matrix;
 
-use crate::texture::{load_texture_cube, load_texture_plane};
 use std::borrow::Cow;
-use wgpu::BindGroup;
-use wgpu::Buffer;
 use wgpu::RenderPipeline;
-use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
-    BufferBinding, BufferUsages, DepthBiasState, DepthStencilState, Face, StencilState,
-    VertexAttribute, VertexBufferLayout, util::align_to,
-};
+use wgpu::{BufferUsages, DepthBiasState, DepthStencilState, Face, StencilState};
+
+#[derive(Debug)]
+pub struct Instance {
+    pub model_matrix: Matrix<f32, 4, 4>,
+}
+
+#[derive(Debug)]
+pub struct TextureInstance {
+    pub texture_scale: f32,
+}
 
 #[derive(Debug)]
 struct Entity {
-    // Mesh data
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    index_format: wgpu::IndexFormat,
-    index_count: usize,
-    // Transformation data
-    uniform_offset: wgpu::DynamicOffset,
-    world_matrix: Matrix<f32, 4, 4>,
-    normal_matrix: Matrix<f32, 3, 3>,
-    texture_scale: f32,
+    bind_group: wgpu::BindGroup,
+    instance_buffer: wgpu::Buffer,
+    instances: Vec<Instance>,
+    texture_instance_buffer: wgpu::Buffer,
+    texture_instances: Vec<TextureInstance>,
+    vertex_count: u32,
 }
 
 #[derive(Debug)]
-pub struct TexturedEntities {
+pub struct Textured {
     // Prepared render pipeline and all the necessary info for rendering the scene
+    bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: RenderPipeline,
+    global_uniform_buffer: wgpu::Buffer,
     entities: Vec<Entity>,
-    global_uniforms: (Buffer, BindGroup),
-    entity_uniforms: (Buffer, BindGroup),
-    texture_bind_groups: Vec<BindGroup>,
+    sampler: wgpu::Sampler,
 }
 
-impl TexturedEntities {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        color_target: wgpu::ColorTargetState,
-    ) -> Self {
+impl Textured {
+    pub fn new(device: &wgpu::Device, color_target: wgpu::ColorTargetState) -> Self {
         // Load the shaders
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("textured_draw"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("textured_draw.wgsl"))),
         });
-
-        // CUBE
-        let cube_mesh = generate_cube();
-        let cube_vertex_data = cube_mesh
-            .vertices()
-            .iter()
-            .flat_map(|entry| {
-                entry
-                    .position()
-                    .as_slice()
-                    .iter()
-                    .chain(entry.normal().as_slice().iter().chain([&0.0]))
-                    .chain(entry.uv().as_slice().iter())
-                    .flat_map(|value| value.to_le_bytes())
-            })
-            .collect::<Vec<u8>>();
-
-        let cube_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("cube_vertex_buffer"),
-            size: cube_vertex_data.len() as u64,
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&cube_vertex_buffer, 0, &cube_vertex_data);
-
-        let cube_index_data = cube_mesh
-            .indices()
-            .iter()
-            .flat_map(|index| index.to_le_bytes())
-            .collect::<Vec<_>>();
-        let cube_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("cube_index_buffer"),
-            size: cube_index_data.len() as u64,
-            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&cube_index_buffer, 0, &cube_index_data);
-
-        // PLANE
-        let plane_mesh = generate_plane();
-        let plane_vertex_data = plane_mesh
-            .vertices()
-            .iter()
-            .flat_map(|entry| {
-                entry
-                    .position()
-                    .as_slice()
-                    .iter()
-                    .chain(entry.normal().as_slice().iter().chain([&0.0]))
-                    .chain(entry.uv().as_slice().iter())
-                    .flat_map(|value| value.to_le_bytes())
-            })
-            .collect::<Vec<u8>>();
-
-        let plane_vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("plane_vertex_buffer"),
-            size: plane_vertex_data.len() as u64,
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&plane_vertex_buffer, 0, &plane_vertex_data);
-
-        let plane_index_data = plane_mesh
-            .indices()
-            .iter()
-            .flat_map(|index| index.to_le_bytes())
-            .collect::<Vec<_>>();
-        let plane_index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("plane_index_buffer"),
-            size: plane_index_data.len() as u64,
-            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&plane_index_buffer, 0, &plane_index_data);
-
-        let entity_uniform_size = (16 + 16 + 1) * 4;
-        let entity_uniform_alignment = {
-            let alignment =
-                device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            align_to(entity_uniform_size, alignment)
-        };
-
-        let entities = {
-            [
-                // Cube
-                Entity {
-                    vertex_buffer: cube_vertex_buffer,
-                    index_buffer: cube_index_buffer,
-                    index_format: wgpu::IndexFormat::Uint32,
-                    index_count: cube_mesh.indices().len(),
-                    world_matrix: identity_matrix(),
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: 0,
-                    texture_scale: 1.0,
-                },
-                // Plane
-                Entity {
-                    vertex_buffer: plane_vertex_buffer,
-                    index_buffer: plane_index_buffer,
-                    index_format: wgpu::IndexFormat::Uint32,
-                    index_count: plane_mesh.indices().len(),
-                    world_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
-                        * graphic::transform::scale(50.0, 1.0, 50.0),
-                    normal_matrix: m![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],],
-                    uniform_offset: entity_uniform_alignment as u32,
-                    texture_scale: 50.0,
-                },
-            ]
-            .into_iter()
-            .collect::<Vec<Entity>>()
-        };
-
-        let cube_texture_view = load_texture_cube(device, queue);
-        let plane_texture_view = load_texture_plane(device, queue);
-
-        let sampler = device.create_sampler(&wgpu::wgt::SamplerDescriptor {
-            label: Some("texture_sampler"),
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::MipmapFilterMode::Linear,
-            ..Default::default()
-        });
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("texture_sampler_layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                ],
-            });
-
-        let cube_texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("texture_bind_group"),
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&cube_texture_view),
-                },
-            ],
-        });
-        let plane_texture_bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("texture_bind_group"),
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&plane_texture_view),
-                },
-            ],
-        });
-        let texture_bind_groups = vec![cube_texture_bind_group, plane_texture_bind_group];
-
-        // Bind group layout
-        let global_uniform_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("bind_group"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
 
         // Uniform buffer
         let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -254,108 +53,73 @@ impl TexturedEntities {
             mapped_at_creation: false,
         });
 
-        // Create bind group
-        let global_uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("global_uniforms"),
-            layout: &global_uniform_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(BufferBinding {
-                    buffer: &global_uniform_buffer,
-                    offset: 0,
-                    size: None, // use whole buffer
-                }),
-            }],
-        });
-        let global_uniforms = (global_uniform_buffer, global_uniform_bind_group);
-
-        let entity_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Entity uniform buffer"),
-            size: entities.len() as u64 * entity_uniform_alignment,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let entity_uniform_bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("Local bind group layout"),
-                entries: &[BindGroupLayoutEntry {
+        // Bind group layout
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("bind_group"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: wgpu::BufferSize::new(entity_uniform_size), // (world matrix + normal matrix) * float size, no padding needed
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
                     },
                     count: None,
-                }],
-            });
-
-        let entity_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Entity bind group"),
-            layout: &entity_uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &entity_uniform_buffer,
-                    offset: 0,
-                    size: wgpu::BufferSize::new(entity_uniform_size),
-                }),
-            }],
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+            ],
         });
-        let entity_uniforms = (entity_uniform_buffer, entity_bind_group);
-
-        for entity in &entities {
-            let padded_flattened_normal_matrix = [
-                entity.normal_matrix[(0, 0)],
-                entity.normal_matrix[(0, 1)],
-                entity.normal_matrix[(0, 2)],
-                0.0,
-                entity.normal_matrix[(1, 0)],
-                entity.normal_matrix[(1, 1)],
-                entity.normal_matrix[(1, 2)],
-                0.0,
-                entity.normal_matrix[(2, 0)],
-                entity.normal_matrix[(2, 1)],
-                entity.normal_matrix[(2, 2)],
-                0.0,
-            ];
-
-            let gpu_entity_bytes = entity
-                .world_matrix
-                .transpose()
-                .as_slices()
-                .iter()
-                .flatten()
-                .flat_map(|entry| entry.to_le_bytes())
-                .chain(
-                    padded_flattened_normal_matrix
-                        .as_slice()
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .chain(
-                    [entity.texture_scale]
-                        .iter()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .collect::<Vec<u8>>();
-
-            queue.write_buffer(
-                &entity_uniforms.0,
-                entity.uniform_offset as wgpu::BufferAddress,
-                &gpu_entity_bytes,
-            );
-        }
 
         // Pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout"),
-            bind_group_layouts: &[
-                &global_uniform_bind_group_layout,
-                &entity_uniform_bind_group_layout,
-                &texture_bind_group_layout,
-            ],
+            bind_group_layouts: &[&bind_group_layout],
             immediate_size: 0,
         });
 
@@ -365,30 +129,7 @@ impl TexturedEntities {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[VertexBufferLayout {
-                    array_stride: (4 + 3 + 1 + 2) * 4, // (4 floats for position + 3 floats for normal + 1 padding + 2 UV) * f32 byte count
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[
-                        // position
-                        VertexAttribute {
-                            format: wgpu::VertexFormat::Float32x4,
-                            offset: 0,
-                            shader_location: 0,
-                        },
-                        // normal
-                        VertexAttribute {
-                            format: wgpu::VertexFormat::Float32x3,
-                            offset: 16,
-                            shader_location: 1,
-                        },
-                        // uv
-                        VertexAttribute {
-                            format: wgpu::VertexFormat::Float32x2,
-                            offset: 32,
-                            shader_location: 2,
-                        },
-                    ],
-                }],
+                buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -418,13 +159,113 @@ impl TexturedEntities {
             cache: None,
         });
 
+        let sampler = device.create_sampler(&wgpu::wgt::SamplerDescriptor {
+            label: Some("texture_sampler"),
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
+
+        let entities = Vec::<Entity>::new();
+
         Self {
+            bind_group_layout,
             render_pipeline,
+            global_uniform_buffer,
             entities,
-            global_uniforms,
-            entity_uniforms,
-            texture_bind_groups,
+            sampler,
         }
+    }
+
+    pub fn add_entity_instances(
+        &mut self,
+        device: &wgpu::Device,
+        vertex_buffer: &wgpu::Buffer,
+        vertex_count: u32,
+        instances: Vec<Instance>,
+        texture_instances: Vec<TextureInstance>,
+        texture: wgpu::Texture,
+    ) {
+        // Instance Storage buffer
+        // (model matrix + normal matrix) * float size
+        let instance_storage_size = (16 + 12) * 4;
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance storage buffer"),
+            size: instance_storage_size * instances.len() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let texture_instance_storage_size = 4 * 4;
+        let texture_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance storage buffer"),
+            size: texture_instance_storage_size * instances.len() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Create bind group
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind_group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &self.global_uniform_buffer,
+                        offset: 0,
+                        size: None, // use whole buffer
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &instance_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: vertex_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &texture_instance_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(
+                        &texture.create_view(&wgpu::wgt::TextureViewDescriptor::default()),
+                    ),
+                },
+            ],
+        });
+
+        self.entities.push(Entity {
+            bind_group,
+            instance_buffer,
+            instances,
+            vertex_count,
+            texture_instance_buffer,
+            texture_instances,
+        })
     }
 
     pub fn render(
@@ -437,8 +278,6 @@ impl TexturedEntities {
         // Serialize to the gpu
         // WGPU works with row major matrices
         let view_projection_matrix = view_projection_matrix.transpose();
-
-        render_pass.set_pipeline(&self.render_pipeline);
 
         // UPDATE Uniforms
         let global_uniforms = view_projection_matrix
@@ -453,17 +292,63 @@ impl TexturedEntities {
                     .flat_map(|entry| entry.to_le_bytes()),
             )
             .collect::<Vec<u8>>();
+        queue.write_buffer(&self.global_uniform_buffer, 0, &global_uniforms);
 
-        queue.write_buffer(&self.global_uniforms.0, 0, &global_uniforms);
-        render_pass.set_bind_group(0, &self.global_uniforms.1, &[]);
+        // Update entity storage buffers
+        for entity in &self.entities {
+            let instance_size = entity.instance_buffer.size() as usize / entity.instances.len();
+            let mut instance_buffer = vec![0; entity.instance_buffer.size() as usize];
 
+            for (i, instance) in entity.instances.iter().enumerate() {
+                let gpu_instance_bytes = instance
+                    .model_matrix
+                    .transpose()
+                    .as_slices()
+                    .iter()
+                    .flatten()
+                    .flat_map(|entry| entry.to_le_bytes())
+                    .collect::<Vec<u8>>();
+
+                unsafe {
+                    std::ptr::copy(
+                        gpu_instance_bytes.as_ptr(),
+                        instance_buffer.as_mut_ptr().add(instance_size * i),
+                        gpu_instance_bytes.len(),
+                    );
+                }
+            }
+            queue.write_buffer(&entity.instance_buffer, 0, &instance_buffer);
+
+            let texture_instance_size =
+                entity.texture_instance_buffer.size() as usize / entity.texture_instances.len();
+            let mut texture_instance_buffer =
+                vec![0; entity.texture_instance_buffer.size() as usize];
+            for (i, instance) in entity.texture_instances.iter().enumerate() {
+                let gpu_instance_bytes = [instance.texture_scale]
+                    .iter()
+                    .flat_map(|entry| entry.to_le_bytes())
+                    .collect::<Vec<u8>>();
+
+                unsafe {
+                    std::ptr::copy(
+                        gpu_instance_bytes.as_ptr(),
+                        texture_instance_buffer
+                            .as_mut_ptr()
+                            .add(texture_instance_size * i),
+                        gpu_instance_bytes.len(),
+                    );
+                }
+            }
+            queue.write_buffer(&entity.texture_instance_buffer, 0, &texture_instance_buffer);
+        }
+
+        render_pass.set_pipeline(&self.render_pipeline);
+
+        // Emit the draw calls
         // entities
-        for (i, entity) in self.entities.iter().enumerate() {
-            render_pass.set_bind_group(1, &self.entity_uniforms.1, &[entity.uniform_offset]);
-            render_pass.set_bind_group(2, &self.texture_bind_groups[i], &[]);
-            render_pass.set_index_buffer(entity.index_buffer.slice(..), entity.index_format);
-            render_pass.set_vertex_buffer(0, entity.vertex_buffer.slice(..));
-            render_pass.draw_indexed(0..entity.index_count as u32, 0, 0..1);
+        for entity in &self.entities {
+            render_pass.set_bind_group(0, Some(&entity.bind_group), &[]);
+            render_pass.draw(0..entity.vertex_count, 0..entity.instances.len() as u32);
         }
     }
 }
