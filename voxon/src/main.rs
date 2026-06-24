@@ -123,7 +123,9 @@ impl ApplicationHandler for App {
                 device_id: _,
                 delta,
                 phase: _, // touchpad ignored
-            } => {
+            } =>
+            {
+                #[allow(clippy::collapsible_match)]
                 if self.focused && self.navigating {
                     match delta {
                         MouseScrollDelta::LineDelta(_dx, dy) => {
