@@ -1,5 +1,6 @@
 use graphic::camera::Camera;
-use lina::matrix::Matrix;
+use lina::matrix::resize;
+use lina::matrix::{Matrix, Resize};
 
 use std::borrow::Cow;
 use wgpu::RenderPipeline;
@@ -204,48 +205,11 @@ impl NormalDebugWireframe {
                 let normal_matrix = {
                     let view_model_matrix = *view_matrix * instance.model_matrix;
 
-                    let mut matrix = Matrix::<f32, 3, 3>::new();
-                    matrix[(0, 0)] = view_model_matrix[(0, 0)];
-                    matrix[(0, 1)] = view_model_matrix[(0, 1)];
-                    matrix[(0, 2)] = view_model_matrix[(0, 2)];
-
-                    matrix[(1, 0)] = view_model_matrix[(1, 0)];
-                    matrix[(1, 1)] = view_model_matrix[(1, 1)];
-                    matrix[(1, 2)] = view_model_matrix[(1, 2)];
-
-                    matrix[(2, 0)] = view_model_matrix[(2, 0)];
-                    matrix[(2, 1)] = view_model_matrix[(2, 1)];
-                    matrix[(2, 2)] = view_model_matrix[(2, 2)];
-
-                    // Adjoint is better as it always exists
-                    // , unlike the inverse. The only difference
-                    // is that the inverse is the adjoint divided by
-                    // the determinant.
-                    // So there is a scaling issue, but normals have
-                    // be renormalized later anyways.
-                    // Normal matrix would need to be transposed,
-                    // but WGPU already expects matrices in row major form
-                    // and we work with column major form.
-                    // So by omitting transposition on our normal matrix in
-                    // column major form, we provide WGPU with the transposed
-                    // in row major form.
+                    let matrix = resize!(view_model_matrix, 3, 3);
                     matrix.adjoint()
                 };
 
-                let padded_flattened_normal_matrix = [
-                    normal_matrix[(0, 0)],
-                    normal_matrix[(0, 1)],
-                    normal_matrix[(0, 2)],
-                    0.0,
-                    normal_matrix[(1, 0)],
-                    normal_matrix[(1, 1)],
-                    normal_matrix[(1, 2)],
-                    0.0,
-                    normal_matrix[(2, 0)],
-                    normal_matrix[(2, 1)],
-                    normal_matrix[(2, 2)],
-                    0.0,
-                ];
+                let padded_flattened_normal_matrix = resize!(normal_matrix, 4, 3);
 
                 let gpu_instance_bytes = instance
                     .model_matrix
@@ -256,8 +220,9 @@ impl NormalDebugWireframe {
                     .flat_map(|entry| entry.to_le_bytes())
                     .chain(
                         padded_flattened_normal_matrix
-                            .as_slice()
+                            .as_slices()
                             .iter()
+                            .flatten()
                             .flat_map(|entry| entry.to_le_bytes()),
                     )
                     .collect::<Vec<u8>>();
