@@ -3,7 +3,7 @@ use std::sync::Arc;
 use winit::window::Window;
 
 use crate::game::Game;
-use crate::webgpu::Webgpu;
+use crate::web_gpu_render_servers::WebGpuRenderServer;
 use project::Root;
 
 pub(super) struct InnerApp {
@@ -28,7 +28,7 @@ impl InnerApp {
 
         let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
-        let webgpu = pollster::block_on(Webgpu::new(Arc::clone(&window)));
+        let webgpu = pollster::block_on(WebGpuRenderServer::new(Arc::clone(&window)));
         let game = Game::new(webgpu);
 
         InnerApp { window, game }

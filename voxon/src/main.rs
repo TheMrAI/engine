@@ -18,7 +18,7 @@ mod scene;
 mod skybox;
 mod texture;
 mod textured_draw;
-mod webgpu;
+mod web_gpu_render_servers;
 
 #[derive(Default)]
 struct App {

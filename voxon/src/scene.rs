@@ -1,5 +1,5 @@
 use graphic::camera::Camera;
-use std::{collections, f32::consts::PI};
+use std::collections;
 
 use crate::{
     normal_debug::{self, NormalDebug},
@@ -7,11 +7,7 @@ use crate::{
     skybox::Skybox,
     textured_draw::{self, TextureInstance},
 };
-use wgpu::{
-    Adapter, Device, Operations, Queue, RenderPassDepthStencilAttachment, Surface,
-    TextureDescriptor, TextureUsages,
-};
-use winit::dpi::PhysicalSize;
+use wgpu::{Adapter, Device, Queue, Surface};
 
 #[derive(Debug)]
 struct MeshBuffer {
@@ -255,7 +251,6 @@ fn upload_vertex_buffer(
 // Mostly to keep things simple.
 #[derive(Debug)]
 pub struct Scene {
-    global_uniform_buffer: wgpu::Buffer,
     textured: textured_draw::Textured,
     normal_debug: NormalDebug,
     normal_debug_wireframe: NormalDebugWireframe,
@@ -264,19 +259,15 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(adapter: &Adapter, surface: &Surface, device: &Device, queue: &Queue) -> Self {
+    pub fn new(
+        adapter: &Adapter,
+        surface: &Surface,
+        device: &Device,
+        queue: &Queue,
+        global_uniform_buffer: &wgpu::Buffer,
+    ) -> Self {
         let swapchain_capabilities = surface.get_capabilities(adapter);
         let swapchain_format = swapchain_capabilities.formats[0];
-
-        // Global Uniform buffer
-        let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("uniforms"),
-            // uniforms have to be padded to a multiple of 8
-            #[allow(clippy::identity_op)] // for clearer explanation
-            size: (16 + 16 + 3 + 1) * 4, // (view matrix, view projection matrix, view_world_position, pad) * float size
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
 
         let mut textured = textured_draw::Textured::new(device, swapchain_format.into());
         let mut normal_debug = NormalDebug::new(device, swapchain_format.into());
@@ -291,7 +282,7 @@ impl Scene {
         let plane_texture = crate::texture::load_texture_plane(device, queue);
         textured.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![textured_draw::Instance {
@@ -308,7 +299,7 @@ impl Scene {
         let cube_texture = crate::texture::load_texture_cube(device, queue);
         textured.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![textured_draw::Instance {
@@ -350,7 +341,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&0u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             suzanne_flat_967_instances,
@@ -360,7 +351,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&1u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -373,7 +364,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&2u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -386,7 +377,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&3u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -399,7 +390,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&4u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -412,7 +403,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&5u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -425,7 +416,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&6u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -438,7 +429,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&7u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -451,7 +442,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&8u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -464,7 +455,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&9u32).unwrap();
         normal_debug.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug::Instance {
@@ -477,7 +468,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&0u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -490,7 +481,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&1u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -503,7 +494,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&2u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -516,7 +507,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&3u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -529,7 +520,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&4u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -542,7 +533,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&5u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -555,7 +546,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&6u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -568,7 +559,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&7u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -581,7 +572,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&8u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -594,7 +585,7 @@ impl Scene {
         mesh_buffer = mesh_cache.get(&9u32).unwrap();
         normal_debug_wireframe.add_entity_instances(
             device,
-            &global_uniform_buffer,
+            global_uniform_buffer,
             &mesh_buffer.vertex_buffer,
             mesh_buffer.vertex_count,
             vec![normal_debug_wireframe::Instance {
@@ -604,7 +595,6 @@ impl Scene {
         );
 
         Self {
-            global_uniform_buffer,
             textured,
             normal_debug,
             normal_debug_wireframe,
@@ -613,152 +603,43 @@ impl Scene {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
-        inner_size: &PhysicalSize<u32>,
-        surface: &Surface,
-        device: &Device,
+        render_pass: &mut wgpu::RenderPass,
+        view_matrix: &lina::matrix::Matrix<f32, 4, 4>,
+        view_projection_matrix: &lina::matrix::Matrix<f32, 4, 4>,
+        translation_free_view_projection_matrix: &lina::matrix::Matrix<f32, 4, 4>,
         queue: &Queue,
         camera: &Camera,
         wireframe: bool,
     ) {
-        // Create render texture
-        let frame = surface
-            .get_current_texture()
-            .expect("failed to acquire next swap-chain texture");
-        let frame_view = frame
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        // Render skybox
+        self.skybox
+            .render(render_pass, queue, translation_free_view_projection_matrix);
 
-        // Create depth texture
-        let depth_texture = device.create_texture(&TextureDescriptor {
-            label: Some("depth texture"),
-            size: frame.texture.size(),
-            mip_level_count: 1, // no extra mips, has to be 1
-            sample_count: 1,    // no multisampling, so 1
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth24Plus,
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[], // no special view format needed
-        });
-        let depth_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        // Render textured objects
+        self.textured
+            .render(render_pass, queue, camera, view_projection_matrix);
 
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("encoder"),
-        });
-
-        // the camera matrix
-        let look_at = camera.as_transform_matrix();
-        // view matrix
-        let view_matrix = look_at;
-
-        let aspect_ratio = inner_size.width as f32 / inner_size.height as f32;
-        let projection_matrix = graphic::transform::perspective_proj_sym_h_fov(
-            // PI / 2.0, 90 deg FOV
-            (PI / 180.0) * 75.0, // 75 degree FOV
-            aspect_ratio,
-            -0.05,
-            -4000.0,
-        );
-
-        // Render the rest
-        let view_projection_matrix = projection_matrix * view_matrix;
-
-        // It does not matter if it is rendered first or last, because
-        // the skybox is at Z value 1.0 in NDC.
-        // No other draw call, should write if the depth value equals 1.0.
-        let translation_free_view_matrix = {
-            let mut tmp = view_matrix;
-            tmp[(0, 3)] = 0.0;
-            tmp[(1, 3)] = 0.0;
-            tmp[(2, 3)] = 0.0;
-            tmp
-        };
-        let translation_free_view_projection_matrix =
-            projection_matrix * translation_free_view_matrix;
-
-        let transposed_view_matrix = view_matrix.transpose();
-        let transposed_view_projection_matrix = view_projection_matrix.transpose();
-
-        // Update Uniforms
-        let global_uniforms = transposed_view_matrix
-            .as_slices()
-            .iter()
-            .flatten()
-            .flat_map(|entry| entry.to_le_bytes())
-            .chain(
-                transposed_view_projection_matrix
-                    .as_slices()
-                    .iter()
-                    .flatten()
-                    .flat_map(|entry| entry.to_le_bytes()),
-            )
-            .chain(
-                [camera.eye()[0], camera.eye()[1], camera.eye()[2], 0.0]
-                    .iter()
-                    .flat_map(|entry| entry.to_le_bytes()),
-            )
-            .collect::<Vec<u8>>();
-        queue.write_buffer(&self.global_uniform_buffer, 0, &global_uniforms);
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("render_pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &frame_view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &depth_view,
-                    depth_ops: Some(Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                multiview_mask: None,
-            });
-
-            // Render skybox
-            self.skybox.render(
-                &mut render_pass,
+        if !wireframe {
+            // Render normal debug shaded objects
+            self.normal_debug.render(
+                render_pass,
                 queue,
-                &translation_free_view_projection_matrix,
+                camera,
+                view_matrix,
+                view_projection_matrix,
             );
-
-            // Render textured objects
-            self.textured
-                .render(&mut render_pass, queue, camera, &view_projection_matrix);
-
-            if !wireframe {
-                // Render normal debug shaded objects
-                self.normal_debug.render(
-                    &mut render_pass,
-                    queue,
-                    camera,
-                    &view_matrix,
-                    &view_projection_matrix,
-                );
-            } else {
-                // Render normal debug shaded objects in wireframe mode
-                self.normal_debug_wireframe.render(
-                    &mut render_pass,
-                    queue,
-                    camera,
-                    &view_matrix,
-                    &view_projection_matrix,
-                );
-            }
+        } else {
+            // Render normal debug shaded objects in wireframe mode
+            self.normal_debug_wireframe.render(
+                render_pass,
+                queue,
+                camera,
+                view_matrix,
+                view_projection_matrix,
+            );
         }
-
-        queue.submit(Some(encoder.finish()));
-        frame.present();
     }
 }
