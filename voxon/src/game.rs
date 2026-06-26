@@ -14,7 +14,10 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(rendering_api: WebGpuRenderServer) -> Self {
+    pub fn new(mut rendering_api: WebGpuRenderServer) -> Self {
+        // Should not happen here
+        rendering_api.load_scene();
+
         Self {
             rendering_api,
             wireframe: false,

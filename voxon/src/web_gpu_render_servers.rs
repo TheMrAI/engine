@@ -15,9 +15,13 @@ pub struct WebGpuRenderServer {
     surface: Surface<'static>,
     device: Device,
     queue: Queue,
+    swapchain_format: wgpu::TextureFormat,
+    // Rendering
+    mesh_id: u32,
+    mesh_cache: std::collections::HashMap<u32, MeshBuffer>,
     global_uniform_buffer: wgpu::Buffer,
     // TODO detach this
-    scene: Scene,
+    scene: Option<Scene>,
 }
 
 impl WebGpuRenderServer {
@@ -57,6 +61,9 @@ impl WebGpuRenderServer {
             .unwrap();
         surface.configure(&device, &config);
 
+        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        let swapchain_format = swapchain_capabilities.formats[0];
+
         // Global Uniform buffer
         let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("uniforms"),
@@ -67,16 +74,194 @@ impl WebGpuRenderServer {
             mapped_at_creation: false,
         });
 
-        let scene = Scene::new(&adapter, &surface, &device, &queue, &global_uniform_buffer);
+        let mesh_cache = std::collections::HashMap::<u32, MeshBuffer>::new();
 
         WebGpuRenderServer {
             inner_size,
             surface,
             device,
             queue,
+            swapchain_format,
             global_uniform_buffer,
-            scene,
+            mesh_id: 0,
+            mesh_cache,
+            scene: None,
         }
+    }
+
+    pub fn load_mesh_from_obj(&mut self, object: &format::wavefront::Obj) {
+        let vertex_data = object
+            .faces()
+            .iter()
+            .flat_map(|face| {
+                let vertices = object.vertices();
+                let normals = object.normals();
+
+                face.iter().flat_map(|vertex| {
+                    let face_vertex = &vertices[vertex.vertex_index() - 1];
+                    // it is possible that a mesh doesn't contain normals either
+                    // may have to handle it
+                    let face_normal = &normals[vertex.normal_index().unwrap() - 1];
+
+                    face_vertex
+                        .as_slice()
+                        .iter()
+                        .chain(face_normal.as_slice().iter().chain([&0.0]))
+                        .flat_map(|value| value.to_le_bytes())
+                })
+            })
+            .collect::<Vec<u8>>();
+
+        let vertex_buffer = upload_vertex_buffer(&self.device, &self.queue, &vertex_data);
+        let vertex_count = (object.faces().len() * 3) as u32;
+
+        self.mesh_cache.insert(
+            self.mesh_id,
+            MeshBuffer {
+                vertex_buffer,
+                vertex_count,
+            },
+        );
+        self.mesh_id += 1;
+    }
+
+    pub fn load_mesh(&mut self, mesh: &crate::mesh::Mesh) {
+        let vertex_data = mesh
+            .indices()
+            .iter()
+            .flat_map(|index| {
+                let vertex = &mesh.vertices()[*index as usize];
+
+                vertex
+                    .position()
+                    .as_slice()
+                    .iter()
+                    .chain(vertex.normal().as_slice().iter().chain([&0.0]))
+                    .chain(vertex.uv().as_slice().iter())
+                    .chain([&0.0, &0.0])
+                    .flat_map(|value| value.to_le_bytes())
+            })
+            .collect::<Vec<u8>>();
+
+        let vertex_buffer = upload_vertex_buffer(&self.device, &self.queue, &vertex_data);
+        let vertex_count = mesh.indices().len() as u32;
+
+        self.mesh_cache.insert(
+            self.mesh_id,
+            MeshBuffer {
+                vertex_buffer,
+                vertex_count,
+            },
+        );
+        self.mesh_id += 1;
+    }
+
+    pub fn load_scene(&mut self) {
+        // SUZANNE flat 967
+        let suzanne_flat_967_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
+        let suzanne_flat_967 = format::wavefront::Obj::parse(
+            suzanne_flat_967_data.lines().map(String::from),
+            "Suzanne_flat_967",
+        );
+        self.load_mesh_from_obj(&suzanne_flat_967);
+
+        // SUZANNE flat 967 messed up normals
+        let suzanne_flat_967_messed_up_normals_data =
+            include_str!("../resources/meshes/suzanne_flat_967_messed_up_normals.obj");
+        let suzanne_flat_967_messed_up_normals = format::wavefront::Obj::parse(
+            suzanne_flat_967_messed_up_normals_data
+                .lines()
+                .map(String::from),
+            "Suzanne_flat_967_messed_up_normals",
+        );
+        self.load_mesh_from_obj(&suzanne_flat_967_messed_up_normals);
+
+        // SUZANNE smooth 967
+        let suzanne_smooth_967_data = include_str!("../resources/meshes/suzanne_smooth_967.obj");
+        let suzanne_smooth_967 = format::wavefront::Obj::parse(
+            suzanne_smooth_967_data.lines().map(String::from),
+            "Suzanne_smooth_967",
+        );
+        self.load_mesh_from_obj(&suzanne_smooth_967);
+
+        // SUZANNE smooth 967 messed up normals
+        let suzanne_smooth_967_messed_up_normals_data =
+            include_str!("../resources/meshes/suzanne_smooth_967_messed_up_normals.obj");
+        let suzanne_smooth_967_messed_up_normals = format::wavefront::Obj::parse(
+            suzanne_smooth_967_messed_up_normals_data
+                .lines()
+                .map(String::from),
+            "Suzanne_smooth_967_messed_up_normals",
+        );
+        self.load_mesh_from_obj(&suzanne_smooth_967_messed_up_normals);
+
+        // Utah teapot flat 7k
+        let utah_flat_7k_data = include_str!("../resources/meshes/utah_teapot_flat_7k.obj");
+        let utah_flat_7k = format::wavefront::Obj::parse(
+            utah_flat_7k_data.lines().map(String::from),
+            "Utah_flat_7k",
+        );
+        self.load_mesh_from_obj(&utah_flat_7k);
+
+        // Utah teapot smooth 7k
+        let utah_smooth_7k_data = include_str!("../resources/meshes/utah_teapot_smooth_7k.obj");
+        let utah_smooth_7k = format::wavefront::Obj::parse(
+            utah_smooth_7k_data.lines().map(String::from),
+            "Utah_smooth_7k",
+        );
+        self.load_mesh_from_obj(&utah_smooth_7k);
+
+        // Utah teapot smooth 116k
+        let utah_smooth_116k_data = include_str!("../resources/meshes/utah_teapot_smooth_116k.obj");
+        let utah_smooth_116k = format::wavefront::Obj::parse(
+            utah_smooth_116k_data.lines().map(String::from),
+            "Utah_smooth_116k",
+        );
+        self.load_mesh_from_obj(&utah_smooth_116k);
+
+        // Stanford dragon flat 17k
+        let stanford_dragon_flat_17k_data =
+            include_str!("../resources/meshes/stanford_dragon_flat_17k.obj");
+        let stanford_dragon_flat_17k = format::wavefront::Obj::parse(
+            stanford_dragon_flat_17k_data.lines().map(String::from),
+            "Stanford_dragon_flat_17k",
+        );
+        self.load_mesh_from_obj(&stanford_dragon_flat_17k);
+
+        // Stanford dragon smooth 17k
+        let stanford_dragon_smooth_17k_data =
+            include_str!("../resources/meshes/stanford_dragon_smooth_17k.obj");
+        let stanford_dragon_smooth_17k = format::wavefront::Obj::parse(
+            stanford_dragon_smooth_17k_data.lines().map(String::from),
+            "Stanford_dragon_smooth_17k",
+        );
+        self.load_mesh_from_obj(&stanford_dragon_smooth_17k);
+
+        // Stanford dragon smooth 700k
+        let stanford_dragon_smooth_700k_data =
+            include_str!("../resources/meshes/stanford_dragon_smooth_700k.obj");
+        let stanford_dragon_smooth_700k = format::wavefront::Obj::parse(
+            stanford_dragon_smooth_700k_data.lines().map(String::from),
+            "Stanford_dragon_smooth_700k",
+        );
+        self.load_mesh_from_obj(&stanford_dragon_smooth_700k);
+
+        // Plane entry
+        let plane_mesh = crate::mesh::generate_plane();
+        self.load_mesh(&plane_mesh);
+
+        // Cube entry
+        let cube_mesh = crate::mesh::generate_cube();
+        self.load_mesh(&cube_mesh);
+
+        let scene = Scene::new(
+            &self.swapchain_format,
+            &self.device,
+            &self.queue,
+            &self.global_uniform_buffer,
+            &self.mesh_cache,
+        );
+        self.scene = Some(scene);
     }
 
     pub fn render(&mut self, camera: &Camera, wireframe: bool) {
@@ -188,7 +373,7 @@ impl WebGpuRenderServer {
                 multiview_mask: None,
             });
 
-            self.scene.render(
+            self.scene.as_mut().unwrap().render(
                 &mut render_pass,
                 &view_matrix,
                 &view_projection_matrix,
@@ -203,4 +388,26 @@ impl WebGpuRenderServer {
 
         frame.present();
     }
+}
+
+#[derive(Debug)]
+pub struct MeshBuffer {
+    pub vertex_buffer: wgpu::Buffer,
+    pub vertex_count: u32,
+}
+
+fn upload_vertex_buffer(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    vertex_data: &[u8],
+) -> wgpu::Buffer {
+    let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("vertex_buffer"),
+        size: vertex_data.len() as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    queue.write_buffer(&vertex_buffer, 0, vertex_data);
+
+    vertex_buffer
 }
