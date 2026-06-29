@@ -1,5 +1,5 @@
 pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
-    let image_data = include_bytes!("../resources/textures/texture_01.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/texture_01.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
@@ -16,7 +16,7 @@ pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::T
 }
 
 pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
-    let image_data = include_bytes!("../resources/textures/cube_atlas.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/cube_atlas.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
@@ -35,42 +35,42 @@ pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Te
 pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
     // This is nasty, as the textures are compiled into the binary, but for now it is okay.
     // px
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_px.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_px.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let px_bytes = &buf[..frame_info.buffer_size()];
     // nx
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_nx.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_nx.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let nx_bytes = &buf[..frame_info.buffer_size()];
     // py
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_py.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_py.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let py_bytes = &buf[..frame_info.buffer_size()];
     // ny
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_ny.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_ny.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let ny_bytes = &buf[..frame_info.buffer_size()];
     // pz
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_pz.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_pz.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let pz_bytes = &buf[..frame_info.buffer_size()];
     // nz
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_nz.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_nz.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];

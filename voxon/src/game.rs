@@ -1,9 +1,9 @@
-use crate::web_gpu_render_servers::WebGpuRenderServer;
 use graphic::camera::Camera;
+use webgpu::RenderServer;
 
 #[derive(Debug)]
 pub struct Game {
-    rendering_api: WebGpuRenderServer,
+    rendering_api: RenderServer,
     wireframe: bool,
     camera: Camera,
     prev_render_time: std::time::Instant,
@@ -14,7 +14,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(mut rendering_api: WebGpuRenderServer) -> Self {
+    pub fn new(mut rendering_api: RenderServer) -> Self {
         // Should not happen here
         rendering_api.load_scene();
 

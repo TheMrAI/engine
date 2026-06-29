@@ -8,16 +8,8 @@ use winit::{
     event::{DeviceEvent, WindowEvent},
 };
 
-mod cube_map;
 mod game;
 mod inner_app;
-mod mesh;
-mod normal_debug;
-mod normal_debug_wireframe;
-mod skybox;
-mod texture;
-mod textured_draw;
-mod web_gpu_render_servers;
 
 #[derive(Default)]
 struct App {

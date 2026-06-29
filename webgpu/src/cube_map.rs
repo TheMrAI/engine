@@ -5,9 +5,13 @@
 use lina::matrix::Matrix;
 use wgpu::{BindingResource, VertexAttribute, VertexBufferLayout};
 
-use crate::mesh::generate_cube;
 use crate::texture::load_cubemap_textures;
+use mesh::generate_cube;
 
+// TODO Code is dead. Has been for a while, still
+// keeping it until it is clear it won't be used.
+
+#[allow(dead_code)]
 pub struct CubeMap {
     render_pipeline: wgpu::RenderPipeline,
     uniform_buffer: wgpu::Buffer,
@@ -19,6 +23,7 @@ pub struct CubeMap {
 }
 
 impl CubeMap {
+    #[allow(dead_code)]
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -163,6 +168,7 @@ impl CubeMap {
         }
     }
 
+    #[allow(dead_code)]
     pub fn render(
         &self,
         render_pass: &mut wgpu::RenderPass,

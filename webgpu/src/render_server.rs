@@ -6,7 +6,7 @@ use wgpu::{Device, ExperimentalFeatures, Queue, Surface};
 use winit::{dpi::PhysicalSize, window::Window};
 
 #[derive(Debug)]
-pub struct WebGpuRenderServer {
+pub struct RenderServer {
     // TODO remove this as well,
     // only relevant for the camera which
     // should become a node later anyways
@@ -25,7 +25,7 @@ pub struct WebGpuRenderServer {
     skybox: skybox::Skybox,
 }
 
-impl WebGpuRenderServer {
+impl RenderServer {
     pub async fn new(window: Arc<Window>) -> Self {
         let instance = wgpu::Instance::default();
         let inner_size = window.inner_size();
@@ -83,7 +83,7 @@ impl WebGpuRenderServer {
             normal_debug_wireframe::NormalDebugWireframe::new(&device, swapchain_format.into());
         let skybox = skybox::Skybox::new(&device, &queue, swapchain_format.into());
 
-        WebGpuRenderServer {
+        RenderServer {
             inner_size,
             surface,
             device,
@@ -134,7 +134,7 @@ impl WebGpuRenderServer {
         self.mesh_id += 1;
     }
 
-    pub fn load_mesh(&mut self, mesh: &crate::mesh::Mesh) {
+    pub fn load_mesh(&mut self, mesh: &mesh::Mesh) {
         let vertex_data = mesh
             .indices()
             .iter()
@@ -167,7 +167,8 @@ impl WebGpuRenderServer {
 
     pub fn load_scene(&mut self) {
         // SUZANNE flat 967
-        let suzanne_flat_967_data = include_str!("../resources/meshes/suzanne_flat_967.obj");
+        let suzanne_flat_967_data =
+            include_str!("../../voxon/resources/meshes/suzanne_flat_967.obj");
         let suzanne_flat_967 = format::wavefront::Obj::parse(
             suzanne_flat_967_data.lines().map(String::from),
             "Suzanne_flat_967",
@@ -176,7 +177,7 @@ impl WebGpuRenderServer {
 
         // SUZANNE flat 967 messed up normals
         let suzanne_flat_967_messed_up_normals_data =
-            include_str!("../resources/meshes/suzanne_flat_967_messed_up_normals.obj");
+            include_str!("../../voxon/resources/meshes/suzanne_flat_967_messed_up_normals.obj");
         let suzanne_flat_967_messed_up_normals = format::wavefront::Obj::parse(
             suzanne_flat_967_messed_up_normals_data
                 .lines()
@@ -186,7 +187,8 @@ impl WebGpuRenderServer {
         self.load_mesh_from_obj(&suzanne_flat_967_messed_up_normals);
 
         // SUZANNE smooth 967
-        let suzanne_smooth_967_data = include_str!("../resources/meshes/suzanne_smooth_967.obj");
+        let suzanne_smooth_967_data =
+            include_str!("../../voxon/resources/meshes/suzanne_smooth_967.obj");
         let suzanne_smooth_967 = format::wavefront::Obj::parse(
             suzanne_smooth_967_data.lines().map(String::from),
             "Suzanne_smooth_967",
@@ -195,7 +197,7 @@ impl WebGpuRenderServer {
 
         // SUZANNE smooth 967 messed up normals
         let suzanne_smooth_967_messed_up_normals_data =
-            include_str!("../resources/meshes/suzanne_smooth_967_messed_up_normals.obj");
+            include_str!("../../voxon/resources/meshes/suzanne_smooth_967_messed_up_normals.obj");
         let suzanne_smooth_967_messed_up_normals = format::wavefront::Obj::parse(
             suzanne_smooth_967_messed_up_normals_data
                 .lines()
@@ -205,7 +207,8 @@ impl WebGpuRenderServer {
         self.load_mesh_from_obj(&suzanne_smooth_967_messed_up_normals);
 
         // Utah teapot flat 7k
-        let utah_flat_7k_data = include_str!("../resources/meshes/utah_teapot_flat_7k.obj");
+        let utah_flat_7k_data =
+            include_str!("../../voxon/resources/meshes/utah_teapot_flat_7k.obj");
         let utah_flat_7k = format::wavefront::Obj::parse(
             utah_flat_7k_data.lines().map(String::from),
             "Utah_flat_7k",
@@ -213,7 +216,8 @@ impl WebGpuRenderServer {
         self.load_mesh_from_obj(&utah_flat_7k);
 
         // Utah teapot smooth 7k
-        let utah_smooth_7k_data = include_str!("../resources/meshes/utah_teapot_smooth_7k.obj");
+        let utah_smooth_7k_data =
+            include_str!("../../voxon/resources/meshes/utah_teapot_smooth_7k.obj");
         let utah_smooth_7k = format::wavefront::Obj::parse(
             utah_smooth_7k_data.lines().map(String::from),
             "Utah_smooth_7k",
@@ -221,7 +225,8 @@ impl WebGpuRenderServer {
         self.load_mesh_from_obj(&utah_smooth_7k);
 
         // Utah teapot smooth 116k
-        let utah_smooth_116k_data = include_str!("../resources/meshes/utah_teapot_smooth_116k.obj");
+        let utah_smooth_116k_data =
+            include_str!("../../voxon/resources/meshes/utah_teapot_smooth_116k.obj");
         let utah_smooth_116k = format::wavefront::Obj::parse(
             utah_smooth_116k_data.lines().map(String::from),
             "Utah_smooth_116k",
@@ -230,7 +235,7 @@ impl WebGpuRenderServer {
 
         // Stanford dragon flat 17k
         let stanford_dragon_flat_17k_data =
-            include_str!("../resources/meshes/stanford_dragon_flat_17k.obj");
+            include_str!("../../voxon/resources/meshes/stanford_dragon_flat_17k.obj");
         let stanford_dragon_flat_17k = format::wavefront::Obj::parse(
             stanford_dragon_flat_17k_data.lines().map(String::from),
             "Stanford_dragon_flat_17k",
@@ -239,7 +244,7 @@ impl WebGpuRenderServer {
 
         // Stanford dragon smooth 17k
         let stanford_dragon_smooth_17k_data =
-            include_str!("../resources/meshes/stanford_dragon_smooth_17k.obj");
+            include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_17k.obj");
         let stanford_dragon_smooth_17k = format::wavefront::Obj::parse(
             stanford_dragon_smooth_17k_data.lines().map(String::from),
             "Stanford_dragon_smooth_17k",
@@ -248,7 +253,7 @@ impl WebGpuRenderServer {
 
         // Stanford dragon smooth 700k
         let stanford_dragon_smooth_700k_data =
-            include_str!("../resources/meshes/stanford_dragon_smooth_700k.obj");
+            include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_700k.obj");
         let stanford_dragon_smooth_700k = format::wavefront::Obj::parse(
             stanford_dragon_smooth_700k_data.lines().map(String::from),
             "Stanford_dragon_smooth_700k",
@@ -256,11 +261,11 @@ impl WebGpuRenderServer {
         self.load_mesh_from_obj(&stanford_dragon_smooth_700k);
 
         // Plane entry
-        let plane_mesh = crate::mesh::generate_plane();
+        let plane_mesh = mesh::generate_plane();
         self.load_mesh(&plane_mesh);
 
         // Cube entry
-        let cube_mesh = crate::mesh::generate_cube();
+        let cube_mesh = mesh::generate_cube();
         self.load_mesh(&cube_mesh);
 
         // Notify "textured" pipeline about the instances it needs to draw
