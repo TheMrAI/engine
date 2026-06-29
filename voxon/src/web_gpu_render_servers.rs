@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
+use crate::{normal_debug, normal_debug_wireframe, skybox, textured_draw};
 use graphic::camera::Camera;
 use wgpu::{Device, ExperimentalFeatures, Queue, Surface};
 use winit::{dpi::PhysicalSize, window::Window};
-
-use crate::scene::Scene;
 
 #[derive(Debug)]
 pub struct WebGpuRenderServer {
@@ -15,13 +14,15 @@ pub struct WebGpuRenderServer {
     surface: Surface<'static>,
     device: Device,
     queue: Queue,
-    swapchain_format: wgpu::TextureFormat,
     // Rendering
     mesh_id: u32,
     mesh_cache: std::collections::HashMap<u32, MeshBuffer>,
     global_uniform_buffer: wgpu::Buffer,
-    // TODO detach this
-    scene: Option<Scene>,
+    // Rendering pipelines
+    textured: textured_draw::Textured,
+    normal_debug: normal_debug::NormalDebug,
+    normal_debug_wireframe: normal_debug_wireframe::NormalDebugWireframe,
+    skybox: skybox::Skybox,
 }
 
 impl WebGpuRenderServer {
@@ -76,16 +77,24 @@ impl WebGpuRenderServer {
 
         let mesh_cache = std::collections::HashMap::<u32, MeshBuffer>::new();
 
+        let textured = textured_draw::Textured::new(&device, swapchain_format.into());
+        let normal_debug = normal_debug::NormalDebug::new(&device, swapchain_format.into());
+        let normal_debug_wireframe =
+            normal_debug_wireframe::NormalDebugWireframe::new(&device, swapchain_format.into());
+        let skybox = skybox::Skybox::new(&device, &queue, swapchain_format.into());
+
         WebGpuRenderServer {
             inner_size,
             surface,
             device,
             queue,
-            swapchain_format,
             global_uniform_buffer,
             mesh_id: 0,
             mesh_cache,
-            scene: None,
+            textured,
+            normal_debug,
+            normal_debug_wireframe,
+            skybox,
         }
     }
 
@@ -254,14 +263,323 @@ impl WebGpuRenderServer {
         let cube_mesh = crate::mesh::generate_cube();
         self.load_mesh(&cube_mesh);
 
-        let scene = Scene::new(
-            &self.swapchain_format,
+        // Notify "textured" pipeline about the instances it needs to draw
+        // PLANE
+        let mut mesh_buffer = self.mesh_cache.get(&10u32).unwrap();
+        let plane_texture = crate::texture::load_texture_plane(&self.device, &self.queue);
+        self.textured.add_entity_instances(
             &self.device,
-            &self.queue,
             &self.global_uniform_buffer,
-            &self.mesh_cache,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![textured_draw::Instance {
+                model_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
+                    * graphic::transform::scale(50.0, 1.0, 50.0),
+            }],
+            vec![textured_draw::TextureInstance {
+                texture_scale: 50.0,
+            }],
+            plane_texture,
         );
-        self.scene = Some(scene);
+
+        mesh_buffer = self.mesh_cache.get(&11u32).unwrap();
+        let cube_texture = crate::texture::load_texture_cube(&self.device, &self.queue);
+        self.textured.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![textured_draw::Instance {
+                model_matrix: graphic::identity_matrix(),
+            }],
+            vec![textured_draw::TextureInstance { texture_scale: 1.0 }],
+            cube_texture,
+        );
+
+        // Notify "normal_debug" about the instances it needs to draw
+        // TODO little dirty with the hand managed IDs, but that is okay for feeling out
+        // the pattern.
+
+        // SUZANNE flat 967
+        let suzanne_flat_967_instances = {
+            let suzanne_flat_967_instances = vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+            }];
+            // let mut x = -10.0;
+            // while x <= 10.0 {
+            //     let mut z = -5.0;
+            //     while z >= -25.0 {
+            //         let mut y = 5.0;
+            //         while y <= 15.0 {
+            //             suzanne_flat_967_instances.push(normal_debug::Instance {
+            //                 model_matrix: graphic::transform::translate(x, y, z)
+            //                     * graphic::transform::scale(1.0, 1.0, 1.0),
+            //             });
+            //             y += 5.0;
+            //         }
+            //         z -= 5.0;
+            //     }
+            //     x += 5.0;
+            // }
+            suzanne_flat_967_instances
+        };
+
+        mesh_buffer = self.mesh_cache.get(&0u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            suzanne_flat_967_instances,
+        );
+
+        // SUZANNE flat 967 messed up normals
+        mesh_buffer = self.mesh_cache.get(&1u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+            }],
+        );
+
+        // SUZANNE smooth 967
+        mesh_buffer = self.mesh_cache.get(&2u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+            }],
+        );
+
+        // SUZANNE smooth 967 messed up normals
+        mesh_buffer = self.mesh_cache.get(&3u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+            }],
+        );
+
+        // Utah teapot flat 7k
+        mesh_buffer = self.mesh_cache.get(&4u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Utah teapot smooth 7k
+        mesh_buffer = self.mesh_cache.get(&5u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Utah teapot smooth 116k
+        mesh_buffer = self.mesh_cache.get(&6u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Stanford dragon flat 17k
+        mesh_buffer = self.mesh_cache.get(&7u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Stanford dragon smooth 17k
+        mesh_buffer = self.mesh_cache.get(&8u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Stanford dragon smooth 700k
+        mesh_buffer = self.mesh_cache.get(&9u32).unwrap();
+        self.normal_debug.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug::Instance {
+                model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Notify "normal_debug_wireframe" about the instances it needs to draw
+        mesh_buffer = self.mesh_cache.get(&0u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+            }],
+        );
+
+        // SUZANNE flat 967 messed up normals
+        mesh_buffer = self.mesh_cache.get(&1u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+            }],
+        );
+
+        // SUZANNE smooth 967
+        mesh_buffer = self.mesh_cache.get(&2u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+            }],
+        );
+
+        // SUZANNE smooth 967 messed up normals
+        mesh_buffer = self.mesh_cache.get(&3u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+            }],
+        );
+
+        // Utah teapot flat 7k
+        mesh_buffer = self.mesh_cache.get(&4u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Utah teapot smooth 7k
+        mesh_buffer = self.mesh_cache.get(&5u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Utah teapot smooth 116k
+        mesh_buffer = self.mesh_cache.get(&6u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+            }],
+        );
+
+        // Stanford dragon flat 17k
+        mesh_buffer = self.mesh_cache.get(&7u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Stanford dragon smooth 17k
+        mesh_buffer = self.mesh_cache.get(&8u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
+
+        // Stanford dragon smooth 700k
+        mesh_buffer = self.mesh_cache.get(&9u32).unwrap();
+        self.normal_debug_wireframe.add_entity_instances(
+            &self.device,
+            &self.global_uniform_buffer,
+            &mesh_buffer.vertex_buffer,
+            mesh_buffer.vertex_count,
+            vec![normal_debug_wireframe::Instance {
+                model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+            }],
+        );
     }
 
     pub fn render(&mut self, camera: &Camera, wireframe: bool) {
@@ -373,15 +691,40 @@ impl WebGpuRenderServer {
                 multiview_mask: None,
             });
 
-            self.scene.as_mut().unwrap().render(
+            // Render skybox
+            self.skybox.render(
                 &mut render_pass,
-                &view_matrix,
-                &view_projection_matrix,
+                &self.queue,
                 &translation_free_view_projection_matrix,
+            );
+
+            // Render textured objects
+            self.textured.render(
+                &mut render_pass,
                 &self.queue,
                 camera,
-                wireframe,
+                &view_projection_matrix,
             );
+
+            if !wireframe {
+                // Render normal debug shaded objects
+                self.normal_debug.render(
+                    &mut render_pass,
+                    &self.queue,
+                    camera,
+                    &view_matrix,
+                    &view_projection_matrix,
+                );
+            } else {
+                // Render normal debug shaded objects in wireframe mode
+                self.normal_debug_wireframe.render(
+                    &mut render_pass,
+                    &self.queue,
+                    camera,
+                    &view_matrix,
+                    &view_projection_matrix,
+                );
+            }
         }
 
         self.queue.submit(Some(encoder.finish()));
