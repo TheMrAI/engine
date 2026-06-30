@@ -10,3 +10,4 @@ lina = { path = "../lina" }
 graphic = { path = "../graphic" }
 png = "0.18.1"
 mesh = { version = "0.1.0", path = "../mesh" }
+scene = { version = "0.1.0", path = "../scene" }

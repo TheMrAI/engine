@@ -2,8 +2,17 @@ use std::sync::Arc;
 
 use crate::{normal_debug, normal_debug_wireframe, skybox, textured_draw};
 use graphic::camera::Camera;
-use wgpu::{Device, ExperimentalFeatures, Queue, Surface};
+use scene::MeshNode;
+use wgpu::{Device, ExperimentalFeatures, Queue, Surface, Texture};
 use winit::{dpi::PhysicalSize, window::Window};
+
+// A bit redundant at the moment but we need
+// to hide webgpu API related types from the interface.
+pub struct Dimensions {
+    pub width: u32,
+    pub height: u32,
+    pub depth_or_array_layers: u32,
+}
 
 #[derive(Debug)]
 pub struct RenderServer {
@@ -15,10 +24,15 @@ pub struct RenderServer {
     device: Device,
     queue: Queue,
     // Rendering
-    mesh_id: u32,
+    next_mesh_id: u32,
     mesh_cache: std::collections::HashMap<u32, MeshBuffer>,
+    next_shader_id: u32,
+    shader_cache: std::collections::HashMap<u32, wgpu::ShaderModule>,
     global_uniform_buffer: wgpu::Buffer,
+    next_texture_id: u32,
+    texture_cache: std::collections::HashMap<u32, Texture>,
     // Rendering pipelines
+    render_entries: std::collections::HashMap<u32, std::collections::HashMap<u32, Vec<MeshNode>>>,
     textured: textured_draw::Textured,
     normal_debug: normal_debug::NormalDebug,
     normal_debug_wireframe: normal_debug_wireframe::NormalDebugWireframe,
@@ -76,6 +90,10 @@ impl RenderServer {
         });
 
         let mesh_cache = std::collections::HashMap::<u32, MeshBuffer>::new();
+        let shader_cache = std::collections::HashMap::<u32, wgpu::ShaderModule>::new();
+        let texture_cache = std::collections::HashMap::<u32, Texture>::new();
+        let render_entries =
+            std::collections::HashMap::<u32, std::collections::HashMap<u32, Vec<MeshNode>>>::new();
 
         let textured = textured_draw::Textured::new(&device, swapchain_format.into());
         let normal_debug = normal_debug::NormalDebug::new(&device, swapchain_format.into());
@@ -89,8 +107,13 @@ impl RenderServer {
             device,
             queue,
             global_uniform_buffer,
-            mesh_id: 0,
+            next_mesh_id: 0,
             mesh_cache,
+            next_shader_id: 0,
+            shader_cache,
+            next_texture_id: 0,
+            texture_cache,
+            render_entries,
             textured,
             normal_debug,
             normal_debug_wireframe,
@@ -98,7 +121,10 @@ impl RenderServer {
         }
     }
 
-    pub fn load_mesh(&mut self, mesh: &mesh::Mesh) {
+    // TODO Gotta figure out how the server may identify which mesh it already knows about,
+    // so caching can actually cache.
+    // Have a sneaking suspicion that the Scene/Nodes will provide with some intel.
+    pub fn load_mesh(&mut self, mesh: &mesh::Mesh) -> u32 {
         let vertex_data = mesh
             .indices()
             .iter()
@@ -119,337 +145,66 @@ impl RenderServer {
         let vertex_buffer = upload_vertex_buffer(&self.device, &self.queue, &vertex_data);
         let vertex_count = mesh.indices().len() as u32;
 
+        let mesh_id = self.next_mesh_id;
         self.mesh_cache.insert(
-            self.mesh_id,
+            mesh_id,
             MeshBuffer {
                 vertex_buffer,
                 vertex_count,
             },
         );
-        self.mesh_id += 1;
+
+        self.next_mesh_id += 1;
+        mesh_id
     }
 
-    pub fn load_scene(&mut self) {
-        // Notify "textured" pipeline about the instances it needs to draw
-        // PLANE
-        let mut mesh_buffer = self.mesh_cache.get(&10u32).unwrap();
-        let plane_texture = crate::texture::load_texture_plane(&self.device, &self.queue);
-        self.textured.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![textured_draw::Instance {
-                model_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
-                    * graphic::transform::scale(50.0, 1.0, 50.0),
-            }],
-            vec![textured_draw::TextureInstance {
-                texture_scale: 50.0,
-            }],
-            plane_texture,
-        );
+    pub fn load_shader(&mut self, shader_code: std::borrow::Cow<str>) -> u32 {
+        let shader_module = self
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("shader_code"),
+                source: wgpu::ShaderSource::Wgsl(shader_code),
+            });
 
-        mesh_buffer = self.mesh_cache.get(&11u32).unwrap();
-        let cube_texture = crate::texture::load_texture_cube(&self.device, &self.queue);
-        self.textured.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![textured_draw::Instance {
-                model_matrix: graphic::identity_matrix(),
-            }],
-            vec![textured_draw::TextureInstance { texture_scale: 1.0 }],
-            cube_texture,
-        );
+        let shader_id = self.next_shader_id;
+        self.shader_cache.insert(shader_id, shader_module);
 
-        // Notify "normal_debug" about the instances it needs to draw
-        // TODO little dirty with the hand managed IDs, but that is okay for feeling out
-        // the pattern.
+        self.next_shader_id += 1;
+        shader_id
+    }
 
-        // SUZANNE flat 967
-        let suzanne_flat_967_instances = {
-            let suzanne_flat_967_instances = vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
-                    * graphic::transform::scale(2.0, 2.0, 2.0),
-            }];
-            // let mut x = -10.0;
-            // while x <= 10.0 {
-            //     let mut z = -5.0;
-            //     while z >= -25.0 {
-            //         let mut y = 5.0;
-            //         while y <= 15.0 {
-            //             suzanne_flat_967_instances.push(normal_debug::Instance {
-            //                 model_matrix: graphic::transform::translate(x, y, z)
-            //                     * graphic::transform::scale(1.0, 1.0, 1.0),
-            //             });
-            //             y += 5.0;
-            //         }
-            //         z -= 5.0;
-            //     }
-            //     x += 5.0;
-            // }
-            suzanne_flat_967_instances
+    pub fn load_texture(&mut self, texture_buffer: &[&[u8]], dimensions: Dimensions) -> u32 {
+        let dimensions = wgpu::Extent3d {
+            width: dimensions.width,
+            height: dimensions.height,
+            depth_or_array_layers: dimensions.depth_or_array_layers,
         };
 
-        mesh_buffer = self.mesh_cache.get(&0u32).unwrap();
-        self.normal_debug.add_entity_instances(
+        let texture = crate::texture::upload_texture(
             &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            suzanne_flat_967_instances,
+            &self.queue,
+            dimensions,
+            texture_buffer,
+            true,
         );
 
-        // SUZANNE flat 967 messed up normals
-        mesh_buffer = self.mesh_cache.get(&1u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
-                    * graphic::transform::scale(1.0, 1.0, 1.0),
-            }],
-        );
+        let texture_id = self.next_texture_id;
+        self.texture_cache.insert(texture_id, texture);
 
-        // SUZANNE smooth 967
-        mesh_buffer = self.mesh_cache.get(&2u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
-                    * graphic::transform::scale(2.0, 2.0, 2.0),
-            }],
-        );
-
-        // SUZANNE smooth 967 messed up normals
-        mesh_buffer = self.mesh_cache.get(&3u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
-                    * graphic::transform::scale(1.0, 1.0, 1.0),
-            }],
-        );
-
-        // Utah teapot flat 7k
-        mesh_buffer = self.mesh_cache.get(&4u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        );
-
-        // Utah teapot smooth 7k
-        mesh_buffer = self.mesh_cache.get(&5u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        );
-
-        // Utah teapot smooth 116k
-        mesh_buffer = self.mesh_cache.get(&6u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        );
-
-        // Stanford dragon flat 17k
-        mesh_buffer = self.mesh_cache.get(&7u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        );
-
-        // Stanford dragon smooth 17k
-        mesh_buffer = self.mesh_cache.get(&8u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        );
-
-        // Stanford dragon smooth 700k
-        mesh_buffer = self.mesh_cache.get(&9u32).unwrap();
-        self.normal_debug.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug::Instance {
-                model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        );
-
-        // Notify "normal_debug_wireframe" about the instances it needs to draw
-        mesh_buffer = self.mesh_cache.get(&0u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
-                    * graphic::transform::scale(2.0, 2.0, 2.0),
-            }],
-        );
-
-        // SUZANNE flat 967 messed up normals
-        mesh_buffer = self.mesh_cache.get(&1u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
-                    * graphic::transform::scale(1.0, 1.0, 1.0),
-            }],
-        );
-
-        // SUZANNE smooth 967
-        mesh_buffer = self.mesh_cache.get(&2u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
-                    * graphic::transform::scale(2.0, 2.0, 2.0),
-            }],
-        );
-
-        // SUZANNE smooth 967 messed up normals
-        mesh_buffer = self.mesh_cache.get(&3u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
-                    * graphic::transform::scale(1.0, 1.0, 1.0),
-            }],
-        );
-
-        // Utah teapot flat 7k
-        mesh_buffer = self.mesh_cache.get(&4u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        );
-
-        // Utah teapot smooth 7k
-        mesh_buffer = self.mesh_cache.get(&5u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        );
-
-        // Utah teapot smooth 116k
-        mesh_buffer = self.mesh_cache.get(&6u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
-                    * graphic::transform::scale(0.5, 0.5, 0.5),
-            }],
-        );
-
-        // Stanford dragon flat 17k
-        mesh_buffer = self.mesh_cache.get(&7u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        );
-
-        // Stanford dragon smooth 17k
-        mesh_buffer = self.mesh_cache.get(&8u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        );
-
-        // Stanford dragon smooth 700k
-        mesh_buffer = self.mesh_cache.get(&9u32).unwrap();
-        self.normal_debug_wireframe.add_entity_instances(
-            &self.device,
-            &self.global_uniform_buffer,
-            &mesh_buffer.vertex_buffer,
-            mesh_buffer.vertex_count,
-            vec![normal_debug_wireframe::Instance {
-                model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
-                    * graphic::transform::scale(18.0, 18.0, 18.0),
-            }],
-        );
+        self.next_texture_id += 1;
+        texture_id
     }
 
-    pub fn render(&mut self, camera: &Camera, wireframe: bool) {
+    // TODO Eventually this should not take a node at all, but a reference or a pointer to the Node.
+    // The Node is maintained by the Engine in the Scene graph.
+    // The RenderServer merely has to access the nodes when appropriate to read the necessary values.
+    pub fn schedule_render(&mut self, mesh_node: MeshNode) {
+        let pipeline = self.render_entries.entry(mesh_node.shader_id).or_default();
+        let instances = pipeline.entry(mesh_node.mesh_id).or_default();
+        instances.push(mesh_node);
+    }
+
+    pub fn render(&mut self, camera: &Camera) {
         // the camera matrix
         let look_at = camera.as_transform_matrix();
         // view matrix
@@ -565,32 +320,84 @@ impl RenderServer {
                 &translation_free_view_projection_matrix,
             );
 
-            // Render textured objects
-            self.textured.render(
-                &mut render_pass,
-                &self.queue,
-                camera,
-                &view_projection_matrix,
-            );
+            for (shader_id, mesh_group) in &self.render_entries {
+                for (mesh_id, mesh_instances) in mesh_group {
+                    match *shader_id {
+                        0 => {
+                            let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
+                            let instances = mesh_instances
+                                .iter()
+                                .map(|instance| instance.model_matrix)
+                                .collect::<Vec<_>>();
 
-            if !wireframe {
-                // Render normal debug shaded objects
-                self.normal_debug.render(
-                    &mut render_pass,
-                    &self.queue,
-                    camera,
-                    &view_matrix,
-                    &view_projection_matrix,
-                );
-            } else {
-                // Render normal debug shaded objects in wireframe mode
-                self.normal_debug_wireframe.render(
-                    &mut render_pass,
-                    &self.queue,
-                    camera,
-                    &view_matrix,
-                    &view_projection_matrix,
-                );
+                            self.normal_debug.render(
+                                &mut render_pass,
+                                &self.device,
+                                &self.queue,
+                                &view_matrix,
+                                &view_projection_matrix,
+                                &self.global_uniform_buffer,
+                                &instances,
+                                &mesh_buffer.vertex_buffer,
+                                mesh_buffer.vertex_count,
+                            );
+                        }
+                        1 => {
+                            let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
+                            let instances = mesh_instances
+                                .iter()
+                                .map(|instance| instance.model_matrix)
+                                .collect::<Vec<_>>();
+
+                            self.normal_debug_wireframe.render(
+                                &mut render_pass,
+                                &self.device,
+                                &self.queue,
+                                &view_matrix,
+                                &view_projection_matrix,
+                                &self.global_uniform_buffer,
+                                &instances,
+                                &mesh_buffer.vertex_buffer,
+                                mesh_buffer.vertex_count,
+                            );
+                        }
+                        2 => {
+                            let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
+                            // TODO very dirty hack!!!
+                            // It turns out that for different pipelines you have to instance differently.
+                            // For the debug pipelines the mesh_id is enough, but for the textured pipeline
+                            // both the mesh_id and the texture itself has to take part in the instancing.
+                            // Which cannot be supported by the rudimentary organizer mechanism.
+                            // It seems we really need to have the concept of a node, and based on that,
+                            // each pipeline may extract the identifiers it needs to properly group them.
+                            // We aren't just there yet, so care is required.
+                            let texture = self
+                                .texture_cache
+                                .get(&mesh_instances.first().unwrap().texture_id.unwrap())
+                                .unwrap();
+                            let instances = mesh_instances
+                                .iter()
+                                .map(|instance| {
+                                    (instance.model_matrix, instance.texture_scale.unwrap())
+                                })
+                                .collect::<Vec<_>>();
+
+                            self.textured.render(
+                                &mut render_pass,
+                                &self.device,
+                                &self.queue,
+                                &view_matrix,
+                                &view_projection_matrix,
+                                &self.global_uniform_buffer,
+                                &instances,
+                                &mesh_buffer.vertex_buffer,
+                                mesh_buffer.vertex_count,
+                                texture,
+                            );
+                        }
+                        _ => unimplemented!("Bra no such shader!"),
+                    }
+                }
             }
         }
 

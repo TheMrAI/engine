@@ -1,4 +1,3 @@
-use graphic::camera::Camera;
 use lina::matrix::resize;
 use lina::matrix::{Matrix, Resize};
 
@@ -7,31 +6,11 @@ use wgpu::RenderPipeline;
 use wgpu::{DepthBiasState, DepthStencilState, Face, StencilState};
 
 #[derive(Debug)]
-pub struct Instance {
-    pub model_matrix: Matrix<f32, 4, 4>,
-}
-
-// An Entity represents a Mesh in and its LODs (in the future).
-// Each instance defines the transformations applied to each vertex.
-#[derive(Debug)]
-struct Entity {
-    // Our data remains relatively stable, i.e no meshes change and no transform
-    // matrices can change for a given entity. So for now, we don't need to maintain
-    // the individual buffers, rather the constructed BindGroup will be enough.
-    bind_group: wgpu::BindGroup,
-    instance_buffer: wgpu::Buffer,
-    instances: Vec<Instance>,
-    // For different LOD levels, we could turn this into a vector.
-    vertex_count: u32,
-}
-
-#[derive(Debug)]
 pub struct NormalDebug {
     // Non-instanced entities
     // Prepared render pipeline and all the necessary info for rendering the scene
     bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: RenderPipeline,
-    entities: Vec<Entity>,
 }
 
 impl NormalDebug {
@@ -122,22 +101,24 @@ impl NormalDebug {
             cache: None,
         });
 
-        let entities = Vec::<Entity>::new();
-
         Self {
             bind_group_layout,
             render_pipeline,
-            entities,
         }
     }
 
-    pub fn add_entity_instances(
-        &mut self,
+    #[allow(clippy::too_many_arguments)]
+    pub fn render(
+        &self,
+        render_pass: &mut wgpu::RenderPass,
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view_matrix: &Matrix<f32, 4, 4>,
+        _view_projection_matrix: &Matrix<f32, 4, 4>,
         global_uniform_buffer: &wgpu::Buffer,
+        instances: &[Matrix<f32, 4, 4>],
         vertex_buffer: &wgpu::Buffer,
         vertex_count: u32,
-        instances: Vec<Instance>,
     ) {
         // Instance Storage buffer
         // (model matrix + normal matrix) * float size
@@ -181,71 +162,48 @@ impl NormalDebug {
             ],
         });
 
-        self.entities.push(Entity {
-            bind_group,
-            instance_buffer,
-            instances,
-            vertex_count,
-        })
-    }
+        let mut instance_buffer_data = vec![0; instance_buffer.size() as usize];
 
-    pub fn render(
-        &self,
-        render_pass: &mut wgpu::RenderPass,
-        queue: &wgpu::Queue,
-        _camera: &Camera,
-        view_matrix: &Matrix<f32, 4, 4>,
-        _view_projection_matrix: &Matrix<f32, 4, 4>,
-    ) {
-        // Update entity storage buffers
-        for entity in &self.entities {
-            let instance_size = entity.instance_buffer.size() as usize / entity.instances.len();
-            let mut instance_buffer = vec![0; entity.instance_buffer.size() as usize];
+        for (i, model_matrix) in instances.iter().enumerate() {
+            let normal_matrix = {
+                let view_model_matrix = *view_matrix * *model_matrix;
 
-            for (i, instance) in entity.instances.iter().enumerate() {
-                let normal_matrix = {
-                    let view_model_matrix = *view_matrix * instance.model_matrix;
+                let matrix = resize!(view_model_matrix, 3, 3);
+                matrix.adjoint()
+            };
 
-                    let matrix = resize!(view_model_matrix, 3, 3);
-                    matrix.adjoint()
-                };
+            let padded_flattened_normal_matrix = resize!(normal_matrix, 4, 3);
 
-                let padded_flattened_normal_matrix = resize!(normal_matrix, 4, 3);
+            let gpu_instance_bytes = model_matrix
+                .transpose()
+                .as_slices()
+                .iter()
+                .flatten()
+                .flat_map(|entry| entry.to_le_bytes())
+                .chain(
+                    padded_flattened_normal_matrix
+                        .as_slices()
+                        .iter()
+                        .flatten()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .collect::<Vec<u8>>();
 
-                let gpu_instance_bytes = instance
-                    .model_matrix
-                    .transpose()
-                    .as_slices()
-                    .iter()
-                    .flatten()
-                    .flat_map(|entry| entry.to_le_bytes())
-                    .chain(
-                        padded_flattened_normal_matrix
-                            .as_slices()
-                            .iter()
-                            .flatten()
-                            .flat_map(|entry| entry.to_le_bytes()),
-                    )
-                    .collect::<Vec<u8>>();
-
-                unsafe {
-                    std::ptr::copy(
-                        gpu_instance_bytes.as_ptr(),
-                        instance_buffer.as_mut_ptr().add(instance_size * i),
-                        gpu_instance_bytes.len(),
-                    );
-                }
+            unsafe {
+                std::ptr::copy(
+                    gpu_instance_bytes.as_ptr(),
+                    instance_buffer_data
+                        .as_mut_ptr()
+                        .add(instance_storage_size as usize * i),
+                    gpu_instance_bytes.len(),
+                );
             }
-            queue.write_buffer(&entity.instance_buffer, 0, &instance_buffer);
         }
+        queue.write_buffer(&instance_buffer, 0, &instance_buffer_data);
 
         render_pass.set_pipeline(&self.render_pipeline);
 
-        // Emit the draw calls
-        // entities
-        for entity in &self.entities {
-            render_pass.set_bind_group(0, Some(&entity.bind_group), &[]);
-            render_pass.draw(0..entity.vertex_count, 0..entity.instances.len() as u32);
-        }
+        render_pass.set_bind_group(0, Some(&bind_group), &[]);
+        render_pass.draw(0..vertex_count, 0..instances.len() as u32);
     }
 }

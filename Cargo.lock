@@ -1524,6 +1524,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "scene"
+version = "0.1.0"
+dependencies = [
+ "lina",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1888,8 +1895,10 @@ dependencies = [
  "graphic",
  "lina",
  "mesh",
+ "png",
  "pollster",
  "project",
+ "scene",
  "toml",
  "webgpu",
  "winit",
@@ -2106,6 +2115,7 @@ dependencies = [
  "lina",
  "mesh",
  "png",
+ "scene",
  "wgpu",
  "winit",
 ]

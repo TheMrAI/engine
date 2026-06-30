@@ -1,37 +1,3 @@
-pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
-    let image_data = include_bytes!("../../voxon/resources/textures/texture_01.png");
-    let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
-    let mut reader = png_decoder.read_info().unwrap();
-    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
-    let frame_info = reader.next_frame(&mut buf).unwrap();
-    let bytes = &buf[..frame_info.buffer_size()];
-
-    let dimensions = wgpu::Extent3d {
-        width: frame_info.width,
-        height: frame_info.height,
-        depth_or_array_layers: 1,
-    };
-
-    upload_texture(device, queue, dimensions, &[bytes], true)
-}
-
-pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Texture {
-    let image_data = include_bytes!("../../voxon/resources/textures/cube_atlas.png");
-    let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
-    let mut reader = png_decoder.read_info().unwrap();
-    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
-    let frame_info = reader.next_frame(&mut buf).unwrap();
-    let bytes = &buf[..frame_info.buffer_size()];
-
-    let dimensions = wgpu::Extent3d {
-        width: frame_info.width,
-        height: frame_info.height,
-        depth_or_array_layers: 1,
-    };
-
-    upload_texture(device, queue, dimensions, &[bytes], true)
-}
-
 pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
     // This is nasty, as the textures are compiled into the binary, but for now it is okay.
     // px

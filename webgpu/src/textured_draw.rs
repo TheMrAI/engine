@@ -1,4 +1,3 @@
-use graphic::camera::Camera;
 use lina::matrix::Matrix;
 
 use std::borrow::Cow;
@@ -6,31 +5,10 @@ use wgpu::RenderPipeline;
 use wgpu::{DepthBiasState, DepthStencilState, Face, StencilState};
 
 #[derive(Debug)]
-pub struct Instance {
-    pub model_matrix: Matrix<f32, 4, 4>,
-}
-
-#[derive(Debug)]
-pub struct TextureInstance {
-    pub texture_scale: f32,
-}
-
-#[derive(Debug)]
-struct Entity {
-    bind_group: wgpu::BindGroup,
-    instance_buffer: wgpu::Buffer,
-    instances: Vec<Instance>,
-    texture_instance_buffer: wgpu::Buffer,
-    texture_instances: Vec<TextureInstance>,
-    vertex_count: u32,
-}
-
-#[derive(Debug)]
 pub struct Textured {
     // Prepared render pipeline and all the necessary info for rendering the scene
     bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: RenderPipeline,
-    entities: Vec<Entity>,
     sampler: wgpu::Sampler,
 }
 
@@ -159,26 +137,26 @@ impl Textured {
             ..Default::default()
         });
 
-        let entities = Vec::<Entity>::new();
-
         Self {
             bind_group_layout,
             render_pipeline,
-            entities,
             sampler,
         }
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn add_entity_instances(
-        &mut self,
+    pub fn render(
+        &self,
+        render_pass: &mut wgpu::RenderPass,
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        _view_matrix: &Matrix<f32, 4, 4>,
+        _view_projection_matrix: &Matrix<f32, 4, 4>,
         global_uniform_buffer: &wgpu::Buffer,
+        instances: &[(Matrix<f32, 4, 4>, f32)],
         vertex_buffer: &wgpu::Buffer,
         vertex_count: u32,
-        instances: Vec<Instance>,
-        texture_instances: Vec<TextureInstance>,
-        texture: wgpu::Texture,
+        texture: &wgpu::Texture,
     ) {
         // Instance Storage buffer
         // (model matrix + normal matrix) * float size
@@ -248,78 +226,52 @@ impl Textured {
             ],
         });
 
-        self.entities.push(Entity {
-            bind_group,
-            instance_buffer,
-            instances,
-            vertex_count,
-            texture_instance_buffer,
-            texture_instances,
-        })
-    }
+        let mut instance_buffer_data = vec![0; instance_buffer.size() as usize];
 
-    pub fn render(
-        &self,
-        render_pass: &mut wgpu::RenderPass,
-        queue: &wgpu::Queue,
-        _camera: &Camera,
-        _view_projection_matrix: &Matrix<f32, 4, 4>,
-    ) {
-        // Update entity storage buffers
-        for entity in &self.entities {
-            let instance_size = entity.instance_buffer.size() as usize / entity.instances.len();
-            let mut instance_buffer = vec![0; entity.instance_buffer.size() as usize];
+        for (i, (model_matrix, _)) in instances.iter().enumerate() {
+            let gpu_instance_bytes = model_matrix
+                .transpose()
+                .as_slices()
+                .iter()
+                .flatten()
+                .flat_map(|entry| entry.to_le_bytes())
+                .collect::<Vec<u8>>();
 
-            for (i, instance) in entity.instances.iter().enumerate() {
-                let gpu_instance_bytes = instance
-                    .model_matrix
-                    .transpose()
-                    .as_slices()
-                    .iter()
-                    .flatten()
-                    .flat_map(|entry| entry.to_le_bytes())
-                    .collect::<Vec<u8>>();
-
-                unsafe {
-                    std::ptr::copy(
-                        gpu_instance_bytes.as_ptr(),
-                        instance_buffer.as_mut_ptr().add(instance_size * i),
-                        gpu_instance_bytes.len(),
-                    );
-                }
+            unsafe {
+                std::ptr::copy(
+                    gpu_instance_bytes.as_ptr(),
+                    instance_buffer_data
+                        .as_mut_ptr()
+                        .add(instance_storage_size as usize * i),
+                    gpu_instance_bytes.len(),
+                );
             }
-            queue.write_buffer(&entity.instance_buffer, 0, &instance_buffer);
-
-            let texture_instance_size =
-                entity.texture_instance_buffer.size() as usize / entity.texture_instances.len();
-            let mut texture_instance_buffer =
-                vec![0; entity.texture_instance_buffer.size() as usize];
-            for (i, instance) in entity.texture_instances.iter().enumerate() {
-                let gpu_instance_bytes = [instance.texture_scale]
-                    .iter()
-                    .flat_map(|entry| entry.to_le_bytes())
-                    .collect::<Vec<u8>>();
-
-                unsafe {
-                    std::ptr::copy(
-                        gpu_instance_bytes.as_ptr(),
-                        texture_instance_buffer
-                            .as_mut_ptr()
-                            .add(texture_instance_size * i),
-                        gpu_instance_bytes.len(),
-                    );
-                }
-            }
-            queue.write_buffer(&entity.texture_instance_buffer, 0, &texture_instance_buffer);
         }
+        queue.write_buffer(&instance_buffer, 0, &instance_buffer_data);
+
+        let mut texture_instance_buffer_data = vec![0; texture_instance_buffer.size() as usize];
+
+        for (i, (_, texture_scale)) in instances.iter().enumerate() {
+            let gpu_instance_bytes = [texture_scale]
+                .iter()
+                .flat_map(|entry| entry.to_le_bytes())
+                .collect::<Vec<u8>>();
+
+            unsafe {
+                std::ptr::copy(
+                    gpu_instance_bytes.as_ptr(),
+                    texture_instance_buffer_data
+                        .as_mut_ptr()
+                        .add(texture_instance_storage_size as usize * i),
+                    gpu_instance_bytes.len(),
+                );
+            }
+        }
+        queue.write_buffer(&texture_instance_buffer, 0, &texture_instance_buffer_data);
 
         render_pass.set_pipeline(&self.render_pipeline);
 
-        // Emit the draw calls
-        // entities
-        for entity in &self.entities {
-            render_pass.set_bind_group(0, Some(&entity.bind_group), &[]);
-            render_pass.draw(0..entity.vertex_count, 0..entity.instances.len() as u32);
-        }
+        render_pass.set_bind_group(0, Some(&bind_group), &[]);
+        render_pass.draw(0..vertex_count, 0..instances.len() as u32);
     }
 }
