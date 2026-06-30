@@ -15,6 +15,109 @@ pub struct Game {
 
 impl Game {
     pub fn new(mut rendering_api: RenderServer) -> Self {
+        // SIMULATING SCENE BY CONSTRUCTING IT BY HAND
+        // SUZANNE flat 967
+        let suzanne_flat_967_data =
+            include_str!("../../voxon/resources/meshes/suzanne_flat_967.obj");
+        let suzanne_flat_967 = format::wavefront::Obj::parse(
+            suzanne_flat_967_data.lines().map(String::from),
+            "Suzanne_flat_967",
+        );
+        rendering_api.load_mesh(&suzanne_flat_967.try_into().unwrap());
+
+        // SUZANNE flat 967 messed up normals
+        let suzanne_flat_967_messed_up_normals_data =
+            include_str!("../../voxon/resources/meshes/suzanne_flat_967_messed_up_normals.obj");
+        let suzanne_flat_967_messed_up_normals = format::wavefront::Obj::parse(
+            suzanne_flat_967_messed_up_normals_data
+                .lines()
+                .map(String::from),
+            "Suzanne_flat_967_messed_up_normals",
+        );
+        rendering_api.load_mesh(&suzanne_flat_967_messed_up_normals.try_into().unwrap());
+
+        // SUZANNE smooth 967
+        let suzanne_smooth_967_data =
+            include_str!("../../voxon/resources/meshes/suzanne_smooth_967.obj");
+        let suzanne_smooth_967 = format::wavefront::Obj::parse(
+            suzanne_smooth_967_data.lines().map(String::from),
+            "Suzanne_smooth_967",
+        );
+        rendering_api.load_mesh(&suzanne_smooth_967.try_into().unwrap());
+
+        // SUZANNE smooth 967 messed up normals
+        let suzanne_smooth_967_messed_up_normals_data =
+            include_str!("../../voxon/resources/meshes/suzanne_smooth_967_messed_up_normals.obj");
+        let suzanne_smooth_967_messed_up_normals = format::wavefront::Obj::parse(
+            suzanne_smooth_967_messed_up_normals_data
+                .lines()
+                .map(String::from),
+            "Suzanne_smooth_967_messed_up_normals",
+        );
+        rendering_api.load_mesh(&suzanne_smooth_967_messed_up_normals.try_into().unwrap());
+
+        // Utah teapot flat 7k
+        let utah_flat_7k_data =
+            include_str!("../../voxon/resources/meshes/utah_teapot_flat_7k.obj");
+        let utah_flat_7k = format::wavefront::Obj::parse(
+            utah_flat_7k_data.lines().map(String::from),
+            "Utah_flat_7k",
+        );
+        rendering_api.load_mesh(&utah_flat_7k.try_into().unwrap());
+
+        // Utah teapot smooth 7k
+        let utah_smooth_7k_data =
+            include_str!("../../voxon/resources/meshes/utah_teapot_smooth_7k.obj");
+        let utah_smooth_7k = format::wavefront::Obj::parse(
+            utah_smooth_7k_data.lines().map(String::from),
+            "Utah_smooth_7k",
+        );
+        rendering_api.load_mesh(&utah_smooth_7k.try_into().unwrap());
+
+        // Utah teapot smooth 116k
+        let utah_smooth_116k_data =
+            include_str!("../../voxon/resources/meshes/utah_teapot_smooth_116k.obj");
+        let utah_smooth_116k = format::wavefront::Obj::parse(
+            utah_smooth_116k_data.lines().map(String::from),
+            "Utah_smooth_116k",
+        );
+        rendering_api.load_mesh(&utah_smooth_116k.try_into().unwrap());
+
+        // Stanford dragon flat 17k
+        let stanford_dragon_flat_17k_data =
+            include_str!("../../voxon/resources/meshes/stanford_dragon_flat_17k.obj");
+        let stanford_dragon_flat_17k = format::wavefront::Obj::parse(
+            stanford_dragon_flat_17k_data.lines().map(String::from),
+            "Stanford_dragon_flat_17k",
+        );
+        rendering_api.load_mesh(&stanford_dragon_flat_17k.try_into().unwrap());
+
+        // Stanford dragon smooth 17k
+        let stanford_dragon_smooth_17k_data =
+            include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_17k.obj");
+        let stanford_dragon_smooth_17k = format::wavefront::Obj::parse(
+            stanford_dragon_smooth_17k_data.lines().map(String::from),
+            "Stanford_dragon_smooth_17k",
+        );
+        rendering_api.load_mesh(&stanford_dragon_smooth_17k.try_into().unwrap());
+
+        // Stanford dragon smooth 700k
+        let stanford_dragon_smooth_700k_data =
+            include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_700k.obj");
+        let stanford_dragon_smooth_700k = format::wavefront::Obj::parse(
+            stanford_dragon_smooth_700k_data.lines().map(String::from),
+            "Stanford_dragon_smooth_700k",
+        );
+        rendering_api.load_mesh(&stanford_dragon_smooth_700k.try_into().unwrap());
+
+        // Plane entry
+        let plane_mesh = mesh::generate_plane();
+        rendering_api.load_mesh(&plane_mesh);
+
+        // Cube entry
+        let cube_mesh = mesh::generate_cube();
+        rendering_api.load_mesh(&cube_mesh);
+
         // Should not happen here
         rendering_api.load_scene();
 

@@ -15,6 +15,7 @@ struct Instance {
 struct VertexData {
     position: vec4f,
     normal: vec3f,
+    uv: vec2f,
 }
 
 @group(0)

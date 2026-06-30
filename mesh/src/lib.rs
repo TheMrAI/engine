@@ -1,5 +1,7 @@
 use lina::{v, vector::Vector};
 
+mod try_from;
+
 #[derive(Debug, Copy, Clone)]
 pub struct Vertex {
     position: Vector<f32, 4>,
@@ -8,6 +10,14 @@ pub struct Vertex {
 }
 
 impl Vertex {
+    pub fn new(position: Vector<f32, 4>, normal: Vector<f32, 3>, uv: Vector<f32, 2>) -> Self {
+        Self {
+            position,
+            normal,
+            uv,
+        }
+    }
+
     pub fn position(&self) -> &Vector<f32, 4> {
         &self.position
     }
@@ -22,8 +32,8 @@ impl Vertex {
 }
 
 pub struct Mesh {
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u32>,
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
 }
 
 impl Mesh {
