@@ -1,4 +1,6 @@
 use graphic::camera::Camera;
+use std::cell::RefCell;
+use std::rc::Rc;
 use webgpu::RenderServer;
 
 #[derive(Debug)]
@@ -11,269 +13,276 @@ pub struct Game {
     navigation_speed: f32, // speed in m/s
     frametimes: frametime::Sampler<1024>,
     elapsed_time: std::time::Duration,
+    // Scene graph tumor (just a single vector for now)
+    nodes: Vec<Rc<RefCell<scene::MeshNode>>>,
 }
 
 impl Game {
     pub fn new(mut rendering_api: RenderServer) -> Self {
-        // SIMULATING SCENE ELEMENTS BY CONSTRUCTING IT BY HAND
         let debug_shader_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(include_str!(
             "../../webgpu/src/normal_debug.wgsl"
         )));
         let debug_shader_wireframe_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(
             include_str!("../../webgpu/src/normal_debug_wireframe.wgsl"),
         ));
-
-        // SUZANNE flat 967
-        let suzanne_flat_967_data =
-            include_str!("../../voxon/resources/meshes/suzanne_flat_967.obj");
-        let suzanne_flat_967 = format::wavefront::Obj::parse(
-            suzanne_flat_967_data.lines().map(String::from),
-            "Suzanne_flat_967",
-        );
-        let mut mesh_id = rendering_api.load_mesh(&suzanne_flat_967.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
-                * graphic::transform::scale(2.0, 2.0, 2.0),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-        // Instancing load
-        // let mut x = -10.0;
-        // while x <= 10.0 {
-        //     let mut z = -5.0;
-        //     while z >= -25.0 {
-        //         let mut y = 5.0;
-        //         while y <= 15.0 {
-        //             rendering_api.schedule_render(scene::MeshNode {
-        //                 mesh_id,
-        //                 model_matrix: graphic::transform::translate(x, y, z)
-        //                     * graphic::transform::scale(1.0, 1.0, 1.0),
-        //                 shader_id: debug_shader_id,
-        //                 texture_id: None,
-        //                 texture_scale: None,
-        //             });
-        //             y += 5.0;
-        //         }
-        //         z -= 5.0;
-        //     }
-        //     x += 5.0;
-        // }
-
-        // SUZANNE flat 967 messed up normals
-        let suzanne_flat_967_messed_up_normals_data =
-            include_str!("../../voxon/resources/meshes/suzanne_flat_967_messed_up_normals.obj");
-        let suzanne_flat_967_messed_up_normals = format::wavefront::Obj::parse(
-            suzanne_flat_967_messed_up_normals_data
-                .lines()
-                .map(String::from),
-            "Suzanne_flat_967_messed_up_normals",
-        );
-        mesh_id = rendering_api.load_mesh(&suzanne_flat_967_messed_up_normals.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
-                * graphic::transform::scale(1.0, 1.0, 1.0),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // SUZANNE smooth 967
-        let suzanne_smooth_967_data =
-            include_str!("../../voxon/resources/meshes/suzanne_smooth_967.obj");
-        let suzanne_smooth_967 = format::wavefront::Obj::parse(
-            suzanne_smooth_967_data.lines().map(String::from),
-            "Suzanne_smooth_967",
-        );
-        mesh_id = rendering_api.load_mesh(&suzanne_smooth_967.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
-                * graphic::transform::scale(2.0, 2.0, 2.0),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // SUZANNE smooth 967 messed up normals
-        let suzanne_smooth_967_messed_up_normals_data =
-            include_str!("../../voxon/resources/meshes/suzanne_smooth_967_messed_up_normals.obj");
-        let suzanne_smooth_967_messed_up_normals = format::wavefront::Obj::parse(
-            suzanne_smooth_967_messed_up_normals_data
-                .lines()
-                .map(String::from),
-            "Suzanne_smooth_967_messed_up_normals",
-        );
-        mesh_id =
-            rendering_api.load_mesh(&suzanne_smooth_967_messed_up_normals.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
-                * graphic::transform::scale(1.0, 1.0, 1.0),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // Utah teapot flat 7k
-        let utah_flat_7k_data =
-            include_str!("../../voxon/resources/meshes/utah_teapot_flat_7k.obj");
-        let utah_flat_7k = format::wavefront::Obj::parse(
-            utah_flat_7k_data.lines().map(String::from),
-            "Utah_flat_7k",
-        );
-        mesh_id = rendering_api.load_mesh(&utah_flat_7k.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
-                * graphic::transform::scale(0.5, 0.5, 0.5),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // Utah teapot smooth 7k
-        let utah_smooth_7k_data =
-            include_str!("../../voxon/resources/meshes/utah_teapot_smooth_7k.obj");
-        let utah_smooth_7k = format::wavefront::Obj::parse(
-            utah_smooth_7k_data.lines().map(String::from),
-            "Utah_smooth_7k",
-        );
-        mesh_id = rendering_api.load_mesh(&utah_smooth_7k.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
-                * graphic::transform::scale(0.5, 0.5, 0.5),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // Utah teapot smooth 116k
-        let utah_smooth_116k_data =
-            include_str!("../../voxon/resources/meshes/utah_teapot_smooth_116k.obj");
-        let utah_smooth_116k = format::wavefront::Obj::parse(
-            utah_smooth_116k_data.lines().map(String::from),
-            "Utah_smooth_116k",
-        );
-        mesh_id = rendering_api.load_mesh(&utah_smooth_116k.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
-                * graphic::transform::scale(0.5, 0.5, 0.5),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // Stanford dragon flat 17k
-        let stanford_dragon_flat_17k_data =
-            include_str!("../../voxon/resources/meshes/stanford_dragon_flat_17k.obj");
-        let stanford_dragon_flat_17k = format::wavefront::Obj::parse(
-            stanford_dragon_flat_17k_data.lines().map(String::from),
-            "Stanford_dragon_flat_17k",
-        );
-        mesh_id = rendering_api.load_mesh(&stanford_dragon_flat_17k.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
-                * graphic::transform::scale(18.0, 18.0, 18.0),
-            shader_id: debug_shader_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // Stanford dragon smooth 17k
-        let stanford_dragon_smooth_17k_data =
-            include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_17k.obj");
-        let stanford_dragon_smooth_17k = format::wavefront::Obj::parse(
-            stanford_dragon_smooth_17k_data.lines().map(String::from),
-            "Stanford_dragon_smooth_17k",
-        );
-        mesh_id = rendering_api.load_mesh(&stanford_dragon_smooth_17k.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
-                * graphic::transform::scale(18.0, 18.0, 18.0),
-            shader_id: debug_shader_wireframe_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
-        // Stanford dragon smooth 700k
-        let stanford_dragon_smooth_700k_data =
-            include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_700k.obj");
-        let stanford_dragon_smooth_700k = format::wavefront::Obj::parse(
-            stanford_dragon_smooth_700k_data.lines().map(String::from),
-            "Stanford_dragon_smooth_700k",
-        );
-        mesh_id = rendering_api.load_mesh(&stanford_dragon_smooth_700k.try_into().unwrap());
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
-                * graphic::transform::scale(18.0, 18.0, 18.0),
-            shader_id: debug_shader_wireframe_id,
-            texture_id: None,
-            texture_scale: None,
-        });
-
         // Textured shader
         let textured_shader_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(
             include_str!("../../webgpu/src/textured_draw.wgsl"),
         ));
 
-        // Plane entry
-        let image_data = include_bytes!("../../voxon/resources/textures/texture_01.png");
-        let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
-        let mut reader = png_decoder.read_info().unwrap();
-        let mut buf = vec![0; reader.output_buffer_size().unwrap()];
-        let frame_info = reader.next_frame(&mut buf).unwrap();
-        let bytes = &buf[..frame_info.buffer_size()];
+        let nodes = {
+            let mut nodes = Vec::<Rc<RefCell<scene::MeshNode>>>::new();
 
-        let dimensions = webgpu::Dimensions {
-            width: frame_info.width,
-            height: frame_info.height,
-            depth_or_array_layers: 1,
+            // SUZANNE flat 967
+            let suzanne_flat_967_data =
+                include_str!("../../voxon/resources/meshes/suzanne_flat_967.obj");
+            let suzanne_flat_967 = format::wavefront::Obj::parse(
+                suzanne_flat_967_data.lines().map(String::from),
+                "Suzanne_flat_967",
+            );
+            let mut mesh_id = rendering_api.load_mesh(&suzanne_flat_967.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(0.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+            // Instancing load
+            // let mut x = -10.0;
+            // while x <= 10.0 {
+            //     let mut z = -5.0;
+            //     while z >= -25.0 {
+            //         let mut y = 5.0;
+            //         while y <= 15.0 {
+            //             nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+            //                 mesh_id,
+            //                 model_matrix: graphic::transform::translate(x, y, z)
+            //                     * graphic::transform::scale(1.0, 1.0, 1.0),
+            //                 shader_id: debug_shader_id,
+            //                 texture_id: None,
+            //                 texture_scale: None,
+            //             })));
+            //             y += 5.0;
+            //         }
+            //         z -= 5.0;
+            //     }
+            //     x += 5.0;
+            // }
+
+            // SUZANNE flat 967 messed up normals
+            let suzanne_flat_967_messed_up_normals_data =
+                include_str!("../../voxon/resources/meshes/suzanne_flat_967_messed_up_normals.obj");
+            let suzanne_flat_967_messed_up_normals = format::wavefront::Obj::parse(
+                suzanne_flat_967_messed_up_normals_data
+                    .lines()
+                    .map(String::from),
+                "Suzanne_flat_967_messed_up_normals",
+            );
+            mesh_id =
+                rendering_api.load_mesh(&suzanne_flat_967_messed_up_normals.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(-10.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // SUZANNE smooth 967
+            let suzanne_smooth_967_data =
+                include_str!("../../voxon/resources/meshes/suzanne_smooth_967.obj");
+            let suzanne_smooth_967 = format::wavefront::Obj::parse(
+                suzanne_smooth_967_data.lines().map(String::from),
+                "Suzanne_smooth_967",
+            );
+            mesh_id = rendering_api.load_mesh(&suzanne_smooth_967.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(5.0, 0.0, -5.0)
+                    * graphic::transform::scale(2.0, 2.0, 2.0),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // SUZANNE smooth 967 messed up normals
+            let suzanne_smooth_967_messed_up_normals_data = include_str!(
+                "../../voxon/resources/meshes/suzanne_smooth_967_messed_up_normals.obj"
+            );
+            let suzanne_smooth_967_messed_up_normals = format::wavefront::Obj::parse(
+                suzanne_smooth_967_messed_up_normals_data
+                    .lines()
+                    .map(String::from),
+                "Suzanne_smooth_967_messed_up_normals",
+            );
+            mesh_id =
+                rendering_api.load_mesh(&suzanne_smooth_967_messed_up_normals.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(-5.0, 0.0, -5.0)
+                    * graphic::transform::scale(1.0, 1.0, 1.0),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // Utah teapot flat 7k
+            let utah_flat_7k_data =
+                include_str!("../../voxon/resources/meshes/utah_teapot_flat_7k.obj");
+            let utah_flat_7k = format::wavefront::Obj::parse(
+                utah_flat_7k_data.lines().map(String::from),
+                "Utah_flat_7k",
+            );
+            mesh_id = rendering_api.load_mesh(&utah_flat_7k.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(0.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // Utah teapot smooth 7k
+            let utah_smooth_7k_data =
+                include_str!("../../voxon/resources/meshes/utah_teapot_smooth_7k.obj");
+            let utah_smooth_7k = format::wavefront::Obj::parse(
+                utah_smooth_7k_data.lines().map(String::from),
+                "Utah_smooth_7k",
+            );
+            mesh_id = rendering_api.load_mesh(&utah_smooth_7k.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(5.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // Utah teapot smooth 116k
+            let utah_smooth_116k_data =
+                include_str!("../../voxon/resources/meshes/utah_teapot_smooth_116k.obj");
+            let utah_smooth_116k = format::wavefront::Obj::parse(
+                utah_smooth_116k_data.lines().map(String::from),
+                "Utah_smooth_116k",
+            );
+            mesh_id = rendering_api.load_mesh(&utah_smooth_116k.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(10.0, -0.2, -10.0)
+                    * graphic::transform::scale(0.5, 0.5, 0.5),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // Stanford dragon flat 17k
+            let stanford_dragon_flat_17k_data =
+                include_str!("../../voxon/resources/meshes/stanford_dragon_flat_17k.obj");
+            let stanford_dragon_flat_17k = format::wavefront::Obj::parse(
+                stanford_dragon_flat_17k_data.lines().map(String::from),
+                "Stanford_dragon_flat_17k",
+            );
+            mesh_id = rendering_api.load_mesh(&stanford_dragon_flat_17k.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(0.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+                shader_id: debug_shader_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // Stanford dragon smooth 17k
+            let stanford_dragon_smooth_17k_data =
+                include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_17k.obj");
+            let stanford_dragon_smooth_17k = format::wavefront::Obj::parse(
+                stanford_dragon_smooth_17k_data.lines().map(String::from),
+                "Stanford_dragon_smooth_17k",
+            );
+            mesh_id = rendering_api.load_mesh(&stanford_dragon_smooth_17k.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(5.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+                shader_id: debug_shader_wireframe_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // Stanford dragon smooth 700k
+            let stanford_dragon_smooth_700k_data =
+                include_str!("../../voxon/resources/meshes/stanford_dragon_smooth_700k.obj");
+            let stanford_dragon_smooth_700k = format::wavefront::Obj::parse(
+                stanford_dragon_smooth_700k_data.lines().map(String::from),
+                "Stanford_dragon_smooth_700k",
+            );
+            mesh_id = rendering_api.load_mesh(&stanford_dragon_smooth_700k.try_into().unwrap());
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(10.0, 0.0, -15.0)
+                    * graphic::transform::scale(18.0, 18.0, 18.0),
+                shader_id: debug_shader_wireframe_id,
+                texture_id: None,
+                texture_scale: None,
+            })));
+
+            // Plane entry
+            let image_data = include_bytes!("../../voxon/resources/textures/texture_01.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let bytes = &buf[..frame_info.buffer_size()];
+
+            let dimensions = webgpu::Dimensions {
+                width: frame_info.width,
+                height: frame_info.height,
+                depth_or_array_layers: 1,
+            };
+
+            let texture_id = rendering_api.load_texture(&[bytes], dimensions);
+            let plane_mesh = mesh::generate_plane();
+            mesh_id = rendering_api.load_mesh(&plane_mesh);
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
+                    * graphic::transform::scale(50.0, 1.0, 50.0),
+                shader_id: textured_shader_id,
+                texture_id: Some(texture_id),
+                texture_scale: Some(50.0),
+            })));
+
+            // Cube entry
+            let image_data = include_bytes!("../../voxon/resources/textures/cube_atlas.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let bytes = &buf[..frame_info.buffer_size()];
+
+            let dimensions = webgpu::Dimensions {
+                width: frame_info.width,
+                height: frame_info.height,
+                depth_or_array_layers: 1,
+            };
+
+            let texture_id = rendering_api.load_texture(&[bytes], dimensions);
+            let cube_mesh = mesh::generate_cube();
+            mesh_id = rendering_api.load_mesh(&cube_mesh);
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::identity_matrix(),
+                shader_id: textured_shader_id,
+                texture_id: Some(texture_id),
+                texture_scale: Some(1.0),
+            })));
+            nodes
         };
-
-        let texture_id = rendering_api.load_texture(&[bytes], dimensions);
-        let plane_mesh = mesh::generate_plane();
-        mesh_id = rendering_api.load_mesh(&plane_mesh);
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::transform::translate(0.0, -1.0, 0.0)
-                * graphic::transform::scale(50.0, 1.0, 50.0),
-            shader_id: textured_shader_id,
-            texture_id: Some(texture_id),
-            texture_scale: Some(50.0),
-        });
-
-        // Cube entry
-        let image_data = include_bytes!("../../voxon/resources/textures/cube_atlas.png");
-        let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
-        let mut reader = png_decoder.read_info().unwrap();
-        let mut buf = vec![0; reader.output_buffer_size().unwrap()];
-        let frame_info = reader.next_frame(&mut buf).unwrap();
-        let bytes = &buf[..frame_info.buffer_size()];
-
-        let dimensions = webgpu::Dimensions {
-            width: frame_info.width,
-            height: frame_info.height,
-            depth_or_array_layers: 1,
-        };
-
-        let texture_id = rendering_api.load_texture(&[bytes], dimensions);
-        let cube_mesh = mesh::generate_cube();
-        mesh_id = rendering_api.load_mesh(&cube_mesh);
-        rendering_api.schedule_render(scene::MeshNode {
-            mesh_id,
-            model_matrix: graphic::identity_matrix(),
-            shader_id: textured_shader_id,
-            texture_id: Some(texture_id),
-            texture_scale: Some(1.0),
-        });
 
         Self {
             rendering_api,
@@ -284,6 +293,7 @@ impl Game {
             navigation_speed: 1.0,
             frametimes: frametime::Sampler::new(),
             elapsed_time: std::time::Duration::default(),
+            nodes,
         }
     }
 
@@ -399,6 +409,14 @@ impl Game {
     fn simulate(&mut self) {}
 
     fn render(&mut self, delta_t: std::time::Duration) {
+        // This is where we would walk the scene graph again after all the simulations, node additions,
+        // deletions and schedule the nodes for rendering.
+        // Internally, the rendering API has to be able to cache and organize the draw requests as it
+        // sees fit.
+        for node in &self.nodes {
+            self.rendering_api.schedule_render(node.clone());
+        }
+
         self.frametimes.add_frametime(delta_t.as_nanos());
         self.elapsed_time += delta_t;
 

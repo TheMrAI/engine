@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::{normal_debug, normal_debug_wireframe, skybox, textured_draw};
@@ -13,6 +15,8 @@ pub struct Dimensions {
     pub height: u32,
     pub depth_or_array_layers: u32,
 }
+
+type MeshInstanceCache = std::collections::HashMap<u32, Vec<Rc<RefCell<MeshNode>>>>;
 
 #[derive(Debug)]
 pub struct RenderServer {
@@ -32,7 +36,7 @@ pub struct RenderServer {
     next_texture_id: u32,
     texture_cache: std::collections::HashMap<u32, Texture>,
     // Rendering pipelines
-    render_entries: std::collections::HashMap<u32, std::collections::HashMap<u32, Vec<MeshNode>>>,
+    render_entries: std::collections::HashMap<u32, MeshInstanceCache>,
     textured: textured_draw::Textured,
     normal_debug: normal_debug::NormalDebug,
     normal_debug_wireframe: normal_debug_wireframe::NormalDebugWireframe,
@@ -92,8 +96,10 @@ impl RenderServer {
         let mesh_cache = std::collections::HashMap::<u32, MeshBuffer>::new();
         let shader_cache = std::collections::HashMap::<u32, wgpu::ShaderModule>::new();
         let texture_cache = std::collections::HashMap::<u32, Texture>::new();
-        let render_entries =
-            std::collections::HashMap::<u32, std::collections::HashMap<u32, Vec<MeshNode>>>::new();
+        let render_entries = std::collections::HashMap::<
+            u32,
+            std::collections::HashMap<u32, Vec<Rc<RefCell<MeshNode>>>>,
+        >::new();
 
         let textured = textured_draw::Textured::new(&device, swapchain_format.into());
         let normal_debug = normal_debug::NormalDebug::new(&device, swapchain_format.into());
@@ -198,9 +204,12 @@ impl RenderServer {
     // TODO Eventually this should not take a node at all, but a reference or a pointer to the Node.
     // The Node is maintained by the Engine in the Scene graph.
     // The RenderServer merely has to access the nodes when appropriate to read the necessary values.
-    pub fn schedule_render(&mut self, mesh_node: MeshNode) {
-        let pipeline = self.render_entries.entry(mesh_node.shader_id).or_default();
-        let instances = pipeline.entry(mesh_node.mesh_id).or_default();
+    pub fn schedule_render(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
+        let pipeline = self
+            .render_entries
+            .entry(mesh_node.borrow().shader_id)
+            .or_default();
+        let instances = pipeline.entry(mesh_node.borrow().mesh_id).or_default();
         instances.push(mesh_node);
     }
 
@@ -327,7 +336,7 @@ impl RenderServer {
                             let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
                             let instances = mesh_instances
                                 .iter()
-                                .map(|instance| instance.model_matrix)
+                                .map(|instance| instance.borrow().model_matrix)
                                 .collect::<Vec<_>>();
 
                             self.normal_debug.render(
@@ -346,7 +355,7 @@ impl RenderServer {
                             let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
                             let instances = mesh_instances
                                 .iter()
-                                .map(|instance| instance.model_matrix)
+                                .map(|instance| instance.borrow().model_matrix)
                                 .collect::<Vec<_>>();
 
                             self.normal_debug_wireframe.render(
@@ -373,12 +382,15 @@ impl RenderServer {
                             // We aren't just there yet, so care is required.
                             let texture = self
                                 .texture_cache
-                                .get(&mesh_instances.first().unwrap().texture_id.unwrap())
+                                .get(&mesh_instances.first().unwrap().borrow().texture_id.unwrap())
                                 .unwrap();
                             let instances = mesh_instances
                                 .iter()
                                 .map(|instance| {
-                                    (instance.model_matrix, instance.texture_scale.unwrap())
+                                    (
+                                        instance.borrow().model_matrix,
+                                        instance.borrow().texture_scale.unwrap(),
+                                    )
                                 })
                                 .collect::<Vec<_>>();
 
@@ -404,6 +416,11 @@ impl RenderServer {
         self.queue.submit(Some(encoder.finish()));
 
         frame.present();
+
+        // Purge all scheduled entries for this rendering cycle
+        // TODO should not be necessary after the pipelines are able to cache the
+        // rendering requests
+        self.render_entries.clear();
     }
 }
 
