@@ -1,68 +1,16 @@
-//! Scene with a single cubemapped cube in it.
-//!
-//! Can only be rendered as part of another scene which handles the camera
-//! and it's view transformations.
-use lina::matrix::Matrix;
-use wgpu::{BindingResource, VertexAttribute, VertexBufferLayout};
+use lina::matrix::resize;
+use lina::matrix::{Matrix, Resize};
 
-use crate::texture::load_cubemap_textures;
-use mesh::generate_cube;
-
-// TODO Code is dead. Has been for a while, still
-// keeping it until it is clear it won't be used.
-
-#[allow(dead_code)]
+#[derive(Debug)]
 pub struct CubeMap {
+    // Prepared render pipeline and all the necessary info for rendering the scene
+    bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: wgpu::RenderPipeline,
-    uniform_buffer: wgpu::Buffer,
-    bind_group: wgpu::BindGroup,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    index_format: wgpu::IndexFormat,
-    index_count: usize,
+    sampler: wgpu::Sampler,
 }
 
 impl CubeMap {
-    #[allow(dead_code)]
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        color_target: wgpu::ColorTargetState,
-    ) -> Self {
-        let cube_mesh = generate_cube();
-        let cube_vertex_data = cube_mesh
-            .vertices()
-            .iter()
-            .flat_map(|entry| {
-                entry
-                    .position()
-                    .as_slice()
-                    .iter()
-                    .flat_map(|value| value.to_le_bytes())
-            })
-            .collect::<Vec<u8>>();
-
-        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("cube_vertex_buffer"),
-            size: cube_vertex_data.len() as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&vertex_buffer, 0, &cube_vertex_data);
-
-        let cube_index_data = cube_mesh
-            .indices()
-            .iter()
-            .flat_map(|index| index.to_le_bytes())
-            .collect::<Vec<_>>();
-        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("cube_index_buffer"),
-            size: cube_index_data.len() as u64,
-            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        queue.write_buffer(&index_buffer, 0, &cube_index_data);
-
+    pub fn new(device: &wgpu::Device, color_target: wgpu::ColorTargetState) -> Self {
         let cube_map_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("cube_map_shader"),
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
@@ -70,21 +18,73 @@ impl CubeMap {
             ))),
         });
 
+        // Bind group layout
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("bind_group"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::Cube,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("pipeline_layout"),
+            bind_group_layouts: &[&bind_group_layout],
+            immediate_size: 0,
+        });
+
+        // pipeline
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("cube_map"),
-            layout: None, // auto pipeline layout,
+            layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &cube_map_shader,
                 entry_point: Some("vs_main"),
-                buffers: &[VertexBufferLayout {
-                    array_stride: 4 * 4,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[VertexAttribute {
-                        format: wgpu::VertexFormat::Float32x4,
-                        offset: 0,
-                        shader_location: 0,
-                    }],
-                }],
+                buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -114,13 +114,6 @@ impl CubeMap {
             cache: None,
         });
 
-        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("cube_map_uniforms"),
-            size: 16 * 4,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::UNIFORM,
-            mapped_at_creation: false,
-        });
-
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("environment_map_sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -132,63 +125,131 @@ impl CubeMap {
             ..Default::default()
         });
 
-        let texture_view = load_cubemap_textures(device, queue);
+        Self {
+            bind_group_layout,
+            render_pipeline,
+            sampler,
+        }
+    }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn render(
+        &self,
+        render_pass: &mut wgpu::RenderPass,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view_matrix: &Matrix<f32, 4, 4>,
+        _view_projection_matrix: &Matrix<f32, 4, 4>,
+        global_uniform_buffer: &wgpu::Buffer,
+        instances: &[Matrix<f32, 4, 4>],
+        vertex_buffer: &wgpu::Buffer,
+        vertex_count: u32,
+        texture: &wgpu::Texture,
+    ) {
+        // Instance Storage buffer
+        // (model matrix + normal matrix) * float size
+        let instance_storage_size = (16 + 12) * 4;
+        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Instance storage buffer"),
+            size: instance_storage_size * instances.len() as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Create bind group
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("cube_map_bind_group"),
-            layout: &render_pipeline.get_bind_group_layout(0),
+            label: Some("bind_group"),
+            layout: &self.bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &uniform_buffer,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: global_uniform_buffer,
+                        offset: 0,
+                        size: None, // use whole buffer
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &instance_buffer,
                         offset: 0,
                         size: None,
                     }),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&sampler),
+                    binding: 2,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: vertex_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
                 },
                 wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: BindingResource::TextureView(&texture_view),
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&texture.create_view(
+                        &wgpu::wgt::TextureViewDescriptor {
+                            label: Some("cube_view"),
+                            format: None,
+                            dimension: Some(wgpu::TextureViewDimension::Cube),
+                            usage: Some(wgpu::TextureUsages::TEXTURE_BINDING),
+                            aspect: wgpu::TextureAspect::All,
+                            base_mip_level: 0,
+                            mip_level_count: None, // include all mipmap levels
+                            base_array_layer: 0,
+                            array_layer_count: Some(6),
+                        },
+                    )),
                 },
             ],
         });
 
-        Self {
-            render_pipeline,
-            uniform_buffer,
-            bind_group,
-            vertex_buffer,
-            index_buffer,
-            index_count: cube_mesh.indices().len(),
-            index_format: wgpu::IndexFormat::Uint32,
-        }
-    }
+        let mut instance_buffer_data = vec![0; instance_buffer.size() as usize];
 
-    #[allow(dead_code)]
-    pub fn render(
-        &self,
-        render_pass: &mut wgpu::RenderPass,
-        queue: &wgpu::Queue,
-        view_projection_matrix: Matrix<f32, 4, 4>,
-    ) {
+        for (i, model_matrix) in instances.iter().enumerate() {
+            let normal_matrix = {
+                let view_model_matrix = *view_matrix * *model_matrix;
+
+                let matrix = resize!(view_model_matrix, 3, 3);
+                matrix.adjoint()
+            };
+
+            let padded_flattened_normal_matrix = resize!(normal_matrix, 4, 3);
+
+            let gpu_instance_bytes = model_matrix
+                .transpose()
+                .as_slices()
+                .iter()
+                .flatten()
+                .flat_map(|entry| entry.to_le_bytes())
+                .chain(
+                    padded_flattened_normal_matrix
+                        .as_slices()
+                        .iter()
+                        .flatten()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
+                .collect::<Vec<u8>>();
+
+            unsafe {
+                std::ptr::copy(
+                    gpu_instance_bytes.as_ptr(),
+                    instance_buffer_data
+                        .as_mut_ptr()
+                        .add(instance_storage_size as usize * i),
+                    gpu_instance_bytes.len(),
+                );
+            }
+        }
+        queue.write_buffer(&instance_buffer, 0, &instance_buffer_data);
+
         render_pass.set_pipeline(&self.render_pipeline);
 
-        let uniforms = view_projection_matrix
-            .as_slices()
-            .iter()
-            .flatten()
-            .flat_map(|entry| entry.to_le_bytes())
-            .collect::<Vec<u8>>();
-
-        queue.write_buffer(&self.uniform_buffer, 0, &uniforms);
-
-        render_pass.set_bind_group(0, &self.bind_group, &[]);
-        render_pass.set_index_buffer(self.index_buffer.slice(..), self.index_format);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+        render_pass.set_bind_group(0, Some(&bind_group), &[]);
+        render_pass.draw(0..vertex_count, 0..instances.len() as u32);
     }
 }

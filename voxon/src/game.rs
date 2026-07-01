@@ -29,6 +29,10 @@ impl Game {
         let textured_shader_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(
             include_str!("../../webgpu/src/textured_draw.wgsl"),
         ));
+        // Cube map shader
+        let cube_map_shader_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(
+            include_str!("../../webgpu/src/cube_map.wgsl"),
+        ));
 
         let nodes = {
             let mut nodes = Vec::<Rc<RefCell<scene::MeshNode>>>::new();
@@ -272,7 +276,7 @@ impl Game {
             };
 
             let texture_id = rendering_api.load_texture(&[bytes], dimensions);
-            let cube_mesh = mesh::generate_cube();
+            let cube_mesh = mesh::generate_cube(false);
             mesh_id = rendering_api.load_mesh(&cube_mesh);
             nodes.push(Rc::new(RefCell::new(scene::MeshNode {
                 mesh_id,
@@ -281,6 +285,80 @@ impl Game {
                 texture_id: Some(texture_id),
                 texture_scale: Some(1.0),
             })));
+
+            // Cube Map entry
+            //
+            // This is nasty, as the textures are compiled into the binary, but for now it is okay.
+            // px
+            let image_data =
+                include_bytes!("../../voxon/resources/textures/skybox/sky_cube_px.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let px_bytes = &buf[..frame_info.buffer_size()];
+            // nx
+            let image_data =
+                include_bytes!("../../voxon/resources/textures/skybox/sky_cube_nx.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let nx_bytes = &buf[..frame_info.buffer_size()];
+            // py
+            let image_data =
+                include_bytes!("../../voxon/resources/textures/skybox/sky_cube_py.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let py_bytes = &buf[..frame_info.buffer_size()];
+            // ny
+            let image_data =
+                include_bytes!("../../voxon/resources/textures/skybox/sky_cube_ny.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let ny_bytes = &buf[..frame_info.buffer_size()];
+            // pz
+            let image_data =
+                include_bytes!("../../voxon/resources/textures/skybox/sky_cube_pz.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let pz_bytes = &buf[..frame_info.buffer_size()];
+            // nz
+            let image_data =
+                include_bytes!("../../voxon/resources/textures/skybox/sky_cube_nz.png");
+            let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
+            let mut reader = png_decoder.read_info().unwrap();
+            let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+            let frame_info = reader.next_frame(&mut buf).unwrap();
+            let nz_bytes = &buf[..frame_info.buffer_size()];
+
+            // The order of the buffers matters.
+            // See: https://gpuweb.github.io/gpuweb/#dom-gputextureviewdimension-cube
+            let cubemap_buffers = &[px_bytes, nx_bytes, py_bytes, ny_bytes, pz_bytes, nz_bytes];
+
+            let dimensions = webgpu::Dimensions {
+                width: frame_info.width,
+                height: frame_info.height,
+                depth_or_array_layers: 6,
+            };
+
+            let texture_id = rendering_api.load_texture(cubemap_buffers, dimensions);
+            let cube_mesh = mesh::generate_cube(true);
+            mesh_id = rendering_api.load_mesh(&cube_mesh);
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(-5.0, 0.0, 0.0),
+                shader_id: cube_map_shader_id,
+                texture_id: Some(texture_id),
+                texture_scale: None,
+            })));
+
             nodes
         };
 

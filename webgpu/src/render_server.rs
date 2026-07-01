@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::{normal_debug, normal_debug_wireframe, skybox, textured_draw};
+use crate::{cube_map, normal_debug, normal_debug_wireframe, skybox, textured_draw};
 use graphic::camera::Camera;
 use scene::MeshNode;
 use wgpu::{Device, ExperimentalFeatures, Queue, Surface, Texture};
@@ -40,6 +40,7 @@ pub struct RenderServer {
     textured: textured_draw::Textured,
     normal_debug: normal_debug::NormalDebug,
     normal_debug_wireframe: normal_debug_wireframe::NormalDebugWireframe,
+    cube_map: cube_map::CubeMap,
     skybox: skybox::Skybox,
 }
 
@@ -105,6 +106,7 @@ impl RenderServer {
         let normal_debug = normal_debug::NormalDebug::new(&device, swapchain_format.into());
         let normal_debug_wireframe =
             normal_debug_wireframe::NormalDebugWireframe::new(&device, swapchain_format.into());
+        let cube_map = cube_map::CubeMap::new(&device, swapchain_format.into());
         let skybox = skybox::Skybox::new(&device, &queue, swapchain_format.into());
 
         RenderServer {
@@ -123,6 +125,7 @@ impl RenderServer {
             textured,
             normal_debug,
             normal_debug_wireframe,
+            cube_map,
             skybox,
         }
     }
@@ -231,19 +234,6 @@ impl RenderServer {
         // Render the rest
         let view_projection_matrix = projection_matrix * view_matrix;
 
-        // It does not matter if it is rendered first or last, because
-        // the skybox is at Z value 1.0 in NDC.
-        // No other draw call, should write if the depth value equals 1.0.
-        let translation_free_view_matrix = {
-            let mut tmp = view_matrix;
-            tmp[(0, 3)] = 0.0;
-            tmp[(1, 3)] = 0.0;
-            tmp[(2, 3)] = 0.0;
-            tmp
-        };
-        let translation_free_view_projection_matrix =
-            projection_matrix * translation_free_view_matrix;
-
         let transposed_view_matrix = view_matrix.transpose();
         let transposed_view_projection_matrix = view_projection_matrix.transpose();
 
@@ -322,6 +312,16 @@ impl RenderServer {
                 multiview_mask: None,
             });
 
+            let translation_free_view_matrix = {
+                let mut tmp = view_matrix;
+                tmp[(0, 3)] = 0.0;
+                tmp[(1, 3)] = 0.0;
+                tmp[(2, 3)] = 0.0;
+                tmp
+            };
+            let translation_free_view_projection_matrix =
+                projection_matrix * translation_free_view_matrix;
+
             // Render skybox
             self.skybox.render(
                 &mut render_pass,
@@ -395,6 +395,31 @@ impl RenderServer {
                                 .collect::<Vec<_>>();
 
                             self.textured.render(
+                                &mut render_pass,
+                                &self.device,
+                                &self.queue,
+                                &view_matrix,
+                                &view_projection_matrix,
+                                &self.global_uniform_buffer,
+                                &instances,
+                                &mesh_buffer.vertex_buffer,
+                                mesh_buffer.vertex_count,
+                                texture,
+                            );
+                        }
+                        3 => {
+                            let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
+                            // TODO very dirty hack as above!!
+                            let texture = self
+                                .texture_cache
+                                .get(&mesh_instances.first().unwrap().borrow().texture_id.unwrap())
+                                .unwrap();
+                            let instances = mesh_instances
+                                .iter()
+                                .map(|instance| instance.borrow().model_matrix)
+                                .collect::<Vec<_>>();
+
+                            self.cube_map.render(
                                 &mut render_pass,
                                 &self.device,
                                 &self.queue,
