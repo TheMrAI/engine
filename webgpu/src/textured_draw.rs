@@ -1,4 +1,5 @@
-use lina::matrix::Matrix;
+use lina::matrix::resize;
+use lina::matrix::{Matrix, Resize};
 
 use std::borrow::Cow;
 use wgpu::RenderPipeline;
@@ -150,7 +151,7 @@ impl Textured {
         render_pass: &mut wgpu::RenderPass,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        _view_matrix: &Matrix<f32, 4, 4>,
+        view_matrix: &Matrix<f32, 4, 4>,
         _view_projection_matrix: &Matrix<f32, 4, 4>,
         global_uniform_buffer: &wgpu::Buffer,
         instances: &[(Matrix<f32, 4, 4>, f32)],
@@ -229,12 +230,28 @@ impl Textured {
         let mut instance_buffer_data = vec![0; instance_buffer.size() as usize];
 
         for (i, (model_matrix, _)) in instances.iter().enumerate() {
+            let normal_matrix = {
+                let view_model_matrix = *view_matrix * *model_matrix;
+
+                let matrix = resize!(view_model_matrix, 3, 3);
+                matrix.adjoint()
+            };
+
+            let padded_flattened_normal_matrix = resize!(normal_matrix, 4, 3);
+
             let gpu_instance_bytes = model_matrix
                 .transpose()
                 .as_slices()
                 .iter()
                 .flatten()
                 .flat_map(|entry| entry.to_le_bytes())
+                .chain(
+                    padded_flattened_normal_matrix
+                        .as_slices()
+                        .iter()
+                        .flatten()
+                        .flat_map(|entry| entry.to_le_bytes()),
+                )
                 .collect::<Vec<u8>>();
 
             unsafe {
