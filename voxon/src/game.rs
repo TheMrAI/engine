@@ -1,5 +1,6 @@
 use graphic::camera::Camera;
 use std::cell::RefCell;
+use std::f32::consts::PI;
 use std::rc::Rc;
 use webgpu::RenderServer;
 
@@ -281,6 +282,16 @@ impl Game {
             nodes.push(Rc::new(RefCell::new(scene::MeshNode {
                 mesh_id,
                 model_matrix: graphic::identity_matrix(),
+                shader_id: textured_shader_id,
+                texture_id: Some(texture_id),
+                texture_scale: Some(1.0),
+            })));
+
+            // add another cube instance, for Textured instancing
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(0.0, 0.0, 5.0)
+                    * graphic::transform::rotate_y(PI / 4.0),
                 shader_id: textured_shader_id,
                 texture_id: Some(texture_id),
                 texture_scale: Some(1.0),

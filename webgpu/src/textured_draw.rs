@@ -1,9 +1,36 @@
 use lina::matrix::resize;
 use lina::matrix::{Matrix, Resize};
 
+use crate::MeshBuffer;
+use scene::MeshNode;
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
 use wgpu::RenderPipeline;
 use wgpu::{DepthBiasState, DepthStencilState, Face, StencilState};
+
+// Instance Storage buffer
+// (model matrix + normal matrix) * float size
+static INSTANCE_STORAGE_SIZE: u64 = (16 + 12) * 4;
+#[allow(clippy::identity_op)]
+static TEXTURE_INSTANCE_STORAGE_SIZE: u64 = 1 * 4;
+type EntityInstanceGroups = (Vec<Rc<RefCell<MeshNode>>>, Option<InstanceCache>);
+
+#[derive(Debug)]
+struct InstanceCache {
+    instance_buffer_data: Vec<u8>,
+    texture_instance_buffer_data: Vec<u8>,
+    instance_buffer: wgpu::Buffer,
+    texture_instance_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct Id {
+    mesh_id: u32,
+    texture_id: u32,
+}
 
 #[derive(Debug)]
 pub struct Textured {
@@ -11,6 +38,7 @@ pub struct Textured {
     bind_group_layout: wgpu::BindGroupLayout,
     render_pipeline: RenderPipeline,
     sampler: wgpu::Sampler,
+    scheduled_entities: HashMap<Id, EntityInstanceGroups>,
 }
 
 impl Textured {
@@ -142,153 +170,201 @@ impl Textured {
             bind_group_layout,
             render_pipeline,
             sampler,
+            scheduled_entities: Default::default(),
         }
+    }
+
+    pub fn schedule(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
+        let id = Id {
+            mesh_id: mesh_node.borrow().mesh_id,
+            texture_id: mesh_node.borrow().texture_id.unwrap(),
+        };
+        self.scheduled_entities
+            .entry(id)
+            .or_default()
+            .0
+            .push(mesh_node.clone());
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn render(
-        &self,
+        &mut self,
         render_pass: &mut wgpu::RenderPass,
+        mesh_cache: &std::collections::HashMap<u32, MeshBuffer>,
+        texture_cache: &std::collections::HashMap<u32, wgpu::Texture>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         view_matrix: &Matrix<f32, 4, 4>,
         _view_projection_matrix: &Matrix<f32, 4, 4>,
         global_uniform_buffer: &wgpu::Buffer,
-        instances: &[(Matrix<f32, 4, 4>, f32)],
-        vertex_buffer: &wgpu::Buffer,
-        vertex_count: u32,
-        texture: &wgpu::Texture,
     ) {
-        // Instance Storage buffer
-        // (model matrix + normal matrix) * float size
-        let instance_storage_size = (16 + 12) * 4;
-        let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Instance storage buffer"),
-            size: instance_storage_size * instances.len() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        for (id, instances) in &mut self.scheduled_entities {
+            let mesh_buffer = mesh_cache.get(&id.mesh_id).unwrap();
+            let texture = texture_cache.get(&id.texture_id).unwrap();
 
-        let texture_instance_storage_size = 4 * 4;
-        let texture_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Instance storage buffer"),
-            size: texture_instance_storage_size * instances.len() as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+            let instance_cache = {
+                let rebuild = match &instances.1 {
+                    Some(cache) => {
+                        cache.instance_buffer_data.len()
+                            < INSTANCE_STORAGE_SIZE as usize * instances.0.len()
+                    }
+                    None => true,
+                };
+                if rebuild {
+                    let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("Instance storage buffer"),
+                        size: INSTANCE_STORAGE_SIZE * instances.0.len() as u64,
+                        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
 
-        // Create bind group
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind_group"),
-            layout: &self.bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: global_uniform_buffer,
-                        offset: 0,
-                        size: None, // use whole buffer
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &instance_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: vertex_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &texture_instance_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::Sampler(&self.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::TextureView(
-                        &texture.create_view(&wgpu::wgt::TextureViewDescriptor::default()),
-                    ),
-                },
-            ],
-        });
+                    let texture_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("Texture instance storage buffer"),
+                        size: TEXTURE_INSTANCE_STORAGE_SIZE * instances.0.len() as u64,
+                        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
 
-        let mut instance_buffer_data = vec![0; instance_buffer.size() as usize];
+                    // Create bind group
+                    let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("bind_group"),
+                        layout: &self.bind_group_layout,
+                        entries: &[
+                            wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: global_uniform_buffer,
+                                    offset: 0,
+                                    size: None, // use whole buffer
+                                }),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 1,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &instance_buffer,
+                                    offset: 0,
+                                    size: None,
+                                }),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 2,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &mesh_buffer.vertex_buffer,
+                                    offset: 0,
+                                    size: None,
+                                }),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 3,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &texture_instance_buffer,
+                                    offset: 0,
+                                    size: None,
+                                }),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 4,
+                                resource: wgpu::BindingResource::Sampler(&self.sampler),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 5,
+                                resource: wgpu::BindingResource::TextureView(
+                                    &texture
+                                        .create_view(&wgpu::wgt::TextureViewDescriptor::default()),
+                                ),
+                            },
+                        ],
+                    });
 
-        for (i, (model_matrix, _)) in instances.iter().enumerate() {
-            let normal_matrix = {
-                let view_model_matrix = *view_matrix * *model_matrix;
+                    let instance_buffer_data = vec![0; instance_buffer.size() as usize];
+                    let texture_instance_buffer_data =
+                        vec![0; texture_instance_buffer.size() as usize];
 
-                let matrix = resize!(view_model_matrix, 3, 3);
-                matrix.adjoint()
+                    instances.1 = Some(InstanceCache {
+                        instance_buffer_data,
+                        texture_instance_buffer_data,
+                        instance_buffer,
+                        texture_instance_buffer,
+                        bind_group,
+                    });
+                }
+                instances.1.as_mut().unwrap()
             };
 
-            let padded_flattened_normal_matrix = resize!(normal_matrix, 4, 3);
+            for (i, mesh_node) in instances.0.iter().enumerate() {
+                let normal_matrix = {
+                    let view_model_matrix = *view_matrix * mesh_node.borrow().model_matrix;
 
-            let gpu_instance_bytes = model_matrix
-                .transpose()
-                .as_slices()
-                .iter()
-                .flatten()
-                .flat_map(|entry| entry.to_le_bytes())
-                .chain(
-                    padded_flattened_normal_matrix
-                        .as_slices()
-                        .iter()
-                        .flatten()
-                        .flat_map(|entry| entry.to_le_bytes()),
-                )
-                .collect::<Vec<u8>>();
+                    let matrix = resize!(view_model_matrix, 3, 3);
+                    matrix.adjoint()
+                };
 
-            unsafe {
-                std::ptr::copy(
-                    gpu_instance_bytes.as_ptr(),
-                    instance_buffer_data
-                        .as_mut_ptr()
-                        .add(instance_storage_size as usize * i),
-                    gpu_instance_bytes.len(),
-                );
+                let padded_flattened_normal_matrix = resize!(normal_matrix, 4, 3);
+
+                let gpu_instance_bytes = mesh_node
+                    .borrow()
+                    .model_matrix
+                    .transpose()
+                    .as_slices()
+                    .iter()
+                    .flatten()
+                    .flat_map(|entry| entry.to_le_bytes())
+                    .chain(
+                        padded_flattened_normal_matrix
+                            .as_slices()
+                            .iter()
+                            .flatten()
+                            .flat_map(|entry| entry.to_le_bytes()),
+                    )
+                    .collect::<Vec<u8>>();
+
+                unsafe {
+                    std::ptr::copy(
+                        gpu_instance_bytes.as_ptr(),
+                        instance_cache
+                            .instance_buffer_data
+                            .as_mut_ptr()
+                            .add(INSTANCE_STORAGE_SIZE as usize * i),
+                        gpu_instance_bytes.len(),
+                    );
+                }
             }
-        }
-        queue.write_buffer(&instance_buffer, 0, &instance_buffer_data);
+            queue.write_buffer(
+                &instance_cache.instance_buffer,
+                0,
+                &instance_cache.instance_buffer_data,
+            );
 
-        let mut texture_instance_buffer_data = vec![0; texture_instance_buffer.size() as usize];
+            for (i, mesh_node) in instances.0.iter().enumerate() {
+                let gpu_instance_bytes = [mesh_node.borrow().texture_scale.unwrap()]
+                    .iter()
+                    .flat_map(|entry| entry.to_le_bytes())
+                    .collect::<Vec<u8>>();
 
-        for (i, (_, texture_scale)) in instances.iter().enumerate() {
-            let gpu_instance_bytes = [texture_scale]
-                .iter()
-                .flat_map(|entry| entry.to_le_bytes())
-                .collect::<Vec<u8>>();
-
-            unsafe {
-                std::ptr::copy(
-                    gpu_instance_bytes.as_ptr(),
-                    texture_instance_buffer_data
-                        .as_mut_ptr()
-                        .add(texture_instance_storage_size as usize * i),
-                    gpu_instance_bytes.len(),
-                );
+                unsafe {
+                    std::ptr::copy(
+                        gpu_instance_bytes.as_ptr(),
+                        instance_cache
+                            .texture_instance_buffer_data
+                            .as_mut_ptr()
+                            .add(TEXTURE_INSTANCE_STORAGE_SIZE as usize * i),
+                        gpu_instance_bytes.len(),
+                    );
+                }
             }
+            queue.write_buffer(
+                &instance_cache.texture_instance_buffer,
+                0,
+                &instance_cache.texture_instance_buffer_data,
+            );
+
+            render_pass.set_pipeline(&self.render_pipeline);
+
+            render_pass.set_bind_group(0, Some(&instance_cache.bind_group), &[]);
+            render_pass.draw(0..mesh_buffer.vertex_count, 0..instances.0.len() as u32);
+
+            // clear instance ids
+            instances.0.clear();
         }
-        queue.write_buffer(&texture_instance_buffer, 0, &texture_instance_buffer_data);
-
-        render_pass.set_pipeline(&self.render_pipeline);
-
-        render_pass.set_bind_group(0, Some(&bind_group), &[]);
-        render_pass.draw(0..vertex_count, 0..instances.len() as u32);
     }
 }

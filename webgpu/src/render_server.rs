@@ -212,6 +212,8 @@ impl RenderServer {
             self.normal_debug.schedule(mesh_node);
         } else if mesh_node.borrow().shader_id == 1 {
             self.normal_debug_wireframe.schedule(mesh_node);
+        } else if mesh_node.borrow().shader_id == 2 {
+            self.textured.schedule(mesh_node);
         } else {
             let pipeline = self
                 .render_entries
@@ -355,46 +357,20 @@ impl RenderServer {
                 &self.global_uniform_buffer,
             );
 
+            self.textured.render(
+                &mut render_pass,
+                &self.mesh_cache,
+                &self.texture_cache,
+                &self.device,
+                &self.queue,
+                &view_matrix,
+                &view_projection_matrix,
+                &self.global_uniform_buffer,
+            );
+
             for (shader_id, mesh_group) in &self.render_entries {
                 for (mesh_id, mesh_instances) in mesh_group {
                     match *shader_id {
-                        2 => {
-                            let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
-                            // TODO very dirty hack!!!
-                            // It turns out that for different pipelines you have to instance differently.
-                            // For the debug pipelines the mesh_id is enough, but for the textured pipeline
-                            // both the mesh_id and the texture itself has to take part in the instancing.
-                            // Which cannot be supported by the rudimentary organizer mechanism.
-                            // It seems we really need to have the concept of a node, and based on that,
-                            // each pipeline may extract the identifiers it needs to properly group them.
-                            // We aren't just there yet, so care is required.
-                            let texture = self
-                                .texture_cache
-                                .get(&mesh_instances.first().unwrap().borrow().texture_id.unwrap())
-                                .unwrap();
-                            let instances = mesh_instances
-                                .iter()
-                                .map(|instance| {
-                                    (
-                                        instance.borrow().model_matrix,
-                                        instance.borrow().texture_scale.unwrap(),
-                                    )
-                                })
-                                .collect::<Vec<_>>();
-
-                            self.textured.render(
-                                &mut render_pass,
-                                &self.device,
-                                &self.queue,
-                                &view_matrix,
-                                &view_projection_matrix,
-                                &self.global_uniform_buffer,
-                                &instances,
-                                &mesh_buffer.vertex_buffer,
-                                mesh_buffer.vertex_count,
-                                texture,
-                            );
-                        }
                         3 => {
                             let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
                             // TODO very dirty hack as above!!
