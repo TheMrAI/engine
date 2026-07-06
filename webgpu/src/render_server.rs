@@ -215,12 +215,7 @@ impl RenderServer {
         } else if mesh_node.borrow().shader_id == 2 {
             self.textured.schedule(mesh_node);
         } else {
-            let pipeline = self
-                .render_entries
-                .entry(mesh_node.borrow().shader_id)
-                .or_default();
-            let instances = pipeline.entry(mesh_node.borrow().mesh_id).or_default();
-            instances.push(mesh_node);
+            self.cube_map.schedule(mesh_node);
         }
     }
 
@@ -368,38 +363,37 @@ impl RenderServer {
                 &self.global_uniform_buffer,
             );
 
-            for (shader_id, mesh_group) in &self.render_entries {
-                for (mesh_id, mesh_instances) in mesh_group {
-                    match *shader_id {
-                        3 => {
-                            let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
-                            // TODO very dirty hack as above!!
-                            let texture = self
-                                .texture_cache
-                                .get(&mesh_instances.first().unwrap().borrow().texture_id.unwrap())
-                                .unwrap();
-                            let instances = mesh_instances
-                                .iter()
-                                .map(|instance| instance.borrow().model_matrix)
-                                .collect::<Vec<_>>();
+            self.cube_map.render(
+                &mut render_pass,
+                &self.mesh_cache,
+                &self.texture_cache,
+                &self.device,
+                &self.queue,
+                &view_matrix,
+                &view_projection_matrix,
+                &self.global_uniform_buffer,
+            );
 
-                            self.cube_map.render(
-                                &mut render_pass,
-                                &self.device,
-                                &self.queue,
-                                &view_matrix,
-                                &view_projection_matrix,
-                                &self.global_uniform_buffer,
-                                &instances,
-                                &mesh_buffer.vertex_buffer,
-                                mesh_buffer.vertex_count,
-                                texture,
-                            );
-                        }
-                        _ => unimplemented!("Bra no such shader!"),
-                    }
-                }
-            }
+            // for (shader_id, mesh_group) in &self.render_entries {
+            //     for (mesh_id, mesh_instances) in mesh_group {
+            //         match *shader_id {
+            //             3 => {
+            //                 let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
+            //                 // TODO very dirty hack as above!!
+            //                 let texture = self
+            //                     .texture_cache
+            //                     .get(&mesh_instances.first().unwrap().borrow().texture_id.unwrap())
+            //                     .unwrap();
+            //                 let instances = mesh_instances
+            //                     .iter()
+            //                     .map(|instance| instance.borrow().model_matrix)
+            //                     .collect::<Vec<_>>();
+
+            //             }
+            //             _ => unimplemented!("Bra no such shader!"),
+            //         }
+            //     }
+            // }
         }
 
         self.queue.submit(Some(encoder.finish()));

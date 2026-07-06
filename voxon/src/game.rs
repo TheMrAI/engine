@@ -369,6 +369,15 @@ impl Game {
                 texture_id: Some(texture_id),
                 texture_scale: None,
             })));
+            // Add another instance for CubeMap instance testing
+            nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                mesh_id,
+                model_matrix: graphic::transform::translate(-5.0, 0.0, 5.0)
+                    * graphic::transform::rotate_y(PI / 4.0),
+                shader_id: cube_map_shader_id,
+                texture_id: Some(texture_id),
+                texture_scale: None,
+            })));
 
             nodes
         };
