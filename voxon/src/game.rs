@@ -20,20 +20,10 @@ pub struct Game {
 
 impl Game {
     pub fn new(mut rendering_api: RenderServer) -> Self {
-        let debug_shader_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(include_str!(
-            "../../webgpu/src/normal_debug.wgsl"
-        )));
-        let debug_shader_wireframe_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(
-            include_str!("../../webgpu/src/normal_debug_wireframe.wgsl"),
-        ));
-        // Textured shader
-        let textured_shader_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(
-            include_str!("../../webgpu/src/textured_draw.wgsl"),
-        ));
-        // Cube map shader
-        let cube_map_shader_id = rendering_api.load_shader(std::borrow::Cow::Borrowed(
-            include_str!("../../webgpu/src/cube_map.wgsl"),
-        ));
+        let debug_shader_id = 0;
+        let debug_shader_wireframe_id = 1;
+        let textured_shader_id = 2;
+        let cube_map_shader_id = 3;
 
         let nodes = {
             let mut nodes = Vec::<Rc<RefCell<scene::MeshNode>>>::new();

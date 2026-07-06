@@ -1,12 +1,28 @@
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::{cube_map, normal_debug, normal_debug_wireframe, skybox, textured_draw};
+use crate::pipeline::{self, Pipeline};
+use crate::skybox;
 use graphic::camera::Camera;
 use scene::MeshNode;
 use wgpu::{Device, ExperimentalFeatures, Queue, Surface, Texture};
 use winit::{dpi::PhysicalSize, window::Window};
+
+// Nasty "trait_alias" hack.
+// A bit unfortunate that even though all pipelines implement
+// the Debug and Pipeline traits, there is no way to define
+// this other than this empty trait combination.
+trait DebugPipeline
+where
+    Self: Debug + Pipeline,
+{
+}
+impl DebugPipeline for pipeline::NormalDebug {}
+impl DebugPipeline for pipeline::NormalDebugWireframe {}
+impl DebugPipeline for pipeline::TexturedDraw {}
+impl DebugPipeline for pipeline::CubeMap {}
 
 // A bit redundant at the moment but we need
 // to hide webgpu API related types from the interface.
@@ -28,16 +44,11 @@ pub struct RenderServer {
     // Rendering
     next_mesh_id: u32,
     mesh_cache: std::collections::HashMap<u32, MeshBuffer>,
-    next_shader_id: u32,
-    shader_cache: std::collections::HashMap<u32, wgpu::ShaderModule>,
     global_uniform_buffer: wgpu::Buffer,
     next_texture_id: u32,
     texture_cache: std::collections::HashMap<u32, Texture>,
     // Rendering pipelines
-    textured: textured_draw::Textured,
-    normal_debug: normal_debug::NormalDebug,
-    normal_debug_wireframe: normal_debug_wireframe::NormalDebugWireframe,
-    cube_map: cube_map::CubeMap,
+    pipelines: std::collections::HashMap<u32, Box<dyn DebugPipeline>>,
     skybox: skybox::Skybox,
 }
 
@@ -92,14 +103,32 @@ impl RenderServer {
         });
 
         let mesh_cache = std::collections::HashMap::<u32, MeshBuffer>::new();
-        let shader_cache = std::collections::HashMap::<u32, wgpu::ShaderModule>::new();
         let texture_cache = std::collections::HashMap::<u32, Texture>::new();
 
-        let textured = textured_draw::Textured::new(&device, swapchain_format.into());
-        let normal_debug = normal_debug::NormalDebug::new(&device, swapchain_format.into());
-        let normal_debug_wireframe =
-            normal_debug_wireframe::NormalDebugWireframe::new(&device, swapchain_format.into());
-        let cube_map = cube_map::CubeMap::new(&device, swapchain_format.into());
+        let mut pipelines = std::collections::HashMap::<u32, Box<dyn DebugPipeline>>::new();
+        pipelines.insert(
+            0,
+            Box::new(pipeline::NormalDebug::new(&device, swapchain_format.into())),
+        );
+        pipelines.insert(
+            1,
+            Box::new(pipeline::NormalDebugWireframe::new(
+                &device,
+                swapchain_format.into(),
+            )),
+        );
+        pipelines.insert(
+            2,
+            Box::new(pipeline::TexturedDraw::new(
+                &device,
+                swapchain_format.into(),
+            )),
+        );
+        pipelines.insert(
+            3,
+            Box::new(pipeline::CubeMap::new(&device, swapchain_format.into())),
+        );
+
         let skybox = skybox::Skybox::new(&device, &queue, swapchain_format.into());
 
         RenderServer {
@@ -110,14 +139,9 @@ impl RenderServer {
             global_uniform_buffer,
             next_mesh_id: 0,
             mesh_cache,
-            next_shader_id: 0,
-            shader_cache,
             next_texture_id: 0,
             texture_cache,
-            textured,
-            normal_debug,
-            normal_debug_wireframe,
-            cube_map,
+            pipelines,
             skybox,
         }
     }
@@ -159,21 +183,6 @@ impl RenderServer {
         mesh_id
     }
 
-    pub fn load_shader(&mut self, shader_code: std::borrow::Cow<str>) -> u32 {
-        let shader_module = self
-            .device
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("shader_code"),
-                source: wgpu::ShaderSource::Wgsl(shader_code),
-            });
-
-        let shader_id = self.next_shader_id;
-        self.shader_cache.insert(shader_id, shader_module);
-
-        self.next_shader_id += 1;
-        shader_id
-    }
-
     pub fn load_texture(&mut self, texture_buffer: &[&[u8]], dimensions: Dimensions) -> u32 {
         let dimensions = wgpu::Extent3d {
             width: dimensions.width,
@@ -196,19 +205,12 @@ impl RenderServer {
         texture_id
     }
 
-    // TODO Eventually this should not take a node at all, but a reference or a pointer to the Node.
-    // The Node is maintained by the Engine in the Scene graph.
-    // The RenderServer merely has to access the nodes when appropriate to read the necessary values.
     pub fn schedule_render(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
-        if mesh_node.borrow().shader_id == 0 {
-            self.normal_debug.schedule(mesh_node);
-        } else if mesh_node.borrow().shader_id == 1 {
-            self.normal_debug_wireframe.schedule(mesh_node);
-        } else if mesh_node.borrow().shader_id == 2 {
-            self.textured.schedule(mesh_node);
-        } else {
-            self.cube_map.schedule(mesh_node);
-        }
+        self.pipelines
+            .get_mut(&mesh_node.borrow().shader_id)
+            .unwrap()
+            .as_mut()
+            .schedule_render(mesh_node.clone());
     }
 
     pub fn render(&mut self, camera: &Camera) {
@@ -324,68 +326,18 @@ impl RenderServer {
                 &translation_free_view_projection_matrix,
             );
 
-            self.normal_debug.render(
-                &mut render_pass,
-                &self.mesh_cache,
-                &self.device,
-                &self.queue,
-                &view_matrix,
-                &view_projection_matrix,
-                &self.global_uniform_buffer,
-            );
-
-            self.normal_debug_wireframe.render(
-                &mut render_pass,
-                &self.mesh_cache,
-                &self.device,
-                &self.queue,
-                &view_matrix,
-                &view_projection_matrix,
-                &self.global_uniform_buffer,
-            );
-
-            self.textured.render(
-                &mut render_pass,
-                &self.mesh_cache,
-                &self.texture_cache,
-                &self.device,
-                &self.queue,
-                &view_matrix,
-                &view_projection_matrix,
-                &self.global_uniform_buffer,
-            );
-
-            self.cube_map.render(
-                &mut render_pass,
-                &self.mesh_cache,
-                &self.texture_cache,
-                &self.device,
-                &self.queue,
-                &view_matrix,
-                &view_projection_matrix,
-                &self.global_uniform_buffer,
-            );
-
-            // for (shader_id, mesh_group) in &self.render_entries {
-            //     for (mesh_id, mesh_instances) in mesh_group {
-            //         match *shader_id {
-            //             3 => {
-            //                 let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
-            //                 // TODO very dirty hack as above!!
-            //                 let texture = self
-            //                     .texture_cache
-            //                     .get(&mesh_instances.first().unwrap().borrow().texture_id.unwrap())
-            //                     .unwrap();
-            //                 let instances = mesh_instances
-            //                     .iter()
-            //                     .map(|instance| instance.borrow().model_matrix)
-            //                     .collect::<Vec<_>>();
-
-            //             }
-            //             _ => unimplemented!("Bra no such shader!"),
-            //         }
-            //     }
-            // }
+            for pipeline in self.pipelines.values_mut() {
+                pipeline.as_mut().render(
+                    &mut render_pass,
+                    &self.mesh_cache,
+                    &self.texture_cache,
+                    &self.device,
+                    &self.queue,
+                    &view_matrix,
+                    &view_projection_matrix,
+                    &self.global_uniform_buffer,
+                );
+            }
         }
 
         self.queue.submit(Some(encoder.finish()));

@@ -1,28 +1,21 @@
+use crate::MeshBuffer;
+use crate::pipeline::Pipeline;
 use lina::matrix::resize;
 use lina::matrix::{Matrix, Resize};
-
-use crate::MeshBuffer;
 use scene::MeshNode;
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use wgpu::RenderPipeline;
-use wgpu::{DepthBiasState, DepthStencilState, Face, StencilState};
 
 // Instance Storage buffer
 // (model matrix + normal matrix) * float size
 static INSTANCE_STORAGE_SIZE: u64 = (16 + 12) * 4;
-#[allow(clippy::identity_op)]
-static TEXTURE_INSTANCE_STORAGE_SIZE: u64 = 1 * 4;
 type EntityInstanceGroups = (Vec<Rc<RefCell<MeshNode>>>, Option<InstanceCache>);
 
 #[derive(Debug)]
 struct InstanceCache {
     instance_buffer_data: Vec<u8>,
-    texture_instance_buffer_data: Vec<u8>,
     instance_buffer: wgpu::Buffer,
-    texture_instance_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
 }
 
@@ -33,20 +26,21 @@ struct Id {
 }
 
 #[derive(Debug)]
-pub struct Textured {
+pub struct CubeMap {
     // Prepared render pipeline and all the necessary info for rendering the scene
     bind_group_layout: wgpu::BindGroupLayout,
-    render_pipeline: RenderPipeline,
+    render_pipeline: wgpu::RenderPipeline,
     sampler: wgpu::Sampler,
     scheduled_entities: HashMap<Id, EntityInstanceGroups>,
 }
 
-impl Textured {
+impl CubeMap {
     pub fn new(device: &wgpu::Device, color_target: wgpu::ColorTargetState) -> Self {
-        // Load the shaders
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("textured_draw"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("textured_draw.wgsl"))),
+        let cube_map_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("cube_map_shader"),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                "cube_map.wgsl"
+            ))),
         });
 
         // Bind group layout
@@ -85,26 +79,16 @@ impl Textured {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 3,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 4,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
-                    binding: 5,
+                    binding: 4,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        view_dimension: wgpu::TextureViewDimension::D2,
+                        view_dimension: wgpu::TextureViewDimension::Cube,
                         multisampled: false,
                     },
                     count: None,
@@ -112,24 +96,24 @@ impl Textured {
             ],
         });
 
-        // Pipeline
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline_layout"),
             bind_group_layouts: &[&bind_group_layout],
             immediate_size: 0,
         });
 
+        // pipeline
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("render_pipeline_descriptor"),
+            label: Some("cube_map"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &cube_map_shader,
                 entry_point: Some("vs_main"),
                 buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: &cube_map_shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(color_target)],
                 compilation_options: Default::default(),
@@ -138,28 +122,28 @@ impl Textured {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(Face::Back),
+                cull_mode: Some(wgpu::Face::Back),
                 unclipped_depth: false,
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: Some(DepthStencilState {
+            depth_stencil: Some(wgpu::DepthStencilState {
                 format: wgpu::TextureFormat::Depth24Plus,
                 depth_compare: wgpu::CompareFunction::Less,
                 depth_write_enabled: true,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
         });
 
-        let sampler = device.create_sampler(&wgpu::wgt::SamplerDescriptor {
-            label: Some("texture_sampler"),
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
-            address_mode_w: wgpu::AddressMode::Repeat,
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("environment_map_sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::MipmapFilterMode::Linear,
@@ -173,8 +157,10 @@ impl Textured {
             scheduled_entities: Default::default(),
         }
     }
+}
 
-    pub fn schedule(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
+impl Pipeline for CubeMap {
+    fn schedule_render(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
         let id = Id {
             mesh_id: mesh_node.borrow().mesh_id,
             texture_id: mesh_node.borrow().texture_id.unwrap(),
@@ -187,7 +173,7 @@ impl Textured {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn render(
+    fn render(
         &mut self,
         render_pass: &mut wgpu::RenderPass,
         mesh_cache: &std::collections::HashMap<u32, MeshBuffer>,
@@ -214,13 +200,6 @@ impl Textured {
                     let instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
                         label: Some("Instance storage buffer"),
                         size: INSTANCE_STORAGE_SIZE * instances.0.len() as u64,
-                        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    });
-
-                    let texture_instance_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("Texture instance storage buffer"),
-                        size: TEXTURE_INSTANCE_STORAGE_SIZE * instances.0.len() as u64,
                         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
                     });
@@ -256,35 +235,32 @@ impl Textured {
                             },
                             wgpu::BindGroupEntry {
                                 binding: 3,
-                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                    buffer: &texture_instance_buffer,
-                                    offset: 0,
-                                    size: None,
-                                }),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 4,
                                 resource: wgpu::BindingResource::Sampler(&self.sampler),
                             },
                             wgpu::BindGroupEntry {
-                                binding: 5,
-                                resource: wgpu::BindingResource::TextureView(
-                                    &texture
-                                        .create_view(&wgpu::wgt::TextureViewDescriptor::default()),
-                                ),
+                                binding: 4,
+                                resource: wgpu::BindingResource::TextureView(&texture.create_view(
+                                    &wgpu::wgt::TextureViewDescriptor {
+                                        label: Some("cube_view"),
+                                        format: None,
+                                        dimension: Some(wgpu::TextureViewDimension::Cube),
+                                        usage: Some(wgpu::TextureUsages::TEXTURE_BINDING),
+                                        aspect: wgpu::TextureAspect::All,
+                                        base_mip_level: 0,
+                                        mip_level_count: None, // include all mipmap levels
+                                        base_array_layer: 0,
+                                        array_layer_count: Some(6),
+                                    },
+                                )),
                             },
                         ],
                     });
 
                     let instance_buffer_data = vec![0; instance_buffer.size() as usize];
-                    let texture_instance_buffer_data =
-                        vec![0; texture_instance_buffer.size() as usize];
 
                     instances.1 = Some(InstanceCache {
                         instance_buffer_data,
-                        texture_instance_buffer_data,
                         instance_buffer,
-                        texture_instance_buffer,
                         bind_group,
                     });
                 }
@@ -333,29 +309,6 @@ impl Textured {
                 &instance_cache.instance_buffer,
                 0,
                 &instance_cache.instance_buffer_data,
-            );
-
-            for (i, mesh_node) in instances.0.iter().enumerate() {
-                let gpu_instance_bytes = [mesh_node.borrow().texture_scale.unwrap()]
-                    .iter()
-                    .flat_map(|entry| entry.to_le_bytes())
-                    .collect::<Vec<u8>>();
-
-                unsafe {
-                    std::ptr::copy(
-                        gpu_instance_bytes.as_ptr(),
-                        instance_cache
-                            .texture_instance_buffer_data
-                            .as_mut_ptr()
-                            .add(TEXTURE_INSTANCE_STORAGE_SIZE as usize * i),
-                        gpu_instance_bytes.len(),
-                    );
-                }
-            }
-            queue.write_buffer(
-                &instance_cache.texture_instance_buffer,
-                0,
-                &instance_cache.texture_instance_buffer_data,
             );
 
             render_pass.set_pipeline(&self.render_pipeline);

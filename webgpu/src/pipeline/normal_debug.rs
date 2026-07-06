@@ -4,6 +4,7 @@ use scene::MeshNode;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::pipeline::Pipeline;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use wgpu::RenderPipeline;
@@ -126,8 +127,10 @@ impl NormalDebug {
             scheduled_entities: Default::default(),
         }
     }
+}
 
-    pub fn schedule(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
+impl Pipeline for NormalDebug {
+    fn schedule_render(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
         self.scheduled_entities
             .entry(mesh_node.borrow().mesh_id)
             .or_default()
@@ -136,10 +139,11 @@ impl NormalDebug {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn render(
+    fn render(
         &mut self,
         render_pass: &mut wgpu::RenderPass,
         mesh_cache: &std::collections::HashMap<u32, MeshBuffer>,
+        _texture_cache: &std::collections::HashMap<u32, wgpu::Texture>,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         view_matrix: &Matrix<f32, 4, 4>,
