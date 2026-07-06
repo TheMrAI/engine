@@ -208,12 +208,16 @@ impl RenderServer {
     // The Node is maintained by the Engine in the Scene graph.
     // The RenderServer merely has to access the nodes when appropriate to read the necessary values.
     pub fn schedule_render(&mut self, mesh_node: Rc<RefCell<MeshNode>>) {
-        let pipeline = self
-            .render_entries
-            .entry(mesh_node.borrow().shader_id)
-            .or_default();
-        let instances = pipeline.entry(mesh_node.borrow().mesh_id).or_default();
-        instances.push(mesh_node);
+        if mesh_node.borrow().shader_id == 0 {
+            self.normal_debug.schedule(mesh_node);
+        } else {
+            let pipeline = self
+                .render_entries
+                .entry(mesh_node.borrow().shader_id)
+                .or_default();
+            let instances = pipeline.entry(mesh_node.borrow().mesh_id).or_default();
+            instances.push(mesh_node);
+        }
     }
 
     pub fn render(&mut self, camera: &Camera) {
@@ -329,28 +333,19 @@ impl RenderServer {
                 &translation_free_view_projection_matrix,
             );
 
+            self.normal_debug.render(
+                &mut render_pass,
+                &self.mesh_cache,
+                &self.device,
+                &self.queue,
+                &view_matrix,
+                &view_projection_matrix,
+                &self.global_uniform_buffer,
+            );
+
             for (shader_id, mesh_group) in &self.render_entries {
                 for (mesh_id, mesh_instances) in mesh_group {
                     match *shader_id {
-                        0 => {
-                            let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
-                            let instances = mesh_instances
-                                .iter()
-                                .map(|instance| instance.borrow().model_matrix)
-                                .collect::<Vec<_>>();
-
-                            self.normal_debug.render(
-                                &mut render_pass,
-                                &self.device,
-                                &self.queue,
-                                &view_matrix,
-                                &view_projection_matrix,
-                                &self.global_uniform_buffer,
-                                &instances,
-                                &mesh_buffer.vertex_buffer,
-                                mesh_buffer.vertex_count,
-                            );
-                        }
                         1 => {
                             let mesh_buffer = self.mesh_cache.get(mesh_id).unwrap();
                             let instances = mesh_instances
