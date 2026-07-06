@@ -16,8 +16,6 @@ pub struct Dimensions {
     pub depth_or_array_layers: u32,
 }
 
-type MeshInstanceCache = std::collections::HashMap<u32, Vec<Rc<RefCell<MeshNode>>>>;
-
 #[derive(Debug)]
 pub struct RenderServer {
     // TODO remove this as well,
@@ -36,7 +34,6 @@ pub struct RenderServer {
     next_texture_id: u32,
     texture_cache: std::collections::HashMap<u32, Texture>,
     // Rendering pipelines
-    render_entries: std::collections::HashMap<u32, MeshInstanceCache>,
     textured: textured_draw::Textured,
     normal_debug: normal_debug::NormalDebug,
     normal_debug_wireframe: normal_debug_wireframe::NormalDebugWireframe,
@@ -97,10 +94,6 @@ impl RenderServer {
         let mesh_cache = std::collections::HashMap::<u32, MeshBuffer>::new();
         let shader_cache = std::collections::HashMap::<u32, wgpu::ShaderModule>::new();
         let texture_cache = std::collections::HashMap::<u32, Texture>::new();
-        let render_entries = std::collections::HashMap::<
-            u32,
-            std::collections::HashMap<u32, Vec<Rc<RefCell<MeshNode>>>>,
-        >::new();
 
         let textured = textured_draw::Textured::new(&device, swapchain_format.into());
         let normal_debug = normal_debug::NormalDebug::new(&device, swapchain_format.into());
@@ -121,7 +114,6 @@ impl RenderServer {
             shader_cache,
             next_texture_id: 0,
             texture_cache,
-            render_entries,
             textured,
             normal_debug,
             normal_debug_wireframe,
@@ -399,11 +391,6 @@ impl RenderServer {
         self.queue.submit(Some(encoder.finish()));
 
         frame.present();
-
-        // Purge all scheduled entries for this rendering cycle
-        // TODO should not be necessary after the pipelines are able to cache the
-        // rendering requests
-        self.render_entries.clear();
     }
 }
 
