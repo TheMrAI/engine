@@ -3,18 +3,20 @@
 //! The format is ancient and there isn't an up
 //! to date specification for it any more.
 //! The closest you may find is: [Object Files (.obj)](https://paulbourke.net/dataformats/obj/)
-//! This can lead to situations where different '.obj' exporters/importers have interpreted the
-//! standard differently and may produce incompatible outcomes.
+//! This can lead to situations where different '.obj' exporters/importers have
+//! interpreted the standard differently and may produce incompatible outcomes.
 //!
-//! Nothing to do about this, but in light of this, the below parser is kept supporting only the minimal
-//! feature set, which is expected to function everywhere the same.
+//! Nothing to do about this, but in light of this, the below parser is kept
+//! supporting only the minimal feature set, which is expected to function
+//! everywhere the same.
 //!
-//! The object file has a binary format ('.mod'') and an ASCII format ('.obj') as well. This library will
-//! not support the binary format. It is so uncommon, that most people aren't even aware it exists.
-//! There is also a '.mtl' support file for format storing materials data, but this won't be supported either.
+//! The object file has a binary format ('.mod'') and an ASCII format ('.obj')
+//! as well. This library will not support the binary format. It is so uncommon,
+//! that most people aren't even aware it exists. There is also a '.mtl' support
+//! file for format storing materials data, but this won't be supported either.
 //!
-//! This object file parser is only meant for importing simple meshes. No surfaces, material, raytracing or any
-//! other extensions are supported.
+//! This object file parser is only meant for importing simple meshes. No
+//! surfaces, material, raytracing or any other extensions are supported.
 
 /// Parsed '.obj' representation
 ///
@@ -23,17 +25,19 @@
 /// As per '.obj' specification:
 /// Vertices/uv coordinates/normals are all indexed from 1, not 0!
 /// Coordinates use the right-hand coordinate system.
-/// Faces do not have a specified order that they must follow. They may be in clockwise or counter clockwise order.
-/// Only by their vertex normal may the appropriate order be identified.
+/// Faces do not have a specified order that they must follow. They may be in
+/// clockwise or counter clockwise order. Only by their vertex normal may the
+/// appropriate order be identified.
 ///
-/// All vertex positions, uv coords and normals are added sequentially to their respective global buffers.
-/// These buffers are global for the whole file.
-/// Faces are defined by indexing into these buffers. While the standard technically allows for using negative
-/// indexes for these, this parser does not, as it unnecessarily complicates the format.
+/// All vertex positions, uv coords and normals are added sequentially to their
+/// respective global buffers. These buffers are global for the whole file.
+/// Faces are defined by indexing into these buffers. While the standard
+/// technically allows for using negative indexes for these, this parser does
+/// not, as it unnecessarily complicates the format.
 ///
-/// The file may include one or more objects/meshes. In either case the whole [Obj] can be interpreted as a valid
-/// , single mesh, by trivially iterating over all the faces and extracting the relevant vertex data.
-///
+/// The file may include one or more objects/meshes. In either case the whole
+/// [Obj] can be interpreted as a valid , single mesh, by trivially iterating
+/// over all the faces and extracting the relevant vertex data.
 #[derive(Debug, Default, Clone)]
 pub struct Obj {
     global_name: String,
@@ -175,10 +179,12 @@ impl Obj {
             let (entry_type, entry_data) = line.split_once(" ").unwrap();
             // todo basic error checking
             match entry_type {
-                "o" => object.entries.push(NamedGroup {
-                    name: entry_data.trim().into(),
-                    face_start_index: object.faces().len(),
-                }),
+                "o" => {
+                    object.entries.push(NamedGroup {
+                        name: entry_data.trim().into(),
+                        face_start_index: object.faces().len(),
+                    })
+                }
                 "v" => {
                     let mut data = [0.0, 0.0, 0.0, 1.0];
                     parse_values(entry_data, &mut data);

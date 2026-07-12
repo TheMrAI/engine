@@ -14,7 +14,8 @@ fn main() {
 
     let resource = Resource {
         meshes: vec![PathBuf::from(
-            "/home/mrai/Documents/tinker/engine/voxon/resources/meshes/stanford_dragon_flat_17k.obj",
+            "/home/mrai/Documents/tinker/engine/voxon/resources/meshes/stanford_dragon_flat_17k.\
+             obj",
         )],
         textures: vec![PathBuf::from(
             "/home/mrai/Documents/tinker/engine/voxon/resources/textures/cube_atlas.png",

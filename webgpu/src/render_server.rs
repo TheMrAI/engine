@@ -1,14 +1,14 @@
-use std::cell::RefCell;
-use std::fmt::Debug;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::{cell::RefCell, fmt::Debug, rc::Rc, sync::Arc};
 
-use crate::pipeline::{self, Pipeline};
-use crate::skybox;
 use graphic::camera::Camera;
 use scene::MeshNode;
 use wgpu::{Device, ExperimentalFeatures, Queue, Surface, Texture};
 use winit::{dpi::PhysicalSize, window::Window};
+
+use crate::{
+    pipeline::{self, Pipeline},
+    skybox,
+};
 
 // Nasty "trait_alias" hack.
 // A bit unfortunate that even though all pipelines implement
@@ -146,8 +146,8 @@ impl RenderServer {
         }
     }
 
-    // TODO Gotta figure out how the server may identify which mesh it already knows about,
-    // so caching can actually cache.
+    // TODO Gotta figure out how the server may identify which mesh it already knows
+    // about, so caching can actually cache.
     // Have a sneaking suspicion that the Scene/Nodes will provide with some intel.
     pub fn load_mesh(&mut self, mesh: &mesh::Mesh) -> u32 {
         let vertex_data = mesh

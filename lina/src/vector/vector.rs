@@ -22,12 +22,13 @@ impl<ValueType, const LENGTH: usize> Vector<ValueType, LENGTH>
 where
     ValueType: Default + Copy,
 {
-    /// Create a new [Vector] filled with [Default](std::default::Default) of `ValueType`.
+    /// Create a new [Vector] filled with [Default](std::default::Default) of
+    /// `ValueType`.
     ///
     /// Example
     /// ```
     /// # use lina::vector::Vector;
-    /// let v1 : Vector<i32, 3> = Vector::new();
+    /// let v1: Vector<i32, 3> = Vector::new();
     /// // or
     /// let v2 = Vector::<i32, 3>::new();
     /// ```
@@ -45,7 +46,7 @@ where
     /// Example
     /// ```
     /// # use lina::vector::Vector;
-    /// let v1 : Vector<i32, 3> = Vector::from_value(3);
+    /// let v1: Vector<i32, 3> = Vector::from_value(3);
     /// // or
     /// let v2 = Vector::<i32, 3>::from_value(3);
     /// ```
@@ -132,8 +133,8 @@ impl<ValueType, const LENGTH: usize> From<[ValueType; LENGTH]> for Vector<ValueT
     /// or using the generated [Into] trait.
     /// ```
     /// # use lina::vector::Vector;
-    /// let array = [1,2,3];
-    /// let v : Vector<i32, 3> = array.into();
+    /// let array = [1, 2, 3];
+    /// let v: Vector<i32, 3> = array.into();
     /// ```
     fn from(values: [ValueType; LENGTH]) -> Self {
         Vector::from_array(values)
@@ -142,9 +143,8 @@ impl<ValueType, const LENGTH: usize> From<[ValueType; LENGTH]> for Vector<ValueT
 
 #[cfg(test)]
 mod tests {
-    use crate::v;
-
     use super::*;
+    use crate::v;
 
     #[test]
     fn macro_init_empty_vector() {

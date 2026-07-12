@@ -1,10 +1,10 @@
-use std::fs;
-use std::sync::Arc;
+use std::{fs, sync::Arc};
+
+use project::Root;
+use webgpu::RenderServer;
 use winit::window::Window;
 
 use crate::game::Game;
-use project::Root;
-use webgpu::RenderServer;
 
 pub(super) struct InnerApp {
     pub window: Arc<Window>,

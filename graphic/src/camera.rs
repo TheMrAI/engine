@@ -1,7 +1,6 @@
 //! Camera
 //!
 //! Right handed, Y-up coordinate system
-//!
 
 use lina::{matrix::Matrix, v, vector::Vector};
 use quaternion::Quaternion;

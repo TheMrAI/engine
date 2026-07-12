@@ -1,7 +1,6 @@
+use std::{cell::RefCell, f32::consts::PI, rc::Rc};
+
 use graphic::camera::Camera;
-use std::cell::RefCell;
-use std::f32::consts::PI;
-use std::rc::Rc;
 use webgpu::RenderServer;
 
 #[derive(Debug)]
@@ -289,8 +288,8 @@ impl Game {
 
             // Cube Map entry
             //
-            // This is nasty, as the textures are compiled into the binary, but for now it is okay.
-            // px
+            // This is nasty, as the textures are compiled into the binary, but for now it
+            // is okay. px
             let image_data =
                 include_bytes!("../../voxon/resources/textures/skybox/sky_cube_px.png");
             let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
@@ -491,16 +490,17 @@ impl Game {
         }
     }
 
-    // We have no physics or AI to simulate just yet, but this is where that would be put.
-    // According to more experienced devs, the AI/physics has to run with a stable time
-    // delta otherwise many approximations could become unstable.
+    // We have no physics or AI to simulate just yet, but this is where that would
+    // be put. According to more experienced devs, the AI/physics has to run
+    // with a stable time delta otherwise many approximations could become
+    // unstable.
     fn simulate(&mut self) {}
 
     fn render(&mut self, delta_t: std::time::Duration) {
-        // This is where we would walk the scene graph again after all the simulations, node additions,
-        // deletions and schedule the nodes for rendering.
-        // Internally, the rendering API has to be able to cache and organize the draw requests as it
-        // sees fit.
+        // This is where we would walk the scene graph again after all the simulations,
+        // node additions, deletions and schedule the nodes for rendering.
+        // Internally, the rendering API has to be able to cache and organize the draw
+        // requests as it sees fit.
         for node in &self.nodes {
             self.rendering_api.schedule_render(node.clone());
         }
@@ -532,13 +532,13 @@ impl Game {
     }
 
     // This is hot garbage, but for now it solves the stuttering rotation issue.
-    // A few big problems. The camera state is directly modified on the function call.
-    // Speed/motion delta is calculated regarding the previous frame render time but that is
-    // incorrect.
+    // A few big problems. The camera state is directly modified on the function
+    // call. Speed/motion delta is calculated regarding the previous frame
+    // render time but that is incorrect.
     // Let us assume that between two frames the mouse registers 3 movement events.
     // The first will correctly calculate the delta_t from the previous frame, but
-    // the rest should calculated only from the previous registered mouse motion event.
-    // This is why another prev_mouse_motion_time is necessary.
+    // the rest should calculated only from the previous registered mouse motion
+    // event. This is why another prev_mouse_motion_time is necessary.
     pub fn mouse_motion(&mut self, delta: (f64, f64)) {
         const ANGULAR_SPEED: f32 = (std::f32::consts::PI / 180.0) * 600.0;
         let current_time = std::time::Instant::now();

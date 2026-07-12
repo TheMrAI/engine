@@ -28,7 +28,7 @@ pub fn rotate_x(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// # use graphic::transform::rotate_x;
 /// # use graphic::transform::inv_rotate_x;
 /// # use graphic::identity_matrix;
-/// let radians = PI/2.0;
+/// let radians = PI / 2.0;
 /// let Rx = rotate_x(radians);
 /// let Rx_inv = inv_rotate_x(radians);
 ///
@@ -68,7 +68,7 @@ pub fn rotate_y(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// # use graphic::transform::rotate_y;
 /// # use graphic::transform::inv_rotate_y;
 /// # use graphic::identity_matrix;
-/// let radians = PI/2.0;
+/// let radians = PI / 2.0;
 /// let Rx = rotate_y(radians);
 /// let Rx_inv = inv_rotate_y(radians);
 ///
@@ -108,7 +108,7 @@ pub fn rotate_z(rad_angle: f32) -> Matrix<f32, 4, 4> {
 /// # use graphic::transform::rotate_z;
 /// # use graphic::transform::inv_rotate_z;
 /// # use graphic::identity_matrix;
-/// let radians = PI/2.0;
+/// let radians = PI / 2.0;
 /// let Rx = rotate_z(radians);
 /// let Rx_inv = inv_rotate_z(radians);
 ///

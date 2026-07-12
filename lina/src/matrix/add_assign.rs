@@ -7,8 +7,8 @@ where
 {
     /// Implement `Vector<T> += Vector<T>` operation.
     fn add_assign(&mut self, rhs: Self) {
-        // Given that the two matrices have the same shape, we can simply flatten the internal structures
-        // and apply the operation per element.
+        // Given that the two matrices have the same shape, we can simply flatten the
+        // internal structures and apply the operation per element.
         self.data
             .iter_mut()
             .flatten()

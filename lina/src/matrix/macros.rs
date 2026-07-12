@@ -27,7 +27,8 @@ macro_rules! m {
 pub use m;
 
 // Implement the LHS scalar multiplication operators for built in types.
-// For custom types the user must provide the implementation given the Orphan rule.
+// For custom types the user must provide the implementation given the Orphan
+// rule.
 
 macro_rules! lhs_scalar_mul_impl {
     ($($T: ty),* $(,)*) => {$(

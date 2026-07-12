@@ -17,11 +17,12 @@
 //! = [s, v]
 //! ```
 //!
-//! Some sources swap the `[s, v]` component order in their definitions `[v, s]`.
+//! Some sources swap the `[s, v]` component order in their definitions `[v,
+//! s]`.
 //!
 //! This form is useful for observing/understanding the transformation encoded
-//! within the quaternion. But for defining operations on a quaternion a different
-//! form is used.
+//! within the quaternion. But for defining operations on a quaternion a
+//! different form is used.
 //!
 //! ```text
 //! q = (s, V) = s + i * Vx + j * Vy + k * Vz
@@ -74,7 +75,8 @@ where
         self.vector
     }
 
-    /// Construct a quaternion by supplying the scalar and vector parts directly.
+    /// Construct a quaternion by supplying the scalar and vector parts
+    /// directly.
     ///
     /// Given a quaternion q:
     /// ```text
@@ -129,8 +131,8 @@ where
     /// n(q)^2 = s^2 + x^2 + y^2 + z^2
     /// ```
     ///
-    /// Instead of having to call [Quaternion::length] and raising it to the second
-    /// power the function calculates the value directly.
+    /// Instead of having to call [Quaternion::length] and raising it to the
+    /// second power the function calculates the value directly.
     pub fn length_squared(&self) -> ValueType {
         self.vector
             .as_slice()
@@ -165,17 +167,32 @@ where
     /// # use quaternion::Quaternion;
     /// # use lina::v;
     /// # use float_eq::assert_float_eq;
-    /// let q = Quaternion::<f32>::new_parts(2.39, v![1.0, 2.0, 3.0]);
+    /// let q = Quaternion::<f32>::new_parts(
+    ///     2.39,
+    ///     v![1.0, 2.0, 3.0],
+    /// );
     ///
     /// let a = q * q.inverse();
-    ///  assert_float_eq!(a.scalar(), 1.0, ulps <= 1);
-    /// a.vector().as_slice().iter().zip([0.0, 0.0, 0.0]).for_each(|(l, r)| assert_float_eq!(*l, r, ulps <= 1));
+    /// assert_float_eq!(a.scalar(), 1.0, ulps <= 1);
+    /// a.vector()
+    ///     .as_slice()
+    ///     .iter()
+    ///     .zip([0.0, 0.0, 0.0])
+    ///     .for_each(|(l, r)| {
+    ///         assert_float_eq!(*l, r, ulps <= 1)
+    ///     });
     ///
     /// // Commutative
     /// let b = q.inverse() * q;
     ///
     /// assert_float_eq!(a.scalar(), b.scalar(), ulps <= 1);
-    /// a.vector().as_slice().iter().zip(b.vector().as_slice()).for_each(|(l, r)| assert_float_eq!(*l, *r, ulps <= 1));
+    /// a.vector()
+    ///     .as_slice()
+    ///     .iter()
+    ///     .zip(b.vector().as_slice())
+    ///     .for_each(|(l, r)| {
+    ///         assert_float_eq!(*l, *r, ulps <= 1)
+    ///     });
     /// ```
     ///
     /// For a **unit** quaternion the inverse is equal to its conjugate:
@@ -184,13 +201,27 @@ where
     /// # use quaternion::Quaternion;
     /// # use lina::v;
     /// # use float_eq::assert_float_eq;
-    /// let q = Quaternion::<f32>::new_unit(PI/2.0, v![1.0, 2.0, 3.0]);
+    /// let q = Quaternion::<f32>::new_unit(
+    ///     PI / 2.0,
+    ///     v![1.0, 2.0, 3.0],
+    /// );
     ///
     /// let q_inverse = q.inverse();
     /// let q_conjugate = q.conjugate();
     ///
-    /// assert_float_eq!(q_inverse.scalar(), q_conjugate.scalar(), ulps <= 1);
-    /// q_inverse.vector().as_slice().iter().zip(q_conjugate.vector().as_slice()).for_each(|(l, r)| assert_float_eq!(*l, *r, ulps <= 1));
+    /// assert_float_eq!(
+    ///     q_inverse.scalar(),
+    ///     q_conjugate.scalar(),
+    ///     ulps <= 1
+    /// );
+    /// q_inverse
+    ///     .vector()
+    ///     .as_slice()
+    ///     .iter()
+    ///     .zip(q_conjugate.vector().as_slice())
+    ///     .for_each(|(l, r)| {
+    ///         assert_float_eq!(*l, *r, ulps <= 1)
+    ///     });
     /// ```
     pub fn inverse(&self) -> Quaternion<ValueType> {
         self.conjugate() / self.length_squared()
@@ -220,15 +251,26 @@ where
     /// # use lina::v;
     /// # use float_eq::assert_float_eq;
     ///
-    /// let p = Quaternion::<f32>::from_vector(v!{1.0, 0.0, 0.0});
+    /// let p =
+    ///     Quaternion::<f32>::from_vector(v! {1.0, 0.0, 0.0});
     /// // A quaternion to rotate 90 degrees around the Y axis.
     /// // Notice the rotation axis isn't normalized.
-    /// let q = Quaternion::<f32>::new_unit(PI/2.0, v![0.0, 1.0, 0.0]);
+    /// let q = Quaternion::<f32>::new_unit(
+    ///     PI / 2.0,
+    ///     v![0.0, 1.0, 0.0],
+    /// );
     ///
     /// let rotated_p = p.conjugate_by(q);
     ///
     /// assert_float_eq!(rotated_p.length(), 1.0, ulps <= 1);
-    /// rotated_p.vector().as_slice().iter().zip([0.0, 0.0, -1.0]).for_each(|(l, r)| assert_float_eq!(*l, r, ulps <= 1));
+    /// rotated_p
+    ///     .vector()
+    ///     .as_slice()
+    ///     .iter()
+    ///     .zip([0.0, 0.0, -1.0])
+    ///     .for_each(|(l, r)| {
+    ///         assert_float_eq!(*l, r, ulps <= 1)
+    ///     });
     /// ```
     pub fn conjugate_by(self, q: Quaternion<ValueType>) -> Quaternion<ValueType> {
         q * self * q.inverse()

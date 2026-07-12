@@ -1,11 +1,9 @@
 use inner_app::InnerApp;
-use winit::event::{ElementState, MouseButton, MouseScrollDelta};
-use winit::event_loop::{ControlFlow, EventLoop};
-
-use winit::keyboard::PhysicalKey;
 use winit::{
     application::ApplicationHandler,
-    event::{DeviceEvent, WindowEvent},
+    event::{DeviceEvent, ElementState, MouseButton, MouseScrollDelta, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    keyboard::PhysicalKey,
 };
 
 mod game;
@@ -22,8 +20,9 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        // The Window should be created in this call, because the winit documentation states that this
-        // is the only point which they could guarantee proper initialization on all supported platforms.
+        // The Window should be created in this call, because the winit documentation
+        // states that this is the only point which they could guarantee proper
+        // initialization on all supported platforms.
         self.app = Some(InnerApp::new(event_loop));
     }
 
@@ -46,8 +45,8 @@ impl ApplicationHandler for App {
                 // the program to gracefully handle redraws requested by the OS.
 
                 // Cycle game loop.
-                // TODO: This is not an optimal setup. We should be the ones in control of the main
-                // thread.
+                // TODO: This is not an optimal setup. We should be the ones in control of the
+                // main thread.
                 if let Some(app) = self.app.as_mut() {
                     // app.gpu.render(&app.camera, delta_t, self.wireframe);
                     app.game.run_loop(&self.key_state);
@@ -71,7 +70,8 @@ impl ApplicationHandler for App {
             WindowEvent::CursorLeft { device_id: _ } => {}
             WindowEvent::Resized(_) => {
                 // TODO if/when necessary
-                // Recreate the surface texture according to the new inner physical resolution.
+                // Recreate the surface texture according to the new inner
+                // physical resolution.
             }
             WindowEvent::KeyboardInput {
                 device_id: _,
@@ -158,9 +158,10 @@ fn main() {
     // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
     // dispatched any events. This is ideal for games and similar applications.
     // event_loop.set_control_flow(ControlFlow::Poll);
-    // ControlFlow::Wait pauses the event loop if no events are available to process.
-    // This is ideal for non-game applications that only update in response to user
-    // input, and uses significantly less power/CPU time than ControlFlow::Poll.
+    // ControlFlow::Wait pauses the event loop if no events are available to
+    // process. This is ideal for non-game applications that only update in
+    // response to user input, and uses significantly less power/CPU time than
+    // ControlFlow::Poll.
     event_loop.set_control_flow(ControlFlow::Poll);
 
     let mut app = App::default();

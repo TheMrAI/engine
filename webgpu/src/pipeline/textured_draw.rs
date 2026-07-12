@@ -1,14 +1,10 @@
-use crate::MeshBuffer;
-use crate::pipeline::Pipeline;
-use lina::matrix::resize;
-use lina::matrix::{Matrix, Resize};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, rc::Rc};
+
+use lina::matrix::{Matrix, Resize, resize};
 use scene::MeshNode;
-use std::borrow::Cow;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
-use wgpu::RenderPipeline;
-use wgpu::{DepthBiasState, DepthStencilState, Face, StencilState};
+use wgpu::{DepthBiasState, DepthStencilState, Face, RenderPipeline, StencilState};
+
+use crate::{MeshBuffer, pipeline::Pipeline};
 
 // Instance Storage buffer
 // (model matrix + normal matrix) * float size

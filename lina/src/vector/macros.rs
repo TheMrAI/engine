@@ -7,8 +7,7 @@
 //! compiler will enter a loop, trying to determine the bounds are satisfied.
 //! The issue does not appear if the macro invocations for both A and B appear
 //! in the same file.
-use crate::vector::Sqrt;
-use crate::vector::Vector;
+use crate::vector::{Sqrt, Vector};
 
 /// Generate a [Vector](crate::vector::Vector) similar to the [vec!] macro.
 ///
@@ -17,11 +16,12 @@ use crate::vector::Vector;
 /// ```
 /// use lina::vector::{Vector, v};
 ///
-/// let preferred: Vector::<usize, 3> = v![];
+/// let preferred: Vector<usize, 3> = v![];
 /// let over = Vector::<usize, 3>::new();
 /// ```
 ///
-///  - Create a [Vector](crate::vector::Vector) with default value D and N elements
+///  - Create a [Vector](crate::vector::Vector) with default value D and N
+///    elements
 /// ```
 /// use lina::vector::v;
 ///
@@ -33,8 +33,8 @@ use crate::vector::Vector;
 /// ```
 /// use lina::vector::v;
 ///
-/// let V = v![1,2,3,4,5];
-/// assert_eq!(V, [1,2,3,4,5]);
+/// let V = v![1, 2, 3, 4, 5];
+/// assert_eq!(V, [1, 2, 3, 4, 5]);
 /// ```
 #[macro_export]
 macro_rules! v {
@@ -53,7 +53,8 @@ macro_rules! v {
 pub use v;
 
 // Implement the LHS scalar multiplication operators for built in types.
-// For custom types the user must provide the implementation given the Orphan rule.
+// For custom types the user must provide the implementation given the Orphan
+// rule.
 
 macro_rules! lhs_scalar_mul_impl {
     ($($T: ty),* $(,)*) => {$(

@@ -124,10 +124,12 @@ pub fn generate_cube(smooth_normals: bool) -> Mesh {
         vertex_positions
             .iter()
             .enumerate()
-            .map(|(i, position)| Vertex {
-                position: *position,
-                normal: position.normalized().xyz().unwrap(),
-                uv: uv_coords[i],
+            .map(|(i, position)| {
+                Vertex {
+                    position: *position,
+                    normal: position.normalized().xyz().unwrap(),
+                    uv: uv_coords[i],
+                }
             })
             .collect()
     } else {
@@ -148,10 +150,12 @@ pub fn generate_cube(smooth_normals: bool) -> Mesh {
         vertex_positions
             .iter()
             .enumerate()
-            .map(|(i, position)| Vertex {
-                position: *position,
-                normal: normals[i / 4],
-                uv: uv_coords[i],
+            .map(|(i, position)| {
+                Vertex {
+                    position: *position,
+                    normal: normals[i / 4],
+                    uv: uv_coords[i],
+                }
             })
             .collect()
     };
@@ -201,10 +205,12 @@ pub fn generate_plane() -> Mesh {
     let vertices = vertex_positions
         .iter()
         .zip(uv_coordinates.iter())
-        .map(|(position, uv_coord)| Vertex {
-            position: *position,
-            normal: v![0.0, 1.0, 0.0],
-            uv: *uv_coord,
+        .map(|(position, uv_coord)| {
+            Vertex {
+                position: *position,
+                normal: v![0.0, 1.0, 0.0],
+                uv: *uv_coord,
+            }
         })
         .collect();
 

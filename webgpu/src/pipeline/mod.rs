@@ -3,16 +3,16 @@ mod normal_debug;
 mod normal_debug_wireframe;
 mod textured_draw;
 
+use std::{cell::RefCell, rc::Rc};
+
 pub use cube_map::CubeMap;
+use lina::matrix::Matrix;
 pub use normal_debug::NormalDebug;
 pub use normal_debug_wireframe::NormalDebugWireframe;
+use scene::MeshNode;
 pub use textured_draw::TexturedDraw;
 
 use crate::MeshBuffer;
-use lina::matrix::Matrix;
-use scene::MeshNode;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 pub trait Pipeline {
     fn schedule_render(&mut self, mesh_node: Rc<RefCell<MeshNode>>);

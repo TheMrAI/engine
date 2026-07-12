@@ -1,11 +1,9 @@
-use crate::MeshBuffer;
-use crate::pipeline::Pipeline;
-use lina::matrix::resize;
-use lina::matrix::{Matrix, Resize};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use lina::matrix::{Matrix, Resize, resize};
 use scene::MeshNode;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
+
+use crate::{MeshBuffer, pipeline::Pipeline};
 
 // Instance Storage buffer
 // (model matrix + normal matrix) * float size

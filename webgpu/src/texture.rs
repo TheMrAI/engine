@@ -1,6 +1,6 @@
 pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    // This is nasty, as the textures are compiled into the binary, but for now it is okay.
-    // px
+    // This is nasty, as the textures are compiled into the binary, but for now it
+    // is okay. px
     let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_px.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
@@ -48,10 +48,11 @@ pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu
     let cubemap_buffers = &[px_bytes, nx_bytes, py_bytes, ny_bytes, pz_bytes, nz_bytes];
 
     // This part is confusing.
-    // A dimension struct defines that we are working with a texture that has 3 dimensions.
-    // Do not be confused though. It seems that for a cubemap **..or_array_layers** part is
-    // the important one. In case, the third value does not represent **depth**, then we
-    // should not think of a texture as 3 dimensional. It merely has multiple layers.
+    // A dimension struct defines that we are working with a texture that has 3
+    // dimensions. Do not be confused though. It seems that for a cubemap
+    // **..or_array_layers** part is the important one. In case, the third value
+    // does not represent **depth**, then we should not think of a texture as 3
+    // dimensional. It merely has multiple layers.
     let dimensions = wgpu::Extent3d {
         width: frame_info.width,
         height: frame_info.height,
@@ -166,8 +167,9 @@ pub fn upload_texture(
 // Generate mipmaps on the GPU.
 //
 // The base texture must be uploaded before calling this function.
-// The number of mip-maps will always be 'max(log2(base_texture_width), log2(base_texture_height))',
-// ensure that the base texture was created such, that it expects exactly the above mipmap level count.
+// The number of mip-maps will always be 'max(log2(base_texture_width),
+// log2(base_texture_height))', ensure that the base texture was created such,
+// that it expects exactly the above mipmap level count.
 pub fn generate_mipmap(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,
