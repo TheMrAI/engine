@@ -1,5 +1,8 @@
 use lina::{v, vector::Vector};
 
+mod try_from;
+
+#[derive(Debug, Copy, Clone)]
 pub struct Vertex {
     position: Vector<f32, 4>,
     normal: Vector<f32, 3>,
@@ -7,6 +10,14 @@ pub struct Vertex {
 }
 
 impl Vertex {
+    pub fn new(position: Vector<f32, 4>, normal: Vector<f32, 3>, uv: Vector<f32, 2>) -> Self {
+        Self {
+            position,
+            normal,
+            uv,
+        }
+    }
+
     pub fn position(&self) -> &Vector<f32, 4> {
         &self.position
     }
@@ -37,7 +48,10 @@ impl Mesh {
 
 /// The cube center is at (0, 0, 0) and has a dimensions
 /// of 2.
-pub fn generate_cube() -> Mesh {
+///
+/// 'smooth_normals' will generate normals for smooth shading,
+/// otherwise for flat.
+pub fn generate_cube(smooth_normals: bool) -> Mesh {
     // Vertex buffer
     #[rustfmt::skip]
     let vertex_positions: Vec<Vector<f32, 4>> = vec![
@@ -106,29 +120,45 @@ pub fn generate_cube() -> Mesh {
         v![2.0 * third, 0.5],
     ];
 
-    let normals: Vec<Vector<f32, 3>> = vec![
-        // front
-        v![0.0, 0.0, 1.0],
-        // right
-        v![1.0, 0.0, 0.0],
-        // back
-        v![0.0, 0.0, -1.0],
-        // left
-        v![-1.0, 0.0, 0.0],
-        // top
-        v![0.0, 1.0, 0.0],
-        // bottom
-        v![0.0, -1.0, 0.0],
-    ];
-    let vertices = vertex_positions
-        .iter()
-        .enumerate()
-        .map(|(i, position)| Vertex {
-            position: *position,
-            normal: normals[i / 4],
-            uv: uv_coords[i],
-        })
-        .collect();
+    let vertices = if smooth_normals {
+        vertex_positions
+            .iter()
+            .enumerate()
+            .map(|(i, position)| {
+                Vertex {
+                    position: *position,
+                    normal: position.normalized().xyz().unwrap(),
+                    uv: uv_coords[i],
+                }
+            })
+            .collect()
+    } else {
+        let normals: Vec<Vector<f32, 3>> = vec![
+            // front
+            v![0.0, 0.0, 1.0],
+            // right
+            v![1.0, 0.0, 0.0],
+            // back
+            v![0.0, 0.0, -1.0],
+            // left
+            v![-1.0, 0.0, 0.0],
+            // top
+            v![0.0, 1.0, 0.0],
+            // bottom
+            v![0.0, -1.0, 0.0],
+        ];
+        vertex_positions
+            .iter()
+            .enumerate()
+            .map(|(i, position)| {
+                Vertex {
+                    position: *position,
+                    normal: normals[i / 4],
+                    uv: uv_coords[i],
+                }
+            })
+            .collect()
+    };
 
     // Vertex indices
     #[rustfmt::skip]
@@ -175,10 +205,12 @@ pub fn generate_plane() -> Mesh {
     let vertices = vertex_positions
         .iter()
         .zip(uv_coordinates.iter())
-        .map(|(position, uv_coord)| Vertex {
-            position: *position,
-            normal: v![0.0, 1.0, 0.0],
-            uv: *uv_coord,
+        .map(|(position, uv_coord)| {
+            Vertex {
+                position: *position,
+                normal: v![0.0, 1.0, 0.0],
+                uv: *uv_coord,
+            }
         })
         .collect();
 

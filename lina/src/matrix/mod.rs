@@ -9,6 +9,7 @@ mod inverse;
 mod macros;
 mod mul;
 mod mul_assign;
+mod resize;
 mod sub;
 mod sub_assign;
 
@@ -17,3 +18,4 @@ mod matrix;
 
 pub use macros::*;
 pub use matrix::*;
+pub use resize::*;

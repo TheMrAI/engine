@@ -4,7 +4,6 @@
 //! manipulations, but eventually it should be published.
 //!
 //! ## Planned improvements
-//!
 
 pub mod matrix;
 pub mod vector;

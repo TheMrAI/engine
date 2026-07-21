@@ -5,11 +5,15 @@ edition = "2024"
 
 [dependencies]
 pollster = "0.4.0"
-wgpu = "28.0.0"
 winit = "0.30.12"
-lina = { path = "../lina" }
-graphic = { path = "../graphic" }
-quaternion = { path = "../quaternion" }
 frametime = { path = "../frametime" }
+toml = "1.1.2"
+project = { version = "0.1.0", path = "../project" }
+webgpu = { version = "0.1.0", path = "../webgpu" }
+graphic = { path = "../graphic" }
+lina = { path = "../lina" }
+format = { version = "0.1.0", path = "../format" }
+mesh = { version = "0.1.0", path = "../mesh" }
+scene = { version = "0.1.0", path = "../scene" }
 png = "0.18.1"
-format = { path = "../format" }
+rand = "0.10.2"

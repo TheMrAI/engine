@@ -141,8 +141,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::m;
     use float_eq::assert_float_eq;
+
+    use crate::m;
 
     #[test]
     fn adjoint_3x3_int_zero() {

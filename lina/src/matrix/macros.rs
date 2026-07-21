@@ -27,7 +27,8 @@ macro_rules! m {
 pub use m;
 
 // Implement the LHS scalar multiplication operators for built in types.
-// For custom types the user must provide the implementation given the Orphan rule.
+// For custom types the user must provide the implementation given the Orphan
+// rule.
 
 macro_rules! lhs_scalar_mul_impl {
     ($($T: ty),* $(,)*) => {$(
@@ -48,3 +49,31 @@ macro_rules! lhs_scalar_mul_impl {
 lhs_scalar_mul_impl!(
     u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize, f32, f64
 );
+
+/// Helper macro for shortening invocation.
+///
+/// ## Example
+///
+/// Instead of having to explicitly state the type on the left hand side
+/// of the assignment:
+/// ```
+/// # use lina::matrix::{m, Matrix, Resize};
+/// let original = m![[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+/// let resized: Matrix<i8, 3, 3> = original.resize();
+/// ```
+/// one can simply type:
+/// ```
+/// # use lina::matrix::{m, Matrix, Resize, resize};
+/// let original = m![[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+/// let resized = resize!(original, 3, 3);
+/// ```
+/// with equivalent results.
+#[macro_export]
+macro_rules! resize {
+    ($m_ident:ident, $columns:literal, $rows:literal) => {{
+        let resized: Matrix<_, $columns, $rows> = $m_ident.resize();
+        resized
+    }};
+}
+
+pub use resize;

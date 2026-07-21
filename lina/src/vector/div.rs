@@ -1,5 +1,6 @@
-use super::Vector;
 use std::{mem, ops::Div};
+
+use super::Vector;
 
 impl<ValueType, const LENGTH: usize> Div<ValueType> for Vector<ValueType, LENGTH>
 where

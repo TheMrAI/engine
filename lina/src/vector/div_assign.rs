@@ -1,5 +1,6 @@
-use super::Vector;
 use std::ops::DivAssign;
+
+use super::Vector;
 
 impl<ValueType, const LENGTH: usize> DivAssign<ValueType> for Vector<ValueType, LENGTH>
 where

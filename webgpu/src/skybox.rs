@@ -1,6 +1,8 @@
-use crate::texture::load_cubemap_textures;
 use lina::matrix::Matrix;
 
+use crate::texture::load_cubemap_textures;
+
+#[derive(Debug)]
 pub struct Skybox {
     pipeline: wgpu::RenderPipeline,
     uniforms: (wgpu::Buffer, wgpu::BindGroup),

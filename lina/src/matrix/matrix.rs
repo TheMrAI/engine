@@ -7,12 +7,13 @@ impl<ValueType, const COLS: usize, const ROWS: usize> Matrix<ValueType, COLS, RO
 where
     ValueType: Default + Copy,
 {
-    /// Create a new [Matrix] filled with [Default](std::default::Default) of `ValueType`.
+    /// Create a new [Matrix] filled with [Default](std::default::Default) of
+    /// `ValueType`.
     ///
     /// Example
     /// ```
     /// # use lina::matrix::Matrix;
-    /// let v1 : Matrix<i32, 3, 3> = Matrix::new();
+    /// let v1: Matrix<i32, 3, 3> = Matrix::new();
     /// // or
     /// let v2 = Matrix::<i32, 3, 3>::new();
     /// ```
@@ -30,7 +31,7 @@ where
     /// Example
     /// ```
     /// # use lina::matrix::Matrix;
-    /// let v1 : Matrix<i32, 3, 3> = Matrix::from_value(3);
+    /// let v1: Matrix<i32, 3, 3> = Matrix::from_value(3);
     /// // or
     /// let v2 = Matrix::<i32, 3, 3>::from_value(3);
     /// ```
@@ -43,7 +44,8 @@ where
     pub fn transpose(&self) -> Matrix<ValueType, ROWS, COLS> {
         let mut data = [[std::mem::MaybeUninit::<ValueType>::uninit(); ROWS]; COLS];
 
-        // We want the needless range loops, as we use the value to index multiple times.
+        // We want the needless range loops, as we use the value to index multiple
+        // times.
         #[allow(clippy::needless_range_loop)]
         for i in 0..ROWS {
             #[allow(clippy::needless_range_loop)]
@@ -72,8 +74,7 @@ impl<ValueType, const COLS: usize, const ROWS: usize> Matrix<ValueType, COLS, RO
 
 #[cfg(test)]
 mod tests {
-    use crate::m;
-    use crate::matrix::Matrix;
+    use crate::{m, matrix::Matrix};
 
     #[test]
     fn macro_init_empty_matrix() {

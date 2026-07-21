@@ -13,8 +13,8 @@ where
     fn sub(self, rhs: Matrix<ValueType, COLS, ROWS>) -> Self::Output {
         let mut data = [[mem::MaybeUninit::<ValueType>::uninit(); COLS]; ROWS];
 
-        // Given that the two matrices have the same shape, we can simply flatten the internal structures
-        // and apply the operation per element.
+        // Given that the two matrices have the same shape, we can simply flatten the
+        // internal structures and apply the operation per element.
         for (elem, (lhs, rhs)) in data
             .iter_mut()
             .flatten()

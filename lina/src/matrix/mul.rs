@@ -1,8 +1,7 @@
 use std::mem;
 
-use crate::vector::Vector;
-
 use super::Matrix;
+use crate::vector::Vector;
 
 impl<ValueType, const COLS: usize, const ROWS: usize> std::ops::Mul<Matrix<ValueType, ROWS, COLS>>
     for Matrix<ValueType, COLS, ROWS>
@@ -20,7 +19,8 @@ where
         // would be best, but probably there are faster algorithms anyways.
         // This will work for now.
         let rhs = rhs.transpose();
-        // We want the needless range loops, as we use the value to index multiple times.
+        // We want the needless range loops, as we use the value to index multiple
+        // times.
         #[allow(clippy::needless_range_loop)]
         for i in 0..ROWS {
             #[allow(clippy::needless_range_loop)]

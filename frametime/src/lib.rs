@@ -36,8 +36,8 @@ impl<const SAMPLES: usize> Default for Sampler<SAMPLES> {
 }
 
 impl<const SAMPLES: usize> Sampler<SAMPLES> {
-    const ZERO_POINT_ONE_PERCENT_SAMPLE_COUNT: usize = ((SAMPLES as f64) * 0.001) as usize;
     const ONE_PERCENT_SAMPLE_COUNT: usize = ((SAMPLES as f64) * 0.01) as usize;
+    const ZERO_POINT_ONE_PERCENT_SAMPLE_COUNT: usize = ((SAMPLES as f64) * 0.001) as usize;
 
     pub fn new() -> Sampler<SAMPLES> {
         Sampler {
@@ -89,18 +89,20 @@ impl<const SAMPLES: usize> Sampler<SAMPLES> {
             // average fps = 1.0 / ((frametime sum / 10^9) / sample count)
             // FPS is frames / second and we have frame times in nanoseconds so
             // first we convert the number to seconds in `(frametime sum / 10^9)`.
-            // Then dividing this by `sample count` we get an `average frametimes in seconds` value.
-            // This is then turned into FPS by taking its inverse: 1 / `average frametimes in seconds`.
+            // Then dividing this by `sample count` we get an `average frametimes in
+            // seconds` value. This is then turned into FPS by taking its
+            // inverse: 1 / `average frametimes in seconds`.
             //
             // To reduce the number of brackets the equation was simplified:
             // 1.0 / ((frametime sum / 10^9) / sample count) =>
             // sample count / (frametime sum / 10^9) =>
             // sample count * 10^9 / frametime sum
             //
-            // Perhaps we could consider ordering the operations in such a way that the intermediate floating point
-            // values stay in the lower value range, increasing floating point precision, but this would not
-            // worth the effort of describing the why and hows, nor would it provide too much benefit in these
-            // calculations.
+            // Perhaps we could consider ordering the operations in such a way that the
+            // intermediate floating point values stay in the lower value range,
+            // increasing floating point precision, but this would not worth the
+            // effort of describing the why and hows, nor would it provide too much benefit
+            // in these calculations.
             if i == Sampler::<SAMPLES>::ZERO_POINT_ONE_PERCENT_SAMPLE_COUNT - 1 {
                 zero_point_one_percent_average =
                     Sampler::<SAMPLES>::ZERO_POINT_ONE_PERCENT_SAMPLE_COUNT as f64 * 10_f64.powi(9)

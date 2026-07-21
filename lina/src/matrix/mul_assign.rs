@@ -1,8 +1,8 @@
 use super::Matrix;
 
-// We could provide a MulAssign for those cases where both LHS and RHS is a square matrix
-// but I am unsure on how you could define the restriction that two const template variables
-// should be equal.
+// We could provide a MulAssign for those cases where both LHS and RHS is a
+// square matrix but I am unsure on how you could define the restriction that
+// two const template variables should be equal.
 
 impl<ValueType, const COLS: usize, const ROWS: usize> std::ops::MulAssign<ValueType>
     for Matrix<ValueType, COLS, ROWS>

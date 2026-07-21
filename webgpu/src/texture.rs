@@ -1,80 +1,42 @@
-pub fn load_texture_plane(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    let image_data = include_bytes!("../resources/textures/texture_01.png");
-    let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
-    let mut reader = png_decoder.read_info().unwrap();
-    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
-    let frame_info = reader.next_frame(&mut buf).unwrap();
-    let bytes = &buf[..frame_info.buffer_size()];
-
-    let dimensions = wgpu::Extent3d {
-        width: frame_info.width,
-        height: frame_info.height,
-        depth_or_array_layers: 1,
-    };
-
-    let texture = upload_texture(device, queue, dimensions, &[bytes], true);
-
-    texture.create_view(&wgpu::wgt::TextureViewDescriptor::default())
-}
-
-pub fn load_texture_cube(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    let image_data = include_bytes!("../resources/textures/cube_atlas.png");
-    let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
-    let mut reader = png_decoder.read_info().unwrap();
-    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
-    let frame_info = reader.next_frame(&mut buf).unwrap();
-    let bytes = &buf[..frame_info.buffer_size()];
-
-    let dimensions = wgpu::Extent3d {
-        width: frame_info.width,
-        height: frame_info.height,
-        depth_or_array_layers: 1,
-    };
-
-    let texture = upload_texture(device, queue, dimensions, &[bytes], true);
-
-    texture.create_view(&wgpu::wgt::TextureViewDescriptor::default())
-}
-
 pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    // This is nasty, as the textures are compiled into the binary, but for now it is okay.
-    // px
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_px.png");
+    // This is nasty, as the textures are compiled into the binary, but for now it
+    // is okay. px
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_px.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let px_bytes = &buf[..frame_info.buffer_size()];
     // nx
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_nx.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_nx.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let nx_bytes = &buf[..frame_info.buffer_size()];
     // py
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_py.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_py.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let py_bytes = &buf[..frame_info.buffer_size()];
     // ny
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_ny.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_ny.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let ny_bytes = &buf[..frame_info.buffer_size()];
     // pz
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_pz.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_pz.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
     let frame_info = reader.next_frame(&mut buf).unwrap();
     let pz_bytes = &buf[..frame_info.buffer_size()];
     // nz
-    let image_data = include_bytes!("../resources/textures/skybox/sky_cube_nz.png");
+    let image_data = include_bytes!("../../voxon/resources/textures/skybox/sky_cube_nz.png");
     let png_decoder = png::Decoder::new(std::io::Cursor::new(image_data));
     let mut reader = png_decoder.read_info().unwrap();
     let mut buf = vec![0; reader.output_buffer_size().unwrap()];
@@ -86,10 +48,11 @@ pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu
     let cubemap_buffers = &[px_bytes, nx_bytes, py_bytes, ny_bytes, pz_bytes, nz_bytes];
 
     // This part is confusing.
-    // A dimension struct defines that we are working with a texture that has 3 dimensions.
-    // Do not be confused though. It seems that for a cubemap **..or_array_layers** part is
-    // the important one. In case, the third value does not represent **depth**, then we
-    // should not think of a texture as 3 dimensional. It merely has multiple layers.
+    // A dimension struct defines that we are working with a texture that has 3
+    // dimensions. Do not be confused though. It seems that for a cubemap
+    // **..or_array_layers** part is the important one. In case, the third value
+    // does not represent **depth**, then we should not think of a texture as 3
+    // dimensional. It merely has multiple layers.
     let dimensions = wgpu::Extent3d {
         width: frame_info.width,
         height: frame_info.height,
@@ -116,7 +79,7 @@ pub fn load_cubemap_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu
 // Upload a 2D texture to the GPU and generate mipmaps if requested.
 //
 // It does not support textures using multiple layers, like cubemaps.
-// The texture buffer has to have the RGBA values using the sRGB color
+// The texture buffer has to have the RGBA values using linear color
 // space.
 pub fn upload_texture(
     device: &wgpu::Device,
@@ -204,8 +167,9 @@ pub fn upload_texture(
 // Generate mipmaps on the GPU.
 //
 // The base texture must be uploaded before calling this function.
-// The number of mip-maps will always be 'max(log2(base_texture_width), log2(base_texture_height))',
-// ensure that the base texture was created such, that it expects exactly the above mipmap level count.
+// The number of mip-maps will always be 'max(log2(base_texture_width),
+// log2(base_texture_height))', ensure that the base texture was created such,
+// that it expects exactly the above mipmap level count.
 pub fn generate_mipmap(
     device: &wgpu::Device,
     encoder: &mut wgpu::CommandEncoder,

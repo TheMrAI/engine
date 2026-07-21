@@ -1,18 +1,19 @@
 
 struct Globals {
-    view: mat4x4f,
-    view_projection: mat4x4f,
+    view_m: mat4x4f,
+    view_projection_m: mat4x4f,
+    view_world_position: vec3f,
 };
 
-struct Entity {
-    world: mat4x4f,
-    normal: mat3x3f,
-    vertex_index_offset: u32,
+struct Instance {
+    model_m: mat4x4f,
+    normal_m: mat3x3f,
 }
 
 struct VertexData {
     position: vec4f,
     normal: vec3f,
+    uv: vec2f,
 }
 
 @group(0)
@@ -21,13 +22,14 @@ var<uniform> global: Globals;
 
 @group(0)
 @binding(1)
-var<uniform> entity: Entity;
+var<storage, read> instances: array<Instance>;
 
 @group(0)
 @binding(2)
 var<storage, read> vertex_data: array<VertexData>;
 
 struct VertexInput {
+    @builtin(instance_index) instance_index: u32,
     @builtin(vertex_index) vertex_index: u32,
 };
 
@@ -42,19 +44,21 @@ struct VSOutput {
 
 const world_light_direction = normalize(vec3(1.0, -1.0, -1.0));
 // hard coding it for now
-const WIDTH = f32(1024);
-const HEIGHT = f32(768);
+const WIDTH = f32(1920);
+const HEIGHT = f32(1080);
 
 @vertex
 fn vs_main(vertex_input: VertexInput) -> VSOutput {
     var vsOut: VSOutput;
 
-    let face_start_index = entity.vertex_index_offset + ((vertex_input.vertex_index / 3) * 3);
+    let face_start_index = (vertex_input.vertex_index / 3) * 3;
     var vertices: array<vec4<f32>, 3>;
+
+    var entity = instances[vertex_input.instance_index];
     // transform all vertices into clip space
-    vertices[0] = global.view_projection * entity.world * vertex_data[face_start_index].position;
-    vertices[1] = global.view_projection * entity.world * vertex_data[face_start_index + 1].position;
-    vertices[2] = global.view_projection * entity.world * vertex_data[face_start_index + 2].position;
+    vertices[0] = global.view_projection_m * entity.model_m * vertex_data[face_start_index].position;
+    vertices[1] = global.view_projection_m * entity.model_m * vertex_data[face_start_index + 1].position;
+    vertices[2] = global.view_projection_m * entity.model_m * vertex_data[face_start_index + 2].position;
     // transform all vertices into NDC
     vertices[0] = vertices[0] / vertices[0].w;
     vertices[1] = vertices[1] / vertices[1].w;
@@ -77,12 +81,12 @@ fn vs_main(vertex_input: VertexInput) -> VSOutput {
     screen_space_altitudes[1] = vec3<f32>(0.0, face_area / length(b), 0.0);
     screen_space_altitudes[2] = vec3<f32>(0.0, 0.0, face_area / length(c));
 
-    let vertex = vertex_data[entity.vertex_index_offset + vertex_input.vertex_index];
+    let vertex = vertex_data[vertex_input.vertex_index];
     // Compute the vertex position in device coordinates
-    vsOut.position = global.view_projection * entity.world * vertex.position;
+    vsOut.position = global.view_projection_m * entity.model_m * vertex.position;
     // Orient the normals in world space
-    vsOut.normal = entity.normal * vertex.normal;
-    vsOut.light_direction = normalize((global.view * vec4f(world_light_direction, 0.0)).xyz);
+    vsOut.normal = entity.normal_m * vertex.normal;
+    vsOut.light_direction = normalize((global.view_m * vec4f(world_light_direction, 0.0)).xyz);
     vsOut.altitude = screen_space_altitudes[vertex_input.vertex_index % 3];
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]

@@ -1,12 +1,21 @@
 
 struct Globals {
-    view: mat4x4f,
-    view_projection: mat4x4f,
+    view_m: mat4x4f,
+    view_projection_m: mat4x4f,
+    view_world_position: vec3f,
 };
 
-struct Entity {
-    world: mat4x4f,
-    normal: mat3x3f,
+struct Instance {
+    model_m: mat4x4f,
+    normal_m: mat3x3f,
+    // Here is where we could
+    // put LOD offsets.
+}
+
+struct VertexData {
+    position: vec4f,
+    normal: vec3f,
+    uv: vec2f,
 }
 
 @group(0)
@@ -15,19 +24,21 @@ var<uniform> global: Globals;
 
 @group(0)
 @binding(1)
-var<storage, read> entities: array<Entity>;
+var<storage, read> instances: array<Instance>;
 
-struct Vertex {
+@group(0)
+@binding(2)
+var<storage, read> vertex_data: array<VertexData>;
+
+struct VertexInput {
     @builtin(instance_index) instance_index: u32,
-    // The position of the vertex.
-    @location(0) position: vec4f,
-    @location(1) normal: vec3f,
+    @builtin(vertex_index) vertex_index: u32,
 };
 
 struct VSOutput {
     // The pixel position on the screen.
     @builtin(position) position: vec4f,
-    // Will be interpolated and have to renormalized.
+    // Will be interpolated and have to be renormalized.
     @location(0) normal: vec3f,
     @location(1) @interpolate(flat) light_direction: vec3f,
 };
@@ -35,16 +46,17 @@ struct VSOutput {
 const world_light_direction = normalize(vec3(1.0, -1.0, -1.0));
 
 @vertex
-fn vs_main(vertex: Vertex) -> VSOutput {
+fn vs_main(vertex_input: VertexInput) -> VSOutput {
     var vsOut: VSOutput;
 
-    let entity = entities[vertex.instance_index];
-    // Compute the vertex position in device coordinates
-    vsOut.position = global.view_projection * entity.world * vertex.position;
+    var instance = instances[vertex_input.instance_index];
+    var vertex = vertex_data[vertex_input.vertex_index];
+    // Compute the vertex position in Clip space
+    vsOut.position = global.view_projection_m * instance.model_m * vertex.position;
 
     // Orient the normals in world space
-    vsOut.normal = entity.normal * vertex.normal;
-    vsOut.light_direction = normalize((global.view * vec4f(world_light_direction, 0.0)).xyz);
+    vsOut.normal = instance.normal_m * vertex.normal;
+    vsOut.light_direction = normalize((global.view_m * vec4f(world_light_direction, 0.0)).xyz);
     // the returned vector will automatically be normalized using w
     // [x,y,z,w] => [x/w, y/w, z/w, 1]
     return vsOut;

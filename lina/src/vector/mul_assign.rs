@@ -1,5 +1,6 @@
-use super::Vector;
 use std::ops::MulAssign;
+
+use super::Vector;
 
 impl<ValueType, const LENGTH: usize> MulAssign<ValueType> for Vector<ValueType, LENGTH>
 where
