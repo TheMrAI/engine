@@ -16,3 +16,4 @@ format = { version = "0.1.0", path = "../format" }
 mesh = { version = "0.1.0", path = "../mesh" }
 scene = { version = "0.1.0", path = "../scene" }
 png = "0.18.1"
+rand = "0.10.2"

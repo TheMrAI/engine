@@ -1,6 +1,7 @@
 use std::{cell::RefCell, f32::consts::PI, rc::Rc};
 
 use graphic::camera::Camera;
+use rand::RngExt;
 use webgpu::RenderServer;
 
 #[derive(Debug)]
@@ -15,6 +16,7 @@ pub struct Game {
     elapsed_time: std::time::Duration,
     // Scene graph tumor (just a single vector for now)
     nodes: Vec<Rc<RefCell<scene::MeshNode>>>,
+    last_swap_time: std::time::Instant,
 }
 
 impl Game {
@@ -43,27 +45,6 @@ impl Game {
                 texture_id: None,
                 texture_scale: None,
             })));
-            // Instancing load
-            // let mut x = -10.0;
-            // while x <= 10.0 {
-            //     let mut z = -5.0;
-            //     while z >= -25.0 {
-            //         let mut y = 5.0;
-            //         while y <= 15.0 {
-            //             nodes.push(Rc::new(RefCell::new(scene::MeshNode {
-            //                 mesh_id,
-            //                 model_matrix: graphic::transform::translate(x, y, z)
-            //                     * graphic::transform::scale(1.0, 1.0, 1.0),
-            //                 shader_id: debug_shader_id,
-            //                 texture_id: None,
-            //                 texture_scale: None,
-            //             })));
-            //             y += 5.0;
-            //         }
-            //         z -= 5.0;
-            //     }
-            //     x += 5.0;
-            // }
 
             // SUZANNE flat 967 messed up normals
             let suzanne_flat_967_messed_up_normals_data =
@@ -368,6 +349,28 @@ impl Game {
                 texture_scale: None,
             })));
 
+            // Instancing load
+            let x_start = -10.0;
+            let z_start = -5.0;
+            let y_start = 5.0;
+            for x_i in 0..5 {
+                let x = x_start + (5.0 * x_i as f32);
+                for z_i in 0..5 {
+                    let z = z_start - (5.0 * z_i as f32);
+                    for y_i in 0..3 {
+                        let y = y_start + (5.0 * y_i as f32);
+                        nodes.push(Rc::new(RefCell::new(scene::MeshNode {
+                            mesh_id: x_i % 4,
+                            model_matrix: graphic::transform::translate(x, y, z)
+                                * graphic::transform::scale(1.0, 1.0, 1.0),
+                            shader_id: y_i % 3,
+                            texture_id: Some(z_i % 2),
+                            texture_scale: Some(1.0),
+                        })));
+                    }
+                }
+            }
+
             nodes
         };
 
@@ -381,6 +384,7 @@ impl Game {
             frametimes: frametime::Sampler::new(),
             elapsed_time: std::time::Duration::default(),
             nodes,
+            last_swap_time: std::time::Instant::now(),
         }
     }
 
@@ -494,7 +498,23 @@ impl Game {
     // be put. According to more experienced devs, the AI/physics has to run
     // with a stable time delta otherwise many approximations could become
     // unstable.
-    fn simulate(&mut self) {}
+    fn simulate(&mut self) {
+        // Every 3 seconds assign churn the nodes with new data to force them into
+        // different groups
+        let current_time = std::time::Instant::now();
+        let delta_t = current_time.duration_since(self.last_swap_time);
+
+        let mut rng = rand::rng();
+        if delta_t > std::time::Duration::from_secs(3) {
+            for node in &mut self.nodes.iter().skip(15) {
+                node.borrow_mut().mesh_id = rng.random_range(0..4);
+                node.borrow_mut().shader_id = rng.random_range(0..3);
+                node.borrow_mut().texture_id = Some(rng.random_range(0..2));
+                node.borrow_mut().texture_scale = Some(rng.random_range(0.1..10.0));
+            }
+            self.last_swap_time = current_time;
+        }
+    }
 
     fn render(&mut self, delta_t: std::time::Duration) {
         // This is where we would walk the scene graph again after all the simulations,
