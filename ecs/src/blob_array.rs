@@ -8,6 +8,7 @@ pub struct BlobArray {
 
 impl BlobArray {
     pub fn with_capacity(item_layout: core::alloc::Layout, capacity: usize) -> Self {
+        // TODO change to repeat
         let array_layout = item_layout.repeat_packed(capacity).unwrap();
         let data_allocation = unsafe { alloc::alloc(array_layout) };
         let data = ptr::NonNull::new(data_allocation).unwrap();
@@ -21,7 +22,7 @@ impl BlobArray {
 
     pub fn place_at(&mut self, item: core::ptr::NonNull<u8>, index: usize) {
         unsafe {
-            std::ptr::copy(
+            std::ptr::copy_nonoverlapping(
                 item.as_ptr(),
                 self.data.as_ptr().byte_add(self.item_layout.size() * index),
                 self.item_layout.size(),
@@ -29,7 +30,23 @@ impl BlobArray {
         }
     }
 
-    pub fn drop(&mut self, _size: usize, capacity: usize) {
+    /// If the supplied capacity is less than the allocated capacity, then not even the address sanitizer may catch the memory leak.
+    pub unsafe fn drop(
+        &mut self,
+        size: usize,
+        capacity: usize,
+        item_drop_fn: Option<unsafe fn(NonNull<u8>) -> ()>,
+    ) {
+        match item_drop_fn {
+            Some(drop_fn) => {
+                for index in 0..size {
+                    unsafe {
+                        drop_fn(self.get_item(index));
+                    }
+                }
+            }
+            None => {}
+        }
         unsafe {
             alloc::dealloc(
                 self.data.as_ptr().cast(),
@@ -41,8 +58,9 @@ impl BlobArray {
 
 #[cfg(test)]
 mod tests {
-    use core::alloc;
-    use std::ptr;
+    use std::alloc;
+    use std::alloc::handle_alloc_error;
+    use std::ptr::{self, NonNull};
 
     use crate::blob_array::BlobArray;
 
@@ -134,6 +152,74 @@ mod tests {
                 .read()
         });
 
-        blobee.drop(3, 3);
+        unsafe {
+            blobee.drop(3, 3, None);
+        }
+    }
+
+    #[test]
+    fn vector_drop() {
+        let layout = alloc::Layout::new::<Vec<u8>>();
+        let position_one = unsafe { alloc::alloc(layout) };
+
+        if position_one.is_null() {
+            handle_alloc_error(layout);
+        }
+        unsafe {
+            std::ptr::write(position_one as *mut Vec<u8>, vec![1, 2, 3]);
+        }
+        println!("Lemme see vector: {:?}", unsafe {
+            &(*(position_one as *mut Vec<u8>))
+        });
+
+        unsafe {
+            std::ptr::drop_in_place::<Vec<u8>>(position_one as *mut Vec<u8>);
+        }
+        unsafe { alloc::dealloc(position_one, layout) };
+    }
+
+    #[test]
+    fn alloc_val() {
+        let layout = alloc::Layout::new::<u64>();
+        let ptr = unsafe { alloc::alloc(layout) };
+
+        if ptr.is_null() {
+            handle_alloc_error(layout);
+        }
+
+        println!("Lemme see u64: {:?}", unsafe { &(*(ptr as *mut u64)) });
+        unsafe { alloc::dealloc(ptr, layout) };
+    }
+
+    unsafe fn vec_u8_drop(item_ptr: NonNull<u8>) -> () {
+        unsafe {
+            std::ptr::drop_in_place::<Vec<u8>>(item_ptr.as_ptr() as *mut Vec<u8>);
+        }
+    }
+
+    #[test]
+    fn blobee_drop() {
+        let layout = alloc::Layout::new::<Vec<u8>>();
+        let mut blobee = BlobArray::with_capacity(layout, 3);
+
+        let ptr = unsafe { alloc::alloc(layout) };
+        if ptr.is_null() {
+            handle_alloc_error(layout);
+        }
+
+        let data_ptr = unsafe {
+            std::ptr::write(ptr as *mut Vec<u8>, vec![1, 2, 3]);
+            NonNull::new(ptr).unwrap()
+        };
+        blobee.place_at(data_ptr, 0);
+
+        println!("See from blobee: {:?}", unsafe {
+            &*(blobee.get_item(0).as_ptr() as *mut Vec<u8>)
+        });
+
+        unsafe {
+            blobee.drop(1, 3, Some(vec_u8_drop));
+            std::alloc::dealloc(ptr, layout);
+        }
     }
 }
