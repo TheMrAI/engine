@@ -1,12 +1,12 @@
 use std::{alloc, ptr, ptr::NonNull};
 
 #[derive(Debug)]
-pub struct BlobArray {
+pub struct Blob {
     item_layout: core::alloc::Layout,
     data: core::ptr::NonNull<u8>,
 }
 
-impl BlobArray {
+impl Blob {
     pub fn with_capacity(item_layout: core::alloc::Layout, capacity: usize) -> Self {
         // TODO change to repeat
         let array_layout = item_layout.repeat_packed(capacity).unwrap();
@@ -62,7 +62,7 @@ mod tests {
     use std::alloc::handle_alloc_error;
     use std::ptr::{self, NonNull};
 
-    use crate::blob_array::BlobArray;
+    use crate::blob::Blob;
 
     #[derive(Debug)]
     struct PositionStruct {
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn lala() {
         let layout = alloc::Layout::new::<PositionStruct>();
-        let mut blobee = BlobArray::with_capacity(layout, 3);
+        let mut blobee = Blob::with_capacity(layout, 3);
 
         println!("Lemme see garbage: {:?}", unsafe {
             blobee.data.cast::<PositionStruct>().read()
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn blobee_drop() {
         let layout = alloc::Layout::new::<Vec<u8>>();
-        let mut blobee = BlobArray::with_capacity(layout, 3);
+        let mut blobee = Blob::with_capacity(layout, 3);
 
         let ptr = unsafe { alloc::alloc(layout) };
         if ptr.is_null() {

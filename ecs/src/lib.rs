@@ -1,8 +1,8 @@
 use std::{alloc, cell::RefCell, collections::HashMap, ptr::NonNull, rc::Rc};
 
-use crate::{blob_array::BlobArray, signature::DynamicSignature};
+use crate::{blob::Blob, signature::DynamicSignature};
 
-mod blob_array;
+mod blob;
 pub mod signature;
 
 type EntityId = u32;
@@ -15,7 +15,7 @@ type SharedArchetype = Rc<RefCell<Archetype>>;
 #[derive(Debug, Default)]
 pub struct Archetype {
     id: ArchetypeId,
-    components: Vec<BlobArray>,
+    components: Vec<Blob>,
     capacity: usize,
     size: usize,
 }
@@ -85,7 +85,7 @@ impl World {
                 let capacity = 5;
                 let components = component_layouts
                     .into_iter()
-                    .map(|component_layout| BlobArray::with_capacity(component_layout, capacity))
+                    .map(|component_layout| Blob::with_capacity(component_layout, capacity))
                     .collect();
 
                 Rc::new(RefCell::new(Archetype {
