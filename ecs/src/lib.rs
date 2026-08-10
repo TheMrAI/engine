@@ -69,7 +69,7 @@ impl World {
             Some(record) => record,
             None => unreachable!("Nope"),
         };
-        archetype.borrow().components[archetype_record.column].get_item(record.row)
+        unsafe { archetype.borrow().components[archetype_record.column].get(record.row) }
     }
 
     pub fn add_entity(
@@ -105,7 +105,9 @@ impl World {
         };
         // testing hack
         let ptr = core::ptr::NonNull::new((&mut 3u16 as *mut u16).cast::<u8>()).unwrap();
-        archetype.borrow_mut().components[0].place_at(ptr, 0);
+        unsafe {
+            archetype.borrow_mut().components[0].set(0, ptr);
+        }
 
         self.entity_index.insert(entity_id, record);
 
@@ -144,6 +146,6 @@ mod tests {
     //         assert_eq!(world.has_component(0, i), expected[i as usize])
     //     }
 
-    //     assert_eq!(unsafe { world.get_component(0, 1).cast::<u16>().read() }, 3);
-    // }
+    //     assert_eq!(unsafe { world.get_component(0, 1).cast::<u16>().read() },
+    // 3); }
 }
