@@ -1,4 +1,4 @@
-use std::{alloc, cmp, mem, num, ptr::NonNull};
+use std::{alloc, cmp, mem, num, ptr};
 
 /// A `Blob` of memory
 ///
@@ -33,7 +33,7 @@ use std::{alloc, cmp, mem, num, ptr::NonNull};
 pub struct Blob {
     item_layout: core::alloc::Layout,
     stride: usize,
-    data: core::ptr::NonNull<u8>,
+    data: ptr::NonNull<u8>,
 }
 
 impl Blob {
@@ -61,14 +61,19 @@ impl Blob {
 
     /// Get pointer to the `index` element
     ///
+    /// The returned pointer will point to memory managed by the
+    /// [Blob]. Reading or writing may be safe, potentially dropping
+    /// the value stored at the memory locations is not.
+    /// TODO: introduce a type encapsulating this restriction
+    ///
     /// ## Safety
     ///
     /// Behaviour is undefined if any of the following are violated:
     ///
     /// - `index` must be smaller than the allocated capacity
-    /// - the returned pointer can only be read/written if it is
-    ///   considered valid
-    pub unsafe fn get(&self, index: usize) -> NonNull<u8> {
+    /// - the returned pointer can only be read/written if it is considered
+    ///   valid
+    pub unsafe fn get(&self, index: usize) -> ptr::NonNull<u8> {
         unsafe { self.data.byte_add(self.stride * index) }
     }
 
@@ -86,9 +91,9 @@ impl Blob {
     /// - `item` must be at least as big as the type stored in [Blob], but it
     ///   does not need to have additional padding
     /// - index must be smaller than the allocated capacity
-    pub unsafe fn set(&mut self, index: usize, item: core::ptr::NonNull<u8>) {
+    pub unsafe fn set(&mut self, index: usize, item: ptr::NonNull<u8>) {
         unsafe {
-            std::ptr::copy_nonoverlapping(
+            ptr::copy_nonoverlapping(
                 item.as_ptr(),
                 self.data.as_ptr().byte_add(self.stride * index),
                 self.item_layout.size(),
@@ -112,7 +117,7 @@ impl Blob {
         unsafe {
             let a = self.data.byte_add(self.stride * index_a);
             let b = self.data.byte_add(self.stride * index_b);
-            std::ptr::swap_nonoverlapping(a.as_ptr(), b.as_ptr(), self.item_layout.size());
+            ptr::swap_nonoverlapping(a.as_ptr(), b.as_ptr(), self.item_layout.size());
         }
     }
 
@@ -135,7 +140,7 @@ impl Blob {
         &mut self,
         index: usize,
         size: usize,
-        item_drop_fn: Option<unsafe fn(NonNull<u8>) -> ()>,
+        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
     ) {
         unsafe {
             self.swap(index, size - 1);
@@ -156,7 +161,7 @@ impl Blob {
     /// - `item_drop_fn` is [None], if and only if the stored type does not
     ///   implement a [drop]
     /// - `item_drop_fn` properly calls [drop] for the stored type
-    pub unsafe fn clear(&mut self, size: usize, item_drop_fn: unsafe fn(NonNull<u8>) -> ()) {
+    pub unsafe fn clear(&mut self, size: usize, item_drop_fn: unsafe fn(ptr::NonNull<u8>) -> ()) {
         for index in 0..size {
             unsafe {
                 self.drop_item(index, Some(item_drop_fn));
@@ -231,7 +236,7 @@ impl Blob {
         size: usize,
         capacity: usize,
         new_capacity: usize,
-        item_drop_fn: Option<unsafe fn(NonNull<u8>) -> ()>,
+        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
     ) {
         debug_assert!(size <= capacity, "Size cannot be greater than capacity.");
         debug_assert!(new_capacity <= capacity, "Shrink cannot grow");
@@ -283,7 +288,7 @@ impl Blob {
         size: usize,
         capacity: usize,
         new_capacity: usize,
-        item_drop_fn: Option<unsafe fn(NonNull<u8>) -> ()>,
+        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
     ) {
         if capacity <= new_capacity {
             unsafe {
@@ -319,8 +324,12 @@ impl Blob {
         &mut self,
         size: usize,
         capacity: usize,
-        item_drop_fn: Option<unsafe fn(NonNull<u8>) -> ()>,
+        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
     ) {
+        if self.item_layout.size() == 0 || capacity == 0 {
+            return;
+        }
+
         if let Some(drop_fn) = item_drop_fn {
             unsafe {
                 self.clear(size, drop_fn);
@@ -333,7 +342,7 @@ impl Blob {
         }
     }
 
-    fn allocate_blob(item_layout: alloc::Layout, capacity: usize) -> (NonNull<u8>, usize) {
+    fn allocate_blob(item_layout: alloc::Layout, capacity: usize) -> (ptr::NonNull<u8>, usize) {
         // In case of ZST of 0 capacity there is nothing to allocate and the global
         // allocator may not be called with 0, but the pointer must be properly aligned
         // and the stride calculated appropriately.
@@ -343,7 +352,7 @@ impl Blob {
             // resulting address is properly aligned.
             // Passing it to without_provenance creates a pointer which
             // is properly aligned, but cannot be accessed neither read or write.
-            let data = NonNull::<u8>::without_provenance(alignment);
+            let data = ptr::NonNull::<u8>::without_provenance(alignment);
             // It is crucial we calculate the stride here properly. It is not the
             // alignment nor the the size of the type, but their least common multiple.
             (data, item_layout.pad_to_align().size())
@@ -359,7 +368,10 @@ impl Blob {
                 alloc::handle_alloc_error(array_layout);
             }
 
-            (unsafe { NonNull::new_unchecked(data_allocation) }, stride)
+            (
+                unsafe { ptr::NonNull::new_unchecked(data_allocation) },
+                stride,
+            )
         };
 
         (data, stride)
@@ -376,7 +388,11 @@ impl Blob {
     /// - `item_drop_fn` is [None], if and only if the stored type does not
     ///   implement a [drop]
     /// - `item_drop_fn` properly calls [drop] for the stored type
-    unsafe fn drop_item(&self, index: usize, item_drop_fn: Option<unsafe fn(NonNull<u8>) -> ()>) {
+    unsafe fn drop_item(
+        &self,
+        index: usize,
+        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
+    ) {
         if let Some(drop_fn) = item_drop_fn {
             unsafe {
                 drop_fn(self.get(index));
@@ -386,7 +402,7 @@ impl Blob {
 }
 
 #[cfg(test)]
-mod non_drop_needed {
+mod no_drop_needed {
     use std::{alloc, ptr};
 
     use crate::blob::Blob;
@@ -442,6 +458,16 @@ mod non_drop_needed {
                 2,
                 ptr::NonNull::new((element_2.as_mut() as *mut SomeData).cast::<u8>()).unwrap(),
             );
+        }
+    }
+
+    #[test]
+    fn init_and_drop_empty() {
+        let layout = alloc::Layout::new::<SomeData>();
+        let mut blob = Blob::with_capacity(layout, 0);
+
+        unsafe {
+            blob.drop(0, 0, None);
         }
     }
 
