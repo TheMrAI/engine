@@ -1,12 +1,10 @@
 use core::alloc;
 use std::ptr;
 
-use crate::{ArchetypeId, Blob, ComponentDropFn};
+use crate::{Blob, ComponentDropFn};
 
-// TODO remove Default when SharedArchetype has been removed
 #[derive(Debug, Default)]
 pub struct Archetype {
-    id: ArchetypeId,
     size: usize,
     capacity: usize,
     components: Vec<Blob>,
@@ -15,7 +13,6 @@ pub struct Archetype {
 
 impl Archetype {
     pub fn with_capacity(
-        id: ArchetypeId,
         capacity: usize,
         component_layouts: Vec<alloc::Layout>,
         component_drops: Vec<Option<ComponentDropFn>>,
@@ -31,16 +28,11 @@ impl Archetype {
             .collect();
 
         Self {
-            id,
             size: 0,
             capacity,
             components,
             drop_fns: component_drops,
         }
-    }
-
-    pub fn id(&self) -> ArchetypeId {
-        self.id
     }
 
     pub fn len(&self) -> usize {
@@ -224,17 +216,15 @@ mod no_drop_needed {
 
     #[test]
     fn create() {
-        let archetype = Archetype::with_capacity(3, 5, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
+        let archetype = Archetype::with_capacity(5, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
 
-        assert_eq!(archetype.id(), 3);
         assert_eq!(archetype.len(), 0);
         assert_eq!(archetype.capacity(), 5);
     }
 
     #[test]
     fn add_entries() {
-        let mut archetype =
-            Archetype::with_capacity(3, 0, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
+        let mut archetype = Archetype::with_capacity(0, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
 
         assert_eq!(archetype.len(), 0);
         assert_eq!(archetype.capacity(), 0);
@@ -261,8 +251,7 @@ mod no_drop_needed {
 
     #[test]
     fn pop_entries() {
-        let mut archetype =
-            Archetype::with_capacity(3, 0, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
+        let mut archetype = Archetype::with_capacity(0, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
 
         let entity_0 = insert_test_entity(&mut archetype, 0);
         let entity_1 = insert_test_entity(&mut archetype, 1);
@@ -292,8 +281,7 @@ mod no_drop_needed {
 
     #[test]
     fn swap_remove_entries() {
-        let mut archetype =
-            Archetype::with_capacity(3, 0, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
+        let mut archetype = Archetype::with_capacity(0, TEST_LAYOUT.into(), TEST_DROP_FNS.into());
 
         insert_test_entity(&mut archetype, 0);
         insert_test_entity(&mut archetype, 1);
