@@ -1,34 +1,18 @@
-use std::{alloc, cell::RefCell, collections::HashMap, ptr::NonNull, rc::Rc};
+use std::{alloc, cell::RefCell, collections::HashMap, ptr, rc::Rc};
 
-use crate::{blob::Blob, signature::DynamicSignature};
+use crate::{archetype::Archetype, blob::Blob, signature::DynamicSignature};
 
+pub mod archetype;
 mod blob;
 pub mod signature;
 
+type ComponentDropFn = unsafe fn(ptr::NonNull<u8>) -> ();
 type EntityId = u32;
 type ArchetypeId = u32;
 type ComponentId = u32;
 type ComponentLayouts = Vec<alloc::Layout>;
 type ArchetypeMap = HashMap<ArchetypeId, ArchetypeRecord>;
 type SharedArchetype = Rc<RefCell<Archetype>>;
-
-#[derive(Debug, Default)]
-pub struct Archetype {
-    id: ArchetypeId,
-    components: Vec<Blob>,
-    capacity: usize,
-    size: usize,
-}
-
-impl Drop for Archetype {
-    fn drop(&mut self) {
-        for component in &mut self.components {
-            unsafe {
-                component.drop(self.size, self.capacity, None);
-            }
-        }
-    }
-}
 
 #[derive(Debug, Default)]
 struct ArchetypeRecord {
@@ -51,7 +35,7 @@ pub struct World {
 impl World {
     pub fn has_component(&self, entity_id: EntityId, component_id: ComponentId) -> bool {
         let record = &self.entity_index[&entity_id];
-        let archetype_id = record.archetype.borrow().id;
+        let archetype_id = record.archetype.borrow().id();
         let archetype_map = match self.component_index.get(&component_id) {
             Some(archetype_set) => archetype_set,
             None => return false,
@@ -59,17 +43,23 @@ impl World {
         archetype_map.contains_key(&archetype_id)
     }
 
-    pub fn get_component(&self, entity_id: EntityId, component_id: ComponentId) -> NonNull<u8> {
+    pub fn get_component(
+        &self,
+        entity_id: EntityId,
+        component_id: ComponentId,
+    ) -> ptr::NonNull<u8> {
         let record = &self.entity_index[&entity_id];
         let archetype = &record.archetype;
 
         let archetype_map = self.component_index.get(&component_id).unwrap();
 
-        let archetype_record = match archetype_map.get(&archetype.borrow().id) {
+        let archetype_record = match archetype_map.get(&archetype.borrow().id()) {
             Some(record) => record,
             None => unreachable!("Nope"),
         };
-        unsafe { archetype.borrow().components[archetype_record.column].get(record.row) }
+        archetype
+            .borrow()
+            .get_component(archetype_record.column, record.row)
     }
 
     pub fn add_entity(
@@ -82,32 +72,23 @@ impl World {
             .archetype_index
             .entry(entity_type.clone())
             .or_insert_with(|| {
-                let capacity = 5;
-                let components = component_layouts
-                    .into_iter()
-                    .map(|component_layout| Blob::with_capacity(component_layout, capacity))
-                    .collect();
-
-                Rc::new(RefCell::new(Archetype {
-                    id: 0,
-                    capacity,
-                    size: 0,
-                    components,
-                }))
+                Rc::new(RefCell::new(Archetype::with_capacity(
+                    0,
+                    5,
+                    component_layouts,
+                    vec![None],
+                )))
             })
             .clone();
 
-        let index = archetype.borrow().size;
-        archetype.borrow_mut().size += 1;
+        // testing hack
+        let mut val = 3u16;
+        let ptr = ptr::NonNull::new((&mut val as *mut u16).cast::<u8>()).unwrap();
+        let index = archetype.borrow_mut().push(&[ptr]);
         let record = Record {
             archetype: archetype.clone(),
             row: index,
         };
-        // testing hack
-        let ptr = core::ptr::NonNull::new((&mut 3u16 as *mut u16).cast::<u8>()).unwrap();
-        unsafe {
-            archetype.borrow_mut().components[0].set(0, ptr);
-        }
 
         self.entity_index.insert(entity_id, record);
 
@@ -128,24 +109,24 @@ impl World {
 
 #[cfg(test)]
 mod tests {
-    // use std::alloc;
+    use std::alloc;
 
-    // use crate::{World, signature::DynamicSignature};
+    use crate::{World, signature::DynamicSignature};
 
-    // #[test]
-    // fn has() {
-    //     let mut world = World::default();
-    //     world.add_entity(
-    //         0,
-    //         DynamicSignature::from_slice(&[1]),
-    //         vec![alloc::Layout::new::<u16>()],
-    //     );
-    //     println!("Has checking");
-    //     let expected = [false, true, false, false, false];
-    //     for i in 0..5 {
-    //         assert_eq!(world.has_component(0, i), expected[i as usize])
-    //     }
+    #[test]
+    fn has() {
+        let mut world = World::default();
+        world.add_entity(
+            0,
+            DynamicSignature::from_slice(&[1]),
+            vec![alloc::Layout::new::<u16>()],
+        );
+        println!("Has checking");
+        let expected = [false, true, false, false, false];
+        for i in 0..5 {
+            assert_eq!(world.has_component(0, i), expected[i as usize])
+        }
 
-    //     assert_eq!(unsafe { world.get_component(0, 1).cast::<u16>().read() },
-    // 3); }
+        assert_eq!(unsafe { world.get_component(0, 1).cast::<u16>().read() }, 3);
+    }
 }

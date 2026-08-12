@@ -1,5 +1,7 @@
 use std::{alloc, cmp, mem, num, ptr};
 
+use crate::ComponentDropFn;
+
 /// A `Blob` of memory
 ///
 /// A type erased [Vec] without most safeties of a [Vec].
@@ -140,7 +142,7 @@ impl Blob {
         &mut self,
         index: usize,
         size: usize,
-        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
+        item_drop_fn: Option<ComponentDropFn>,
     ) {
         unsafe {
             self.swap(index, size - 1);
@@ -161,7 +163,7 @@ impl Blob {
     /// - `item_drop_fn` is [None], if and only if the stored type does not
     ///   implement a [drop]
     /// - `item_drop_fn` properly calls [drop] for the stored type
-    pub unsafe fn clear(&mut self, size: usize, item_drop_fn: unsafe fn(ptr::NonNull<u8>) -> ()) {
+    pub unsafe fn clear(&mut self, size: usize, item_drop_fn: ComponentDropFn) {
         for index in 0..size {
             unsafe {
                 self.drop_item(index, Some(item_drop_fn));
@@ -236,7 +238,7 @@ impl Blob {
         size: usize,
         capacity: usize,
         new_capacity: usize,
-        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
+        item_drop_fn: Option<ComponentDropFn>,
     ) {
         debug_assert!(size <= capacity, "Size cannot be greater than capacity.");
         debug_assert!(new_capacity <= capacity, "Shrink cannot grow");
@@ -288,7 +290,7 @@ impl Blob {
         size: usize,
         capacity: usize,
         new_capacity: usize,
-        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
+        item_drop_fn: Option<ComponentDropFn>,
     ) {
         if capacity <= new_capacity {
             unsafe {
@@ -324,7 +326,7 @@ impl Blob {
         &mut self,
         size: usize,
         capacity: usize,
-        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
+        item_drop_fn: Option<ComponentDropFn>,
     ) {
         if self.item_layout.size() == 0 || capacity == 0 {
             return;
@@ -388,11 +390,7 @@ impl Blob {
     /// - `item_drop_fn` is [None], if and only if the stored type does not
     ///   implement a [drop]
     /// - `item_drop_fn` properly calls [drop] for the stored type
-    unsafe fn drop_item(
-        &self,
-        index: usize,
-        item_drop_fn: Option<unsafe fn(ptr::NonNull<u8>) -> ()>,
-    ) {
+    unsafe fn drop_item(&self, index: usize, item_drop_fn: Option<ComponentDropFn>) {
         if let Some(drop_fn) = item_drop_fn {
             unsafe {
                 drop_fn(self.get(index));
