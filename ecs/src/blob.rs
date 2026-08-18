@@ -85,6 +85,14 @@ impl Blob {
         unsafe { self.data.byte_add(self.stride * index) }
     }
 
+    pub fn get_stride(&self) -> usize {
+        self.stride
+    }
+
+    pub fn get_non_null_ptr(&self) -> ptr::NonNull<u8> {
+        self.data
+    }
+
     /// Copy a region of memory into [Blob]
     ///
     /// The operation does not modify `item`.

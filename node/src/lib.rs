@@ -138,7 +138,9 @@ impl Node for GeometryNode {
 #[cfg(test)]
 mod tests {
     use crate::{BasicNode, Geometry, GeometryNode, Node};
-
+    // These aren't real unit tests!
+    // They are merely here to show to test/demonstrate how the access pattern could
+    // look like.
     #[test]
     fn quick_check() {
         let mut world = ecs::World::default();
@@ -152,5 +154,45 @@ mod tests {
         let mut values = geometry_iter.map(|node| node.mesh_id).collect::<Vec<u32>>();
         values.sort();
         assert_eq!(values.as_slice(), [1, 3]);
+    }
+
+    #[test]
+    fn unified_check() {
+        let mut world = ecs::World::default();
+
+        let basic_node = BasicNode::create(&mut world);
+        assert_eq!(basic_node.entity_id(), 0);
+        let geometry_node = GeometryNode::create(&mut world);
+        assert_eq!(geometry_node.entity_id(), 1);
+
+        println!("");
+        let geometry_id = world.register_component::<Geometry>();
+        {
+            let geometry_iter = world.query_unified(&geometry_id);
+
+            for geometry_ptr in geometry_iter {
+                let geometry = unsafe { geometry_ptr.cast::<Geometry>().as_ref() };
+                println!("{:?}", geometry)
+            }
+        }
+
+        {
+            let geometry_iter = world.query_unified(&geometry_id);
+
+            for geometry_ptr in geometry_iter {
+                let geometry = unsafe { geometry_ptr.cast::<Geometry>().as_mut() };
+                geometry.mesh_id += 3;
+            }
+        }
+
+        let geometry_id = world.register_component::<Geometry>();
+        {
+            let geometry_iter = world.query_unified(&geometry_id);
+
+            for geometry_ptr in geometry_iter {
+                let geometry = unsafe { geometry_ptr.cast::<Geometry>().as_ref() };
+                println!("{:?}", geometry)
+            }
+        }
     }
 }

@@ -138,6 +138,16 @@ impl World {
             .iter()
             .flat_map(|(key, val)| self.archetypes.get(*key).get_column_iter(val.column))
     }
+
+    pub fn query_unified(
+        &self,
+        component_id: &ComponentId,
+    ) -> impl Iterator<Item = ptr::NonNull<u8>> {
+        let archetype_map = self.component_index.get(component_id).unwrap();
+        archetype_map
+            .iter()
+            .flat_map(|(key, val)| self.archetypes.get(*key).get_column(val.column))
+    }
 }
 
 #[cfg(test)]

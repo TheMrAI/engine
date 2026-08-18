@@ -3,6 +3,38 @@ use std::ptr;
 
 use crate::{Blob, ComponentDropFn, blob};
 
+pub struct ArrayWrapper {
+    index: usize,
+    len: usize,
+    stride: usize,
+    data: ptr::NonNull<u8>,
+}
+
+impl ArrayWrapper {
+    fn new(len: usize, stride: usize, data: ptr::NonNull<u8>) -> Self {
+        ArrayWrapper {
+            index: 0,
+            len,
+            stride,
+            data,
+        }
+    }
+}
+
+impl Iterator for ArrayWrapper {
+    type Item = ptr::NonNull<u8>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.len {
+            let item = unsafe { self.data.byte_add(self.index * self.stride) };
+            self.index += 1;
+            Some(item)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Archetype {
     size: usize,
@@ -100,6 +132,11 @@ impl Archetype {
         column: usize,
     ) -> blob::BlobIterator<'archetype, T> {
         unsafe { self.components[column].iter::<T>(self.size) }
+    }
+
+    pub fn get_column(&self, column: usize) -> impl Iterator<Item = ptr::NonNull<u8>> {
+        let blob = &self.components[column];
+        ArrayWrapper::new(self.size, blob.get_stride(), blob.get_non_null_ptr())
     }
 
     fn ensure_capacity(&mut self) {
