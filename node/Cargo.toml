@@ -1,0 +1,9 @@
+[package]
+name = "node"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ecs = { version = "0.1.0", path = "../ecs" }
+graphic = { version = "0.1.0", path = "../graphic" }
+lina = { version = "0.1.0", path = "../lina" }

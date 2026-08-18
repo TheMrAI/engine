@@ -1,4 +1,7 @@
-use std::{any, collections::HashMap};
+use std::{
+    any::{self},
+    collections::HashMap,
+};
 
 /// Registry for component types
 ///
@@ -23,6 +26,10 @@ pub struct ComponentRegistry {
 impl ComponentRegistry {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn get(&self, type_id: any::TypeId) -> Option<&u32> {
+        self.components.get(&type_id)
     }
 
     pub fn get_or_insert_id(&mut self, type_id: any::TypeId) -> u32 {

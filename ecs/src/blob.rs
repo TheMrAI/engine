@@ -1,4 +1,10 @@
-use std::{alloc, cmp, mem, num, ptr};
+use std::{
+    alloc, cmp,
+    marker::PhantomData,
+    mem,
+    num::{self},
+    ptr::{self},
+};
 
 use crate::ComponentDropFn;
 
@@ -397,6 +403,60 @@ impl Blob {
             }
         }
     }
+
+    /// Get a `&T` iterator to [Blob]
+    ///
+    /// Can't provide an [IntoIterator] implementation directly as [Blob] does
+    /// not know the number of elements, the size of the storage or the
+    /// stored type.
+    ///
+    /// ## Safety
+    ///
+    /// Behaviour is undefined if any of the following are violated:
+    ///
+    /// - `len` does not match the number of `stored` elements
+    /// - [Blob] must be managing memory for types `T`
+    pub unsafe fn iter<'a, T>(&'a self, len: usize) -> BlobIterator<'a, T> {
+        BlobIterator {
+            index: 0,
+            len,
+            blob: self,
+            phantom: PhantomData,
+        }
+    }
+}
+
+pub struct BlobIterator<'a, T> {
+    index: usize,
+    len: usize,
+    blob: &'a Blob,
+    phantom: PhantomData<&'a T>,
+}
+
+// impl<'a, T> BlobIterator<'a, T> {
+//     pub fn empty() -> BlobIterator<'a, T> {
+//         BlobIterator {
+//             index: 0,
+//             len: 0,
+//             blob: &'a Blob::with_capacity(alloc::Layout::new::<T>(), 0),
+//             phantom: PhantomData,
+//         }
+//     }
+// }
+
+impl<'a, T> Iterator for BlobIterator<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let item = if self.index < self.len {
+            Some(unsafe { self.blob.get(self.index).cast::<T>().as_ref() })
+        } else {
+            None
+        };
+        self.index += 1;
+
+        item
+    }
 }
 
 #[cfg(test)]
@@ -646,6 +706,40 @@ mod no_drop_needed {
             blob.shrink(1, 1, 0, None);
             // Shrink without size change should have no effect
             blob.shrink(0, 0, 0, None);
+        }
+    }
+
+    #[test]
+    fn iter_ref() {
+        let layout = alloc::Layout::new::<SomeData>();
+        let mut blob = Blob::with_capacity(layout, 5);
+        init_3_elements(&mut blob);
+
+        let mut iter = unsafe { blob.iter::<SomeData>(3) };
+
+        let read_0 = iter.next().unwrap();
+        let read_1 = iter.next().unwrap();
+        let read_2 = iter.next().unwrap();
+        assert_eq!(iter.next(), None);
+
+        assert_eq!(*read_0, TEST_DATA[0]);
+        assert_eq!(*read_1, TEST_DATA[1]);
+        assert_eq!(*read_2, TEST_DATA[2]);
+
+        // Do it a second time to make sure the no modifications occurred.
+        let mut iter = unsafe { blob.iter::<SomeData>(3) };
+
+        let read_0 = iter.next().unwrap();
+        let read_1 = iter.next().unwrap();
+        let read_2 = iter.next().unwrap();
+        assert_eq!(iter.next(), None);
+
+        assert_eq!(*read_0, TEST_DATA[0]);
+        assert_eq!(*read_1, TEST_DATA[1]);
+        assert_eq!(*read_2, TEST_DATA[2]);
+
+        unsafe {
+            blob.drop(3, 5, None);
         }
     }
 }

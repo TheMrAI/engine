@@ -13,10 +13,10 @@ mod blob;
 mod registry;
 pub mod signature;
 
-type ComponentDropFn = unsafe fn(ptr::NonNull<u8>) -> ();
-type EntityId = u32;
+pub type ComponentDropFn = unsafe fn(ptr::NonNull<u8>) -> ();
+pub type EntityId = u32;
 type ArchetypeId = usize;
-type ComponentId = u32;
+pub type ComponentId = u32;
 type ComponentLayouts = Vec<alloc::Layout>;
 type ComponentValues = Vec<NonNull<u8>>;
 type ArchetypeMap = HashMap<ArchetypeId, ArchetypeRecord>;
@@ -128,6 +128,15 @@ impl World {
     pub fn register_component<T: 'static>(&mut self) -> ComponentId {
         self.component_registry
             .get_or_insert_id(any::TypeId::of::<T>())
+    }
+
+    pub fn query<T: 'static>(&self) -> impl Iterator<Item = &T> {
+        let component_id = self.component_registry.get(any::TypeId::of::<T>()).unwrap();
+
+        let archetype_map = self.component_index.get(component_id).unwrap();
+        archetype_map
+            .iter()
+            .flat_map(|(key, val)| self.archetypes.get(*key).get_column_iter(val.column))
     }
 }
 

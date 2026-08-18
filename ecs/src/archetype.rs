@@ -1,7 +1,7 @@
 use core::alloc;
 use std::ptr;
 
-use crate::{Blob, ComponentDropFn};
+use crate::{Blob, ComponentDropFn, blob};
 
 #[derive(Debug, Default)]
 pub struct Archetype {
@@ -93,6 +93,13 @@ impl Archetype {
             .iter()
             .map(|blob| unsafe { blob.get(entry_row) })
             .collect()
+    }
+
+    pub fn get_column_iter<'archetype, T: 'static>(
+        &'archetype self,
+        column: usize,
+    ) -> blob::BlobIterator<'archetype, T> {
+        unsafe { self.components[column].iter::<T>(self.size) }
     }
 
     fn ensure_capacity(&mut self) {
