@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["frametime", "graphic", "lina", "voxon", "format", "project", "webgpu", "mesh", "scene", "ecs"]
+members = ["frametime", "graphic", "lina", "voxon", "format", "project", "webgpu", "mesh", "scene", "ecs", "celling"]
 
 [profile.dev]
 opt-level = 0
